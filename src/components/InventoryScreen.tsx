@@ -35,7 +35,6 @@ import { translate } from '../utils/translations';
 import MaterialIcon from './MaterialIcon';
 import { downloadCSV, formatCSVDateTime, formatCSVCurrency, formatCSVNumber } from '../utils/csvExporter';
 import {
-  subscribeToInventoryItems,
   subscribeToDamageReports,
   subscribeToRestockRequests,
   reportDamagedStockTransaction,
@@ -323,17 +322,20 @@ export default function InventoryScreen({
   // from the authenticated Supabase session) instead of being guessed
   // from the config object.
 
-  // Real-time Firestore Stream States
-  const [realtimeInventory, setRealtimeInventory] = useState<InventoryItem[] | null>(null);
+  // Damage reports and restock requests are only subscribed here (no
+  // duplicate elsewhere), so they keep their own realtime stream.
+  // Inventory itself is NOT re-subscribed here: App.tsx already owns a
+  // live Supabase Realtime subscription for inventory_items AND performs
+  // an optimistic local update the instant an item is added, so items
+  // show up immediately. A second subscription here used to fight over
+  // the same Realtime channel name (inventory_${businessId}), tearing
+  // down App.tsx's channel and forcing this screen to wait on its own
+  // round trip before new items appeared.
   const [realtimeDamageReports, setRealtimeDamageReports] = useState<DamageReport[] | null>(null);
   const [realtimeRestocks, setRealtimeRestocks] = useState<PendingRestock[] | null>(null);
 
   useEffect(() => {
     if (!businessId || businessId === 'default') return;
-
-    const unsubInventory = subscribeToInventoryItems(businessId, (items) => {
-      setRealtimeInventory(items);
-    });
 
     const unsubDamages = subscribeToDamageReports(businessId, (reports) => {
       setRealtimeDamageReports(reports);
@@ -344,13 +346,12 @@ export default function InventoryScreen({
     });
 
     return () => {
-      unsubInventory();
       unsubDamages();
       unsubRestocks();
     };
   }, [businessId]);
 
-  const activeInventory = realtimeInventory !== null ? realtimeInventory : inventory;
+  const activeInventory = inventory;
   const activePendingRestocks = realtimeRestocks !== null ? realtimeRestocks : pendingRestocks;
 
   const pendingCount = useMemo(() => {
