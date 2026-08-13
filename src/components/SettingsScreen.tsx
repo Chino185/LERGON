@@ -32,7 +32,6 @@ import { translate } from '../utils/translations';
 import {
   validateEmail,
   validateUsername,
-  validatePassword,
   validateBusinessName,
   sanitizeInput
 } from '../utils/securityValidation';
@@ -734,12 +733,6 @@ export default function SettingsScreen({
     COUNTRIES_AND_CURRENCIES.find(c => c.country === (config.country || 'United States'))?.currencySymbol === config.currencySymbol;
   const [syncWithCountry, setSyncWithCountry] = useState(isInitiallySynced);
 
-  // Password States
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordFeedback, setPasswordFeedback] = useState<{ message: string; isError: boolean } | null>(null);
-
   // Temporary Password States for resetting attendant passcode
   const [tempPasswordInput, setTempPasswordInput] = useState('');
   const [tempPasswordFeedback, setTempPasswordFeedback] = useState<string | null>(null);
@@ -948,48 +941,6 @@ export default function SettingsScreen({
     setSaveSuccess(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => setSaveSuccess(false), 3500);
-  };
-
-  // Change password handler
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordFeedback(null);
-
-    if (!currentPassword) {
-      setPasswordFeedback({ message: 'Current password is required.', isError: true });
-      return;
-    }
-
-    const passCheck = validatePassword(newPassword, { minLength: 4 });
-    if (!passCheck.isValid) {
-      setPasswordFeedback({ message: passCheck.error || 'New password is invalid.', isError: true });
-      return;
-    }
-    const cleanNewPass = passCheck.cleanPassword;
-
-    if (cleanNewPass !== confirmPassword.trim()) {
-      setPasswordFeedback({ message: 'Confirm password does not match new password.', isError: true });
-      return;
-    }
-
-    try {
-      const result = await updateUserPassword(currentPassword, cleanNewPass);
-      if (!result.success) {
-        setPasswordFeedback({ message: result.error || 'Failed to update password.', isError: true });
-        return;
-      }
-
-      setPasswordFeedback({ message: 'Password updated successfully!', isError: false });
-
-      // Clear password inputs
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-
-      setTimeout(() => setPasswordFeedback(null), 4000);
-    } catch (err: any) {
-      setPasswordFeedback({ message: err?.message || 'Failed to update password.', isError: true });
-    }
   };
 
   return (
@@ -1614,50 +1565,6 @@ export default function SettingsScreen({
                 </div>
               )}
 
-              {/* Security & Password Management Section */}
-              <div className="mt-8 pt-6 border-t border-slate-200/60 space-y-4 text-left">
-                <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Shield size={16} className="text-indigo-600 dark:text-indigo-400" />
-                  <span>Security & Password Management</span>
-                </h4>
-                <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
-                  Update your account password securely via Supabase Authentication.
-                </p>
-                <form onSubmit={handlePasswordChangeSubmit} className="finnova-card p-5 rounded-2xl space-y-3 border border-white/80 dark:border-slate-800 max-w-lg">
-                  {pwdSuccess && <div className="text-xs font-bold text-emerald-600 p-2 bg-emerald-50 rounded-lg">{pwdSuccess}</div>}
-                  {pwdError && <div className="text-xs font-bold text-rose-600 p-2 bg-rose-50 rounded-lg">{pwdError}</div>}
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 mb-1">Current Password</label>
-                    <input
-                      type="password"
-                      required
-                      value={currentPwd}
-                      onChange={e => setCurrentPwd(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono"
-                      placeholder="Enter current password"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 mb-1">New Password</label>
-                    <input
-                      type="password"
-                      required
-                      value={newPwd}
-                      onChange={e => setNewPwd(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono"
-                      placeholder="Enter new password (min 6 characters)"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isChangingPwd}
-                    className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl text-xs transition cursor-pointer"
-                  >
-                    {isChangingPwd ? 'Updating Password...' : 'Update Password'}
-                  </button>
-                </form>
-              </div>
-
               {/* Database Maintenance Section */}
               <div className="mt-8 pt-6 border-t border-slate-200/60 space-y-4 text-left">
 
@@ -1832,26 +1739,6 @@ export default function SettingsScreen({
                 <span>Security Settings</span>
               </h3>
 
-              <AnimatePresence>
-                {passwordFeedback && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                    transition={{ duration: 0.2 }}
-                    className="p-3.5 px-4 rounded-2xl text-xs font-extrabold flex items-center gap-3 neumorphic-card border border-white/80 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 bg-[#ebf0f7] dark:bg-[#181f2c]"
-                  >
-                    <div className={`w-7 h-7 rounded-full neumorphic-circle shrink-0 flex items-center justify-center ${passwordFeedback.isError
-                        ? 'text-rose-600 dark:text-rose-400 border border-rose-500/30 bg-rose-500/10'
-                        : 'text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 bg-emerald-500/10'
-                      }`}>
-                      {passwordFeedback.isError ? <AlertCircle size={16} className="stroke-[3]" /> : <Check size={16} className="stroke-[3]" />}
-                    </div>
-                    <span className="tracking-wide">{passwordFeedback.message}</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
               {/* Attendant Forgot Password Reset Prompt */}
               {userRole === 2 && currentOrg?.attendantResetRequested && currentOrg?.attendantPass?.startsWith('__RESETTING_') && (
                 <motion.div
@@ -1955,63 +1842,53 @@ export default function SettingsScreen({
                 </motion.div>
               )}
 
-              <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
-                {/* Current Password */}
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
-                    Current Password
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current validation code (default is: admin)"
-                    className="w-full rounded-lg border border-gray-300 p-2.5 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                {/* Password modification Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Security & Password Management -- backed directly by
+                  Supabase Auth (updateUserPassword re-authenticates with
+                  the current password, then updates it). This is the only
+                  password-change form in Settings; the old local pin/lock
+                  code form (system tab) has been removed. */}
+              <div className="space-y-4 text-left">
+                <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Shield size={16} className="text-indigo-600 dark:text-indigo-400" />
+                  <span>Security & Password Management</span>
+                </h4>
+                <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                  Update your account password securely via Supabase Authentication.
+                </p>
+                <form onSubmit={handlePasswordChangeSubmit} className="finnova-card p-5 rounded-2xl space-y-3 border border-white/80 dark:border-slate-800 max-w-lg">
+                  {pwdSuccess && <div className="text-xs font-bold text-emerald-600 p-2 bg-emerald-50 rounded-lg">{pwdSuccess}</div>}
+                  {pwdError && <div className="text-xs font-bold text-rose-600 p-2 bg-rose-50 rounded-lg">{pwdError}</div>}
                   <div>
-                    <label className="block font-semibold text-gray-700 mb-1">
-                      New Password
-                    </label>
+                    <label className="block text-[11px] font-extrabold text-slate-700 mb-1">Current Password</label>
                     <input
                       type="password"
                       required
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new pin / lock code"
-                      className="w-full rounded-lg border border-gray-300 p-2.5 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                      value={currentPwd}
+                      onChange={e => setCurrentPwd(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono"
+                      placeholder="Enter current password"
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-gray-700 mb-1">
-                      Confirm New Password
-                    </label>
+                    <label className="block text-[11px] font-extrabold text-slate-700 mb-1">New Password</label>
                     <input
                       type="password"
                       required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new lock code"
-                      className="w-full rounded-lg border border-gray-300 p-2.5 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                      value={newPwd}
+                      onChange={e => setNewPwd(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono"
+                      placeholder="Enter new password (min 6 characters)"
                     />
                   </div>
-                </div>
-
-                {/* Submit password button */}
-                <div className="pt-3 border-t border-slate-200/60 flex justify-end">
                   <button
                     type="submit"
-                    className="flex items-center gap-2.5 neumorphic-btn text-slate-900 font-extrabold px-6 py-2.5 rounded-full transition cursor-pointer border border-white/90 hover:text-black select-none"
+                    disabled={isChangingPwd}
+                    className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl text-xs transition cursor-pointer"
                   >
-                    <MaterialIcon name="key" size={18} className="text-slate-800" />
-                    <span>Update Password</span>
+                    {isChangingPwd ? 'Updating Password...' : 'Update Password'}
                   </button>
-                </div>
-              </form>
+                </form>
+              </div>
             </div>
           )}
         </div>
