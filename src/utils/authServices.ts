@@ -204,17 +204,11 @@ export async function uploadProfilePhoto(
       .from('profile-photos')
       .getPublicUrl(filePath);
 
-    // Persist the photo URL on the profiles row in the background. The
-    // caller already has publicUrl and saves it into local/org state
-    // immediately, so the UI doesn't need to wait on this second
-    // round-trip -- it doesn't block the "Update Profile" flow.
-    supabase
+    // Update profile with photo URL
+    await supabase
       .from('profiles')
       .update({ profile_photo_url: publicUrl })
-      .eq('id', userUid)
-      .then(({ error }) => {
-        if (error) console.error('uploadProfilePhoto (background profile sync) Error:', error);
-      });
+      .eq('id', userUid);
 
     return { success: true, url: publicUrl };
   } catch (err: any) {
@@ -391,89 +385,11 @@ export function subscribeToBusinessCurrency(
     supabase.removeChannel(channel);
   };
 }
-
-/**
- * Persist the business's base (operation) country to Supabase so it's
- * shared across all devices/sessions for the organization, not just the
- * browser that changed it. Only Admins (role 2) may update it -- this is
- * an org-wide setting, mirroring updateBusinessCurrency above. The
- * Postgres RLS policy "Admins can update own business" enforces this
- * server-side as well, so this check is defense-in-depth, not the only
- * gate.
- */
-export async function updateBusinessCountry(
-  businessId: string,
-  userRole: number | string | undefined,
-  country: string
-): Promise<{ success: boolean; error?: string }> {
-  const isAdmin = userRole === 2 || userRole === 'admin';
-  if (!isAdmin) {
-    return { success: false, error: 'Unauthorized: Only Administrators can change the base country.' };
-  }
-
-  if (!businessId) {
-    return { success: false, error: 'Business ID is required.' };
-  }
-
-  try {
-    const { error } = await supabase
-      .from('businesses')
-      .update({ base_country: country })
-      .eq('id', businessId);
-
-    if (error) throw error;
-    return { success: true };
-  } catch (err: any) {
-    console.error('updateBusinessCountry Error:', err);
-    return { success: false, error: err?.message || 'Failed to update base country.' };
-  }
-}
-
-/**
- * Subscribe to Realtime changes on the business's base country so that
- * every logged-in device (Admin or Attendant) picks up a country change
- * immediately. Mirrors subscribeToBusinessCurrency above.
- */
-export function subscribeToBusinessCountry(
-  businessId: string,
-  onUpdate: (country: string) => void
-): () => void {
-  if (!businessId) {
-    return () => { };
-  }
-
-  const fetchCountry = () => {
-    supabase
-      .from('businesses')
-      .select('base_country')
-      .eq('id', businessId)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) return;
-        onUpdate(data.base_country);
-      });
-  };
-
-  fetchCountry();
-
-  const channel = getSafeChannel(`business_country_${businessId}`)
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'businesses', filter: `id=eq.${businessId}` },
-      () => fetchCountry()
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}
-
 /**
  * Persists the current user's own contact phone number on their profiles
- * row. Unlike currency/country (org-wide, Admin-only), this is a personal
- * field -- both Admin and Attendant can update their own number, mirroring
- * the RLS policy which already only allows a user to update their own row.
+ * row. Unlike currency (org-wide, Admin-only), this is a personal field --
+ * both Admin and Attendant can update their own number, mirroring the RLS
+ * policy which already only allows a user to update their own row.
  */
 export async function updateUserPhone(
   userUid: string,
