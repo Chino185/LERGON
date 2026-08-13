@@ -3107,8 +3107,8 @@ export default function App() {
                         disabled={isResendOtpDisabled}
                         onClick={handleResendEmailOtp}
                         className={`w-full py-3.5 px-4 rounded-2xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 border ${isResendOtpDisabled
-                            ? 'bg-slate-100/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
-                            : 'bg-slate-100 dark:bg-slate-900 border-white/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 shadow-[4px_4px_10px_rgba(0,0,0,0.06),-4px_-4px_10px_rgba(255,255,255,0.9)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.4),-4px_-4px_10px_rgba(30,41,59,0.3)] hover:shadow-md active:shadow-inner cursor-pointer'
+                          ? 'bg-slate-100/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                          : 'bg-slate-100 dark:bg-slate-900 border-white/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 shadow-[4px_4px_10px_rgba(0,0,0,0.06),-4px_-4px_10px_rgba(255,255,255,0.9)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.4),-4px_-4px_10px_rgba(30,41,59,0.3)] hover:shadow-md active:shadow-inner cursor-pointer'
                           }`}
                       >
                         <RefreshCw size={16} className={isResendOtpDisabled ? "" : "text-sky-500"} />
@@ -3264,6 +3264,7 @@ export default function App() {
                 inventory={inventory}
                 adjustments={adjustments}
                 config={config}
+                businessId={currentOrgId}
                 onAddItem={handleAddItem}
                 onUpdateItem={handleUpdateItem}
                 onDeleteItem={handleDeleteItem}

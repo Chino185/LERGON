@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
-import { 
-  Search, 
-  Filter, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  ArrowUpDown, 
-  ArrowDownCircle, 
+import {
+  Search,
+  Filter,
+  Plus,
+  Edit2,
+  Trash2,
+  ArrowUpDown,
+  ArrowDownCircle,
   ArrowUpCircle,
   HelpCircle,
   Package,
@@ -34,14 +34,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { translate } from '../utils/translations';
 import MaterialIcon from './MaterialIcon';
 import { downloadCSV, formatCSVDateTime, formatCSVCurrency, formatCSVNumber } from '../utils/csvExporter';
-import { 
-  subscribeToInventoryItems, 
-  subscribeToDamageReports, 
-  subscribeToRestockRequests, 
-  saveInventoryItem, 
-  reportDamagedStockTransaction, 
+import {
+  subscribeToInventoryItems,
+  subscribeToDamageReports,
+  subscribeToRestockRequests,
+  saveInventoryItem,
+  reportDamagedStockTransaction,
   verifyRestockRequestTransaction,
-  DamageReport 
+  DamageReport
 } from '../utils/inventoryServices';
 import { sanitizeTextInput } from '../utils/securityValidation';
 import { downloadExcel, formatExcelDateTime, formatExcelCurrency, formatExcelNumber } from '../utils/excelExporter';
@@ -51,6 +51,7 @@ interface InventoryScreenProps {
   inventory: InventoryItem[];
   adjustments: StockAdjustment[];
   config: BusinessConfig;
+  businessId: string;
   onAddItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => Promise<{ success: boolean; error?: string }> | any;
   onUpdateItem: (id: string, updates: Partial<InventoryItem>) => Promise<{ success: boolean; error?: string }> | any;
   onDeleteItem: (id: string) => void;
@@ -62,13 +63,13 @@ interface InventoryScreenProps {
   onClearInventoryTabOverride?: () => void;
 }
 
-function RestockVerificationRow({ 
-  restock, 
-  onVerifyRestock, 
-  config 
-}: { 
+function RestockVerificationRow({
+  restock,
+  onVerifyRestock,
+  config
+}: {
   key?: React.Key,
-  restock: PendingRestock, 
+  restock: PendingRestock,
   onVerifyRestock?: (id: string, adminQty: number, notes?: string, forceResolveValue?: number) => 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error',
   config: BusinessConfig
 }) {
@@ -76,7 +77,7 @@ function RestockVerificationRow({
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  
+
   // Resolution states (when on_hold)
   const [resolvedQty, setResolvedQty] = useState<number | ''>('');
   const [resolutionNotes, setResolutionNotes] = useState('');
@@ -88,7 +89,7 @@ function RestockVerificationRow({
       setErrorMsg('Please enter a count quantity.');
       return;
     }
-    
+
     setErrorMsg('');
     setSuccessMsg('');
 
@@ -130,16 +131,14 @@ function RestockVerificationRow({
   const isOnHold = restock.status === 'on_hold';
 
   return (
-    <div className={`p-4 border rounded-xl shadow-2xs transition ${
-      isOnHold ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200 bg-slate-50/30'
-    }`}>
+    <div className={`p-4 border rounded-xl shadow-2xs transition ${isOnHold ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200 bg-slate-50/30'
+      }`}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Info Area */}
         <div className="space-y-1 text-left">
           <div className="flex items-center gap-2">
-            <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-              isOnHold ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'
-            }`}>
+            <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isOnHold ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'
+              }`}>
               {isOnHold ? 'ON HOLD' : 'PENDING'}
             </span>
             <span className="text-[10px] text-slate-400 font-mono">{formattedDate}</span>
@@ -160,7 +159,7 @@ function RestockVerificationRow({
           <form onSubmit={handleSubmitVerification} className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
             <div className="text-left w-full sm:w-auto">
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Your Counted Qty</label>
-              <input 
+              <input
                 type="number"
                 min="0"
                 required
@@ -173,7 +172,7 @@ function RestockVerificationRow({
 
             <div className="text-left w-full sm:w-auto">
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Discrepancy Notes (Optional)</label>
-              <input 
+              <input
                 type="text"
                 placeholder="e.g. Broken packages found"
                 value={notes}
@@ -239,7 +238,7 @@ function RestockVerificationRow({
 
       {/* Resolution Form Dropdown when clicked */}
       {isOnHold && showResolutionForm && (
-        <motion.form 
+        <motion.form
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           onSubmit={handleResolveConflictSubmit}
@@ -247,7 +246,7 @@ function RestockVerificationRow({
         >
           <div>
             <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Final Agreed Quantity</label>
-            <input 
+            <input
               type="number"
               min="0"
               required
@@ -260,7 +259,7 @@ function RestockVerificationRow({
 
           <div>
             <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Resolution / Correction Note</label>
-            <input 
+            <input
               type="text"
               required
               placeholder="e.g. Attendant entered wrong product box size"
@@ -296,6 +295,7 @@ export default function InventoryScreen({
   inventory,
   adjustments = [],
   config,
+  businessId,
   onAddItem,
   onUpdateItem,
   onDeleteItem,
@@ -318,8 +318,9 @@ export default function InventoryScreen({
     }
   }, [inventoryTabOverride, onClearInventoryTabOverride]);
 
-  // Extract Business ID & User ID from config for multi-tenant Firestore scoping
-  const businessId = (config as any)?.id || (config as any)?.business_id || (config as any)?.orgId || 'default';
+  // Business ID now comes directly from App.tsx (sourced from the
+  // authenticated user's Supabase profile) instead of being guessed
+  // from the config object.
   const userUid = (config as any)?.owner_admin_uid || (config as any)?.adminUid || 'current_user';
 
   // Real-time Firestore Stream States
@@ -388,7 +389,7 @@ export default function InventoryScreen({
   // Modals state
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  
+
   // Adjustment Modal state
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [adjustItemId, setAdjustItemId] = useState<string | null>(null);
@@ -431,10 +432,10 @@ export default function InventoryScreen({
   // 2. Filter logic
   const filteredItems = activeInventory.filter(item => {
     // Search query
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
+
     // Category match
     const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
 
@@ -686,8 +687,8 @@ export default function InventoryScreen({
     return damagedLogs.filter(log => {
       const q = damageSearchQuery.toLowerCase();
       const matchesSearch = log.itemName.toLowerCase().includes(q) ||
-                            (log.notes || '').toLowerCase().includes(q) ||
-                            log.itemId.toLowerCase().includes(q);
+        (log.notes || '').toLowerCase().includes(q) ||
+        log.itemId.toLowerCase().includes(q);
 
       let matchesDate = true;
       if (damageDateFilter !== 'all') {
@@ -718,7 +719,7 @@ export default function InventoryScreen({
       const item = activeInventory.find(i => i.id === log.itemId);
       const cost = item ? item.unitCost : (log.cost_price || 0);
       const price = item ? item.unitPrice : (log.selling_price || 0);
-      
+
       const qtyChangedAbs = Math.abs(log.quantity_damaged || log.qtyChanged || 0);
       totalQty += qtyChangedAbs;
       totalCostLoss += (qtyChangedAbs * cost);
@@ -774,7 +775,7 @@ export default function InventoryScreen({
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Main Action: Report Damaged Stock */}
           {userRole !== 5 && (
-            <button 
+            <button
               type="button"
               id="btn-report-damaged-trigger"
               onClick={() => handleOpenDamageReport()}
@@ -783,10 +784,10 @@ export default function InventoryScreen({
               <PackageX size={14} className="text-slate-800" /> {translate('report damaged stock', config.languageCode)}
             </button>
           )}
-          
+
           {/* Main Action: Create Inventory Item */}
           {userRole !== 5 && (
-            <button 
+            <button
               type="button"
               id="btn-add-item-trigger"
               onClick={handleOpenAdd}
@@ -803,22 +804,20 @@ export default function InventoryScreen({
         <button
           type="button"
           onClick={() => setInventoryTab('active_stock')}
-          className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${
-            inventoryTab === 'active_stock'
+          className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${inventoryTab === 'active_stock'
               ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-          }`}
+            }`}
         >
           {translate('active store stock', config.languageCode)}
         </button>
         <button
           type="button"
           onClick={() => setInventoryTab('damaged_audit')}
-          className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${
-            inventoryTab === 'damaged_audit'
+          className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${inventoryTab === 'damaged_audit'
               ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-          }`}
+            }`}
         >
           <span>{translate('damaged auditing log', config.languageCode)}</span>
           {damagedLogs.length > 0 && (
@@ -831,11 +830,10 @@ export default function InventoryScreen({
           <button
             type="button"
             onClick={() => setInventoryTab('restock_validations')}
-            className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${
-              inventoryTab === 'restock_validations'
+            className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${inventoryTab === 'restock_validations'
                 ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-            }`}
+              }`}
           >
             <span>Restock Validations</span>
             {pendingCount > 0 && (
@@ -856,8 +854,8 @@ export default function InventoryScreen({
               {/* Search bar */}
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-2.5 text-slate-400" size={16} />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder={translate('search by name, sku, or supplier', config.languageCode) + '...'}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -874,13 +872,13 @@ export default function InventoryScreen({
                   className="text-xs text-slate-900 rounded-full px-4 py-2 neumorphic-btn focus:outline-hidden transition font-extrabold flex items-center gap-2.5 cursor-pointer border border-white/80 hover:text-black"
                 >
                   <span>
-                    {selectedCategory === 'All' 
-                      ? translate('all', config.languageCode) 
+                    {selectedCategory === 'All'
+                      ? translate('all', config.languageCode)
                       : translate(selectedCategory.toLowerCase(), config.languageCode)} ({translate('category', config.languageCode)})
                   </span>
-                  <ChevronDown 
-                    size={14} 
-                    className={`text-slate-700 transition-transform duration-200 ${categoryDropdownOpen ? 'rotate-180 text-blue-600' : ''}`} 
+                  <ChevronDown
+                    size={14}
+                    className={`text-slate-700 transition-transform duration-200 ${categoryDropdownOpen ? 'rotate-180 text-blue-600' : ''}`}
                   />
                 </button>
 
@@ -897,11 +895,11 @@ export default function InventoryScreen({
                       <div className="max-h-60 overflow-y-auto space-y-1 p-0.5">
                         {categoriesList.map(cat => {
                           const isSelected = selectedCategory === cat;
-                          const label = cat === 'All' 
-                            ? translate('all', config.languageCode) 
+                          const label = cat === 'All'
+                            ? translate('all', config.languageCode)
                             : translate(String(cat).toLowerCase(), config.languageCode);
 
-                          
+
                           return (
                             <button
                               key={cat}
@@ -910,11 +908,10 @@ export default function InventoryScreen({
                                 setSelectedCategory(cat);
                                 setCategoryDropdownOpen(false);
                               }}
-                              className={`w-full text-left text-xs px-3.5 py-2.5 rounded-xl font-extrabold transition flex items-center justify-between cursor-pointer ${
-                                isSelected
+                              className={`w-full text-left text-xs px-3.5 py-2.5 rounded-xl font-extrabold transition flex items-center justify-between cursor-pointer ${isSelected
                                   ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
                                   : 'text-slate-800 hover:bg-slate-200/70 hover:text-black'
-                              }`}
+                                }`}
                             >
                               <span>{label} ({translate('category', config.languageCode)})</span>
                               {isSelected && <Check size={14} className="text-white shrink-0" />}
@@ -932,9 +929,9 @@ export default function InventoryScreen({
             <div className="flex flex-wrap items-center gap-2 border-t border-slate-200/40 pt-3">
               <span className="text-xs text-gray-500 mr-2 font-medium">{translate('stock filter', config.languageCode)} :</span>
               {(['All', 'Low Stock', 'Out of Stock'] as const).map(tab => {
-                const count = tab === 'All' 
-                  ? inventory.length 
-                  : tab === 'Low Stock' 
+                const count = tab === 'All'
+                  ? inventory.length
+                  : tab === 'Low Stock'
                     ? inventory.filter(i => i.quantity <= i.reorderPoint && i.quantity > 0).length
                     : inventory.filter(i => i.quantity === 0).length;
 
@@ -943,16 +940,15 @@ export default function InventoryScreen({
                     key={tab}
                     type="button"
                     onClick={() => setStockStatus(tab)}
-                    className={`text-xs px-3.5 py-1.5 rounded-full font-extrabold transition cursor-pointer ${
-                      stockStatus === tab 
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none' 
+                    className={`text-xs px-3.5 py-1.5 rounded-full font-extrabold transition cursor-pointer ${stockStatus === tab
+                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
                         : 'neumorphic-btn text-slate-800 hover:text-black'
-                    }`}
+                      }`}
                   >
-                    {tab === 'All' 
-                      ? translate('all', config.languageCode) 
-                      : tab === 'Low Stock' 
-                        ? translate('low stock', config.languageCode) 
+                    {tab === 'All'
+                      ? translate('all', config.languageCode)
+                      : tab === 'Low Stock'
+                        ? translate('low stock', config.languageCode)
                         : translate('out of stock', config.languageCode)}{' '}
                     <span className={stockStatus === tab ? 'text-white/90 font-mono text-[10.5px] ml-0.5' : 'text-slate-600 font-mono text-[10.5px] ml-0.5'}>({count})</span>
                   </button>
@@ -1042,7 +1038,7 @@ export default function InventoryScreen({
                         )}
                         <td className="py-4 px-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
-                            <button 
+                            <button
                               type="button"
                               onClick={() => handleOpenAdjust(item)}
                               className="w-7 h-7 flex items-center justify-center neumorphic-circle text-slate-800 hover:text-black cursor-pointer"
@@ -1050,7 +1046,7 @@ export default function InventoryScreen({
                             >
                               <ArrowUpDown size={13} />
                             </button>
-                            <button 
+                            <button
                               type="button"
                               onClick={() => handleOpenEdit(item)}
                               className="w-7 h-7 flex items-center justify-center neumorphic-circle text-slate-800 hover:text-black cursor-pointer"
@@ -1059,7 +1055,7 @@ export default function InventoryScreen({
                               <Edit2 size={13} />
                             </button>
                             {userRole !== 5 && (
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => handleDeleteCheck(item.id, item.name)}
                                 className="w-7 h-7 flex items-center justify-center neumorphic-circle text-slate-800 hover:text-black cursor-pointer"
@@ -1108,13 +1104,12 @@ export default function InventoryScreen({
                           )}
                         </p>
                       </div>
-                      <span className={`text-[9px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide shrink-0 border ${
-                        isZero 
-                          ? 'bg-rose-50 text-rose-800 border-rose-200' 
-                          : isOver 
-                            ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                      <span className={`text-[9px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide shrink-0 border ${isZero
+                          ? 'bg-rose-50 text-rose-800 border-rose-200'
+                          : isOver
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
                             : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      }`}>
+                        }`}>
                         {isZero ? translate('out of stock', config.languageCode) : isOver ? translate('low stock', config.languageCode) : translate('in stock', config.languageCode)}
                       </span>
                     </div>
@@ -1143,7 +1138,7 @@ export default function InventoryScreen({
                       <span className="truncate max-w-[150px]">{translate('supplier', config.languageCode)}: <strong className="text-gray-800 font-semibold">{item.supplier || translate('n/a', config.languageCode)}</strong></span>
                     </div>
 
-                     {/* Mobile Touch Action Strip with 44px responsive target heights */}
+                    {/* Mobile Touch Action Strip with 44px responsive target heights */}
                     <div className="flex gap-2 pt-1 border-t border-slate-100/60">
                       <button
                         type="button"
@@ -1153,7 +1148,7 @@ export default function InventoryScreen({
                       >
                         <ArrowUpDown size={14} /> {translate('adjust', config.languageCode)}
                       </button>
-                      
+
                       {userRole !== 5 && (
                         <button
                           type="button"
@@ -1240,8 +1235,8 @@ export default function InventoryScreen({
               {/* Search Bar */}
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3.5 top-2.5 text-slate-400" size={16} />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder={translate('filter damages by item name, sku or auditor remarks...', config.languageCode)}
                   value={damageSearchQuery}
                   onChange={(e) => setDamageSearchQuery(e.target.value)}
@@ -1258,17 +1253,17 @@ export default function InventoryScreen({
                     className="text-xs text-slate-900 rounded-full px-4 py-2 neumorphic-btn focus:outline-hidden transition font-extrabold flex items-center gap-2 cursor-pointer border border-white/80 hover:text-black"
                   >
                     <span>
-                      {damageDateFilter === 'all' 
-                        ? translate('all dates', config.languageCode) 
-                        : damageDateFilter === 'today' 
-                          ? translate('today', config.languageCode) 
-                          : damageDateFilter === '7days' 
-                            ? translate('last 7 days', config.languageCode) 
+                      {damageDateFilter === 'all'
+                        ? translate('all dates', config.languageCode)
+                        : damageDateFilter === 'today'
+                          ? translate('today', config.languageCode)
+                          : damageDateFilter === '7days'
+                            ? translate('last 7 days', config.languageCode)
                             : translate('last 30 days', config.languageCode)}
                     </span>
-                    <ChevronDown 
-                      size={14} 
-                      className={`text-slate-700 transition-transform duration-200 ${dateDropdownOpen ? 'rotate-180 text-blue-600' : ''}`} 
+                    <ChevronDown
+                      size={14}
+                      className={`text-slate-700 transition-transform duration-200 ${dateDropdownOpen ? 'rotate-180 text-blue-600' : ''}`}
                     />
                   </button>
 
@@ -1298,11 +1293,10 @@ export default function InventoryScreen({
                                   setDamageDateFilter(opt.val);
                                   setDateDropdownOpen(false);
                                 }}
-                                className={`w-full text-left text-xs px-3.5 py-2.5 rounded-xl font-extrabold transition flex items-center justify-between cursor-pointer ${
-                                  isSelected
+                                className={`w-full text-left text-xs px-3.5 py-2.5 rounded-xl font-extrabold transition flex items-center justify-between cursor-pointer ${isSelected
                                     ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
                                     : 'text-slate-800 hover:bg-slate-200/70 hover:text-black'
-                                }`}
+                                  }`}
                               >
                                 <span>{opt.label}</span>
                                 {isSelected && <Check size={14} className="text-white shrink-0" />}
@@ -1355,7 +1349,7 @@ export default function InventoryScreen({
                     const qtyDecommissioned = Math.abs(log.qtyChanged);
                     const costLoss = qtyDecommissioned * unitCost;
                     const retailLoss = qtyDecommissioned * unitPrice;
-                    
+
                     return (
                       <tr key={log.id} className="hover:bg-slate-200/20 transition border-b border-slate-100">
                         <td className="py-3.5 px-4 font-medium text-gray-500 whitespace-nowrap">
@@ -1507,9 +1501,9 @@ export default function InventoryScreen({
               ) : (
                 activePendingRestocks.filter(r => r.status !== 'resolved' && r.status !== 'approved').map((restock) => {
                   return (
-                    <RestockVerificationRow 
-                      key={restock.id} 
-                      restock={restock} 
+                    <RestockVerificationRow
+                      key={restock.id}
+                      restock={restock}
                       onVerifyRestock={(id, adminQty, notes, forceValue) => {
                         verifyRestockRequestTransaction(
                           businessId,
@@ -1581,11 +1575,11 @@ export default function InventoryScreen({
 
       {/* MODAL: ADD / EDIT ITEM */}
       {showAddEditModal && (
-        <div 
+        <div
           onClick={() => setShowAddEditModal(false)}
           className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 overflow-y-auto cursor-pointer"
         >
-          <motion.div 
+          <motion.div
             onClick={(e) => e.stopPropagation()}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -1596,7 +1590,7 @@ export default function InventoryScreen({
               <h3 className="font-extrabold text-sm flex items-center gap-1.5">
                 <Package size={16} className="text-sky-600 dark:text-sky-400" /> {editingItemId ? translate('update inventory card', config.languageCode) : translate('create new stock profile', config.languageCode)}
               </h3>
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowAddEditModal(false)}
                 className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-3 py-1 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
@@ -1617,7 +1611,7 @@ export default function InventoryScreen({
               {/* Product Name */}
               <div>
                 <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('product title *', config.languageCode)}</label>
-                <input 
+                <input
                   type="text"
                   placeholder={translate('e.g. ergonomic premium desk pad', config.languageCode)}
                   value={itemName}
@@ -1630,7 +1624,7 @@ export default function InventoryScreen({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('stock sku *', config.languageCode)}</label>
-                  <input 
+                  <input
                     type="text"
                     placeholder={translate('e.g. dp-881', config.languageCode)}
                     value={itemSku}
@@ -1667,11 +1661,10 @@ export default function InventoryScreen({
                               setItemCategory(opt.value);
                               setIsCategoryDropdownOpen(false);
                             }}
-                            className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                              itemCategory === opt.value
+                            className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${itemCategory === opt.value
                                 ? 'neumorphic-inset bg-gradient-to-r from-sky-500 to-blue-600 text-white font-black shadow-inner'
                                 : 'hover:bg-white/60 dark:hover:bg-slate-800/60 text-slate-800 dark:text-slate-200'
-                            }`}
+                              }`}
                           >
                             <span>{opt.label}</span>
                             {itemCategory === opt.value && <Check size={12} className="text-white" />}
@@ -1687,7 +1680,7 @@ export default function InventoryScreen({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('initial hand quantity', config.languageCode)}</label>
-                  <input 
+                  <input
                     type="number"
                     min="0"
                     placeholder={translate('e.g. 50', config.languageCode)}
@@ -1698,7 +1691,7 @@ export default function InventoryScreen({
                 </div>
                 <div>
                   <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('low-stock guard level', config.languageCode)}</label>
-                  <input 
+                  <input
                     type="number"
                     min="0"
                     placeholder={translate('e.g. 10 (will alert)', config.languageCode)}
@@ -1718,7 +1711,7 @@ export default function InventoryScreen({
                 {userRole === 2 && (
                   <div>
                     <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('incoming asset cost', config.languageCode)} ({config.currencySymbol})</label>
-                    <input 
+                    <input
                       type="number"
                       min="0"
                       step="0.01"
@@ -1731,7 +1724,7 @@ export default function InventoryScreen({
                 )}
                 <div>
                   <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('retail selling price', config.languageCode)} ({config.currencySymbol})</label>
-                  <input 
+                  <input
                     type="number"
                     min="0"
                     step="0.01"
@@ -1751,7 +1744,7 @@ export default function InventoryScreen({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('supplier vendor source', config.languageCode)}</label>
-                  <input 
+                  <input
                     type="text"
                     placeholder={translate('e.g. eldorado goods', config.languageCode)}
                     value={itemSupplier}
@@ -1761,7 +1754,7 @@ export default function InventoryScreen({
                 </div>
                 <div>
                   <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('shelf location designation', config.languageCode)}</label>
-                  <input 
+                  <input
                     type="text"
                     placeholder={translate('e.g. aisle e - shelf 3', config.languageCode)}
                     value={itemLocation}
@@ -1774,7 +1767,7 @@ export default function InventoryScreen({
               {/* Remarks / Spec Notes */}
               <div>
                 <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('internal item remarks', config.languageCode)}</label>
-                <textarea 
+                <textarea
                   placeholder={translate('insert special quality traits or re-stocking parameters...', config.languageCode)}
                   value={itemNotes}
                   onChange={(e) => setItemNotes(e.target.value)}
@@ -1784,7 +1777,7 @@ export default function InventoryScreen({
 
               {/* Submit Buttons */}
               <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 flex justify-end gap-2.5 shrink-0">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowAddEditModal(false)}
                   disabled={isSavingItem}
@@ -1792,7 +1785,7 @@ export default function InventoryScreen({
                 >
                   {translate('dismiss', config.languageCode)}
                 </button>
-                <button 
+                <button
                   type="submit"
                   disabled={isSavingItem}
                   className="px-6 py-2.5 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold rounded-xl neumorphic-btn shadow-md transition-all text-xs cursor-pointer border border-white/30 dark:border-slate-700/60 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
@@ -1814,11 +1807,11 @@ export default function InventoryScreen({
 
       {/* MODAL: STOCK ADJUSTMENT */}
       {showAdjustModal && (
-        <div 
+        <div
           onClick={() => setShowAdjustModal(false)}
           className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 cursor-pointer"
         >
-          <motion.div 
+          <motion.div
             onClick={(e) => e.stopPropagation()}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -1829,7 +1822,7 @@ export default function InventoryScreen({
               <h3 className="font-extrabold text-sm flex items-center gap-1.5">
                 <ArrowUpDown size={15} className="text-sky-600 dark:text-sky-400" /> {translate('change item inventory units', config.languageCode)}
               </h3>
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowAdjustModal(false)}
                 className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-3 py-1 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
@@ -1854,22 +1847,20 @@ export default function InventoryScreen({
                   <button
                     type="button"
                     onClick={() => setAdjustType('purchase_in')}
-                    className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${
-                      adjustType === 'purchase_in' 
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none' 
+                    className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'purchase_in'
+                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
                         : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
-                    }`}
+                      }`}
                   >
                     <ArrowDownCircle size={14} className={adjustType === 'purchase_in' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('stock procurement (+ in)', config.languageCode)}
                   </button>
                   <button
                     type="button"
                     onClick={() => setAdjustType('sale_out')}
-                    className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${
-                      adjustType === 'sale_out' 
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none' 
+                    className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'sale_out'
+                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
                         : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
-                    }`}
+                      }`}
                   >
                     <ArrowUpCircle size={14} className={adjustType === 'sale_out' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('product outflow (- out)', config.languageCode)}
                   </button>
@@ -1877,11 +1868,10 @@ export default function InventoryScreen({
                     <button
                       type="button"
                       onClick={() => setAdjustType('damaged')}
-                      className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${
-                        adjustType === 'damaged' 
-                          ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none' 
+                      className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'damaged'
+                          ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
                           : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
-                      }`}
+                        }`}
                     >
                       {translate('stock damaged (- out)', config.languageCode)}
                     </button>
@@ -1890,11 +1880,10 @@ export default function InventoryScreen({
                     <button
                       type="button"
                       onClick={() => setAdjustType('returned')}
-                      className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${
-                        adjustType === 'returned' 
-                          ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none' 
+                      className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'returned'
+                          ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
                           : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
-                      }`}
+                        }`}
                     >
                       <RotateCcw size={14} className={adjustType === 'returned' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('client return (+ in)', config.languageCode)}
                     </button>
@@ -1905,7 +1894,7 @@ export default function InventoryScreen({
               {/* Units Amount */}
               <div>
                 <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('adjust quantity amount', config.languageCode)}</label>
-                <input 
+                <input
                   type="number"
                   min="1"
                   required
@@ -1919,7 +1908,7 @@ export default function InventoryScreen({
               {/* Optional comments */}
               <div>
                 <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('movement comments', config.languageCode) || 'Movement Comments'}</label>
-                <input 
+                <input
                   type="text"
                   placeholder={translate('e.g. received shipment from anker', config.languageCode) || 'e.g. Received shipment from Anker'}
                   value={adjustNotes}
@@ -1930,14 +1919,14 @@ export default function InventoryScreen({
 
               {/* Submit Buttons */}
               <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 flex justify-end gap-2.5 shrink-0">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowAdjustModal(false)}
                   className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-5 py-2.5 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
                 >
                   {translate('dismiss', config.languageCode)}
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-6 py-2.5 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold rounded-xl neumorphic-btn shadow-md transition-all text-xs cursor-pointer border border-white/30 dark:border-slate-700/60 active:scale-[0.98]"
                 >
@@ -1951,11 +1940,11 @@ export default function InventoryScreen({
 
       {/* MODAL: REPORT DAMAGED GOODS */}
       {showDamageModal && (
-        <div 
+        <div
           onClick={() => setShowDamageModal(false)}
           className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 cursor-pointer"
         >
-          <motion.div 
+          <motion.div
             onClick={(e) => e.stopPropagation()}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -1966,7 +1955,7 @@ export default function InventoryScreen({
               <h3 className="font-extrabold text-sm flex items-center gap-1.5 text-slate-900 dark:text-white">
                 <PackageX size={15} className="text-rose-500 dark:text-rose-400" /> {translate('report damaged stock (audit writeoff)', config.languageCode)}
               </h3>
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowDamageModal(false)}
                 className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-3 py-1 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
@@ -2007,7 +1996,7 @@ export default function InventoryScreen({
               {/* Units Damaged */}
               <div>
                 <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('quantity damaged', config.languageCode)}</label>
-                <input 
+                <input
                   type="number"
                   min="1"
                   required
@@ -2021,7 +2010,7 @@ export default function InventoryScreen({
               {/* Mandatory Explanation Reasoning */}
               <div>
                 <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('audit justification / comments', config.languageCode) || 'Audit Justification / Comments'}</label>
-                <textarea 
+                <textarea
                   required
                   placeholder={translate('mandatory reasons (e.g. water damage, dropping packages, product expiration...)', config.languageCode)}
                   value={damageNotes}
@@ -2033,14 +2022,14 @@ export default function InventoryScreen({
 
               {/* Submit Buttons */}
               <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 flex justify-end gap-2.5 shrink-0">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowDamageModal(false)}
                   className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-5 py-2.5 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
                 >
                   {translate('dismiss', config.languageCode)}
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-6 py-2.5 bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 dark:from-rose-500 dark:to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-extrabold rounded-xl neumorphic-btn shadow-md transition-all text-xs cursor-pointer border border-white/30 dark:border-slate-700/60 active:scale-[0.98]"
                 >
