@@ -422,6 +422,10 @@ export default function InventoryScreen({
   const [itemSaveError, setItemSaveError] = useState<string | null>(null);
 
   const { formatAmount, convertFromBase, convertToBase } = useCurrency();
+  // Round a converted currency amount to 2 decimal places so the edit form
+  // always shows the same figure as the inventory table (which is formatted
+  // with formatCurrencyAmount's 2 dp rounding).
+  const roundMoney = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
 
   const formatMoney = (amount: number) => {
     return formatAmount(amount);
@@ -485,8 +489,8 @@ export default function InventoryScreen({
     setItemSku(`SKU-${Math.floor(Math.random() * 90000) + 10000}`);
     setItemCategory('Electronics');
     setItemQty(5);
-    setItemCost(convertFromBase(10));
-    setItemPrice(convertFromBase(20));
+    setItemCost(roundMoney(convertFromBase(10)));
+    setItemPrice(roundMoney(convertFromBase(20)));
     setItemReorder(config.lowStockThresholdDefault || 5);
     setItemSupplier('');
     setItemLocation('');
@@ -503,8 +507,8 @@ export default function InventoryScreen({
     setItemSku(item.sku);
     setItemCategory(item.category);
     setItemQty(item.quantity);
-    setItemCost(convertFromBase(item.unitCost));
-    setItemPrice(convertFromBase(item.unitPrice));
+    setItemCost(roundMoney(convertFromBase(item.unitCost)));
+    setItemPrice(roundMoney(convertFromBase(item.unitPrice)));
     setItemReorder(item.reorderPoint);
     setItemSupplier(item.supplier || '');
     setItemLocation(item.location || '');

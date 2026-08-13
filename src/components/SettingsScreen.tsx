@@ -980,8 +980,8 @@ export default function SettingsScreen({
             type="button"
             onClick={() => setActiveTab('profile')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'profile'
-                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
-                : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
+              ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
+              : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
               }`}
           >
             <MaterialIcon name="person" size={18} className="text-slate-800" />
@@ -991,8 +991,8 @@ export default function SettingsScreen({
             type="button"
             onClick={() => setActiveTab('system')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'system'
-                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
-                : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
+              ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
+              : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
               }`}
           >
             <MaterialIcon name="tune" size={18} className="text-slate-800" />
@@ -1002,8 +1002,8 @@ export default function SettingsScreen({
             type="button"
             onClick={() => setActiveTab('security')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'security'
-                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
-                : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
+              ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
+              : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
               }`}
           >
             <MaterialIcon name="security" size={18} className="text-slate-800" />
@@ -1074,8 +1074,8 @@ export default function SettingsScreen({
                       onDragLeave={onDragLeave}
                       onDrop={onDrop}
                       className={`flex-1 w-full border-2 border-dashed rounded-2xl p-5 flex flex-col items-center justify-center text-center transition cursor-pointer neumorphic-card ${isDragging
-                          ? 'border-slate-800 bg-slate-200/60'
-                          : 'border-slate-300 bg-[#ebf0f7]/60 hover:border-slate-800'
+                        ? 'border-slate-800 bg-slate-200/60'
+                        : 'border-slate-300 bg-[#ebf0f7]/60 hover:border-slate-800'
                         }`}
                       onClick={() => document.getElementById('profile-photo-input')?.click()}
                     >
@@ -1113,8 +1113,8 @@ export default function SettingsScreen({
                     value={busName}
                     onChange={(e) => setBusName(e.target.value)}
                     className={`w-full rounded-lg border p-2.5 font-medium ${userRole === 5
-                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
-                        : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
+                      ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
+                      : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
                       }`}
                   />
                   <p className="text-[10px] text-gray-400 mt-1">
@@ -1153,8 +1153,8 @@ export default function SettingsScreen({
                       value={busEmail}
                       onChange={(e) => setBusEmail(e.target.value)}
                       className={`w-full rounded-lg border p-2.5 font-medium ${userRole === 5
-                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
-                          : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
+                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
+                        : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
                         }`}
                     />
                   </div>
@@ -1170,8 +1170,8 @@ export default function SettingsScreen({
                       value={busPhone}
                       onChange={(e) => setBusPhone(e.target.value)}
                       className={`w-full rounded-lg border p-2.5 font-mono ${userRole === 5
-                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
-                          : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
+                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
+                        : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
                         }`}
                     />
                   </div>
@@ -1295,8 +1295,8 @@ export default function SettingsScreen({
                                       setIsCountryDropdownOpen(false);
                                     }}
                                     className={`w-full flex items-center justify-between px-3.5 py-2.5 text-left transition-all duration-150 cursor-pointer rounded-xl font-extrabold text-xs ${countryVal === c.country
-                                        ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-md'
-                                        : 'text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
+                                      ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-md'
+                                      : 'text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
                                       }`}
                                   >
                                     <span className="truncate pr-2 font-bold">{getTranslatedCountry(c.country, config.languageCode)} ({c.code})</span>
@@ -1388,8 +1388,8 @@ export default function SettingsScreen({
                                       setIsCurrencyDropdownOpen(false);
                                     }}
                                     className={`w-full flex items-center justify-between px-3.5 py-2.5 text-left transition-all duration-150 cursor-pointer rounded-xl font-extrabold text-xs ${currencyCode === c.code
-                                        ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-md'
-                                        : 'text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
+                                      ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-md'
+                                      : 'text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
                                       }`}
                                   >
                                     <span className="truncate pr-2 font-bold">
@@ -1565,168 +1565,6 @@ export default function SettingsScreen({
                 </div>
               )}
 
-              {/* Database Maintenance Section */}
-              <div className="mt-8 pt-6 border-t border-slate-200/60 space-y-4 text-left">
-
-                <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <MaterialIcon name="database" size={16} className="text-slate-800" />
-                  <span>Database & Testing Maintenance</span>
-                </h4>
-                <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
-                  Perform system data operations to clear histories, restore sample seed records, or perform a factory reset.
-                </p>
-
-                {isAttendant ? (
-                  <div className="finnova-card p-4 text-[11px] text-slate-900 flex items-start gap-2 font-bold border border-white/90">
-                    <MaterialIcon name="warning" size={16} className="text-slate-800 mt-0.5 shrink-0" />
-                    <span>Unauthorized: Database and system resets can only be performed by Administrator level accounts.</span>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                    {/* Card 1: Clear Transactions */}
-                    <div className="finnova-card p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm border border-white/80">
-                      <div className="space-y-1.5">
-                        <h5 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                          <MaterialIcon name="delete_sweep" size={16} className="text-slate-800" /> Clear Transactions Only
-                        </h5>
-                        <p className="text-[10.5px] text-slate-600 leading-relaxed font-medium">
-                          Wipes all ledger transactions, repayment histories, and stock adjustments/activity logs. Resets credit balances to zero while keeping defined inventory items intact.
-                        </p>
-                      </div>
-                      <div>
-                        {showClearConfirm ? (
-                          <div className="space-y-2 mt-2">
-                            <p className="text-[10px] text-slate-900 font-black leading-tight">Are you absolutely sure? This cannot be undone.</p>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (onClearTransactions) onClearTransactions();
-                                  setShowClearConfirm(false);
-                                  alert("All transaction histories and activity logs have been cleared successfully.");
-                                }}
-                                className="flex-1 py-1.5 px-3 bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl text-[10px] transition cursor-pointer"
-                              >
-                                Yes, Clear
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setShowClearConfirm(false)}
-                                className="py-1.5 px-3 neumorphic-btn text-slate-800 font-extrabold rounded-xl text-[10px] transition cursor-pointer border border-white/80"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setShowClearConfirm(true)}
-                            className="w-full mt-2 py-2 px-3 neumorphic-btn text-slate-900 font-extrabold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 hover:text-black border border-white/90"
-                          >
-                            <MaterialIcon name="delete_sweep" size={14} className="text-slate-800" /> Clear Transactions
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Card 2: Reset Seeds */}
-                    <div className="finnova-card p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm border border-white/80">
-                      <div className="space-y-1.5">
-                        <h5 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                          <MaterialIcon name="restart_alt" size={16} className="text-slate-800" /> Restore Sample Seeds
-                        </h5>
-                        <p className="text-[10.5px] text-slate-600 leading-relaxed font-medium">
-                          Resets all databases, product catalogs, trade accounts, and settings back to the initial professional sample demonstration seed records.
-                        </p>
-                      </div>
-                      <div>
-                        {showResetConfirm ? (
-                          <div className="space-y-2 mt-2">
-                            <p className="text-[10px] text-slate-900 font-black leading-tight">Are you absolutely sure? This will overwrite custom items.</p>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  onResetSeedData();
-                                  setShowResetConfirm(false);
-                                  alert("Sample demonstration seed records have been restored successfully.");
-                                }}
-                                className="flex-1 py-1.5 px-3 bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl text-[10px] transition cursor-pointer"
-                              >
-                                Yes, Restore
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setShowResetConfirm(false)}
-                                className="py-1.5 px-3 neumorphic-btn text-slate-800 font-extrabold rounded-xl text-[10px] transition cursor-pointer border border-white/80"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setShowResetConfirm(true)}
-                            className="w-full mt-2 py-2 px-3 neumorphic-btn text-slate-900 font-extrabold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 hover:text-black border border-white/90"
-                          >
-                            <MaterialIcon name="restart_alt" size={14} className="text-slate-800" /> Restore Sample Seeds
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Card 3: Factory Reset */}
-                    <div className="finnova-card p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm border border-white/80">
-                      <div className="space-y-1.5">
-                        <h5 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                          <MaterialIcon name="warning" size={16} className="text-slate-800" /> Full Factory Reset
-                        </h5>
-                        <p className="text-[10.5px] text-slate-600 leading-relaxed font-medium">
-                          Performs a complete local cache purge. Deletes all user accounts, active sessions, and multi-tenant profiles. Restores terminal back to pristine default.
-                        </p>
-                      </div>
-                      <div>
-                        {showWipeConfirm ? (
-                          <div className="space-y-2 mt-2">
-                            <p className="text-[10px] text-slate-900 font-black leading-tight">Are you absolutely sure? This logs you out and clears all cache.</p>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  onWipeStorage();
-                                  setShowWipeConfirm(false);
-                                  alert("Local databases and cache cleared completely. System has been reset.");
-                                  window.location.reload();
-                                }}
-                                className="flex-1 py-1.5 px-3 bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl text-[10px] transition cursor-pointer"
-                              >
-                                Yes, Wipe All
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setShowWipeConfirm(false)}
-                                className="py-1.5 px-3 neumorphic-btn text-slate-800 font-extrabold rounded-xl text-[10px] transition cursor-pointer border border-white/80"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setShowWipeConfirm(true)}
-                            className="w-full mt-2 py-2 px-3 neumorphic-btn text-slate-900 font-extrabold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 hover:text-black border border-white/90"
-                          >
-                            <MaterialIcon name="warning" size={14} className="text-slate-800" /> Full Factory Reset
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
 
 
             </div>
