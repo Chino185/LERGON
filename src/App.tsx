@@ -1053,8 +1053,8 @@ export default function App() {
           if (typeof profileData.phone === 'string') {
             setConfig(prev => (
               roleStr === 'admin'
-                ? { ...prev, adminPhone: profileData.phone }
-                : { ...prev, attendantPhone: profileData.phone }
+                ? { ...prev, phone: profileData.phone, adminPhone: profileData.phone }
+                : { ...prev, phone: profileData.phone, attendantPhone: profileData.phone }
             ));
           }
         }
@@ -1100,8 +1100,8 @@ export default function App() {
                 if (typeof data.phone === 'string') {
                   setConfig(prev => (
                     roleStr === 'admin'
-                      ? { ...prev, adminPhone: data.phone }
-                      : { ...prev, attendantPhone: data.phone }
+                      ? { ...prev, phone: data.phone, adminPhone: data.phone }
+                      : { ...prev, phone: data.phone, attendantPhone: data.phone }
                   ));
                 }
               }
@@ -1189,12 +1189,17 @@ export default function App() {
     // 6. Real-time Business Currency Listener — keeps every device (Admin
     // and Attendant) in sync the instant the Admin changes the business
     // currency, instead of waiting on next login/refresh.
-    const unsubCurrency = subscribeToBusinessCurrency(currentOrgId, ({ currencyCode, currencySymbol }) => {
+    const unsubCurrency = subscribeToBusinessCurrency(currentOrgId, ({ country, currencyCode, currencySymbol }) => {
       setConfig(prev => {
-        if (prev.currency === currencyCode && prev.currencySymbol === currencySymbol) {
+        if (prev.country === country && prev.currency === currencyCode && prev.currencySymbol === currencySymbol) {
           return prev;
         }
-        return { ...prev, currency: currencyCode, currencySymbol: currencySymbol };
+        return {
+          ...prev,
+          ...(country ? { country } : {}),
+          currency: currencyCode,
+          currencySymbol: currencySymbol
+        };
       });
     });
 
@@ -1888,9 +1893,10 @@ export default function App() {
       const currencyChanged =
         newConfig.currency !== config.currency ||
         newConfig.currencySymbol !== config.currencySymbol;
+      const countryChanged = newConfig.country !== config.country;
 
-      if (currencyChanged && currentOrgId) {
-        updateBusinessCurrency(currentOrgId, currentUserRole, newConfig.currency, newConfig.currencySymbol)
+      if ((currencyChanged || countryChanged) && currentOrgId) {
+        updateBusinessCurrency(currentOrgId, currentUserRole, newConfig.currency, newConfig.currencySymbol, newConfig.country)
           .then((res) => {
             if (!res.success) {
               console.error('Failed to sync currency to backend:', res.error);
@@ -1904,9 +1910,13 @@ export default function App() {
     //     both Admin and Attendant -- previously it only ever lived in
     //     localStorage, which is why it never showed up in the backend and
     //     could silently reset (e.g. new device, cleared browser data).
-    const ownPhone = currentUserRole === 2 ? newConfig.adminPhone : newConfig.attendantPhone;
-    const prevOwnPhone = currentUserRole === 2 ? config.adminPhone : config.attendantPhone;
-    if (ownPhone !== prevOwnPhone && currentUserUid) {
+    const ownPhone = currentUserRole === 2
+      ? (newConfig.adminPhone ?? newConfig.phone ?? '')
+      : (newConfig.attendantPhone ?? newConfig.phone ?? '');
+    const prevOwnPhone = currentUserRole === 2
+      ? (config.adminPhone ?? config.phone ?? '')
+      : (config.attendantPhone ?? config.phone ?? '');
+    if (currentUserUid && (ownPhone !== prevOwnPhone || newConfig.phone !== undefined)) {
       updateUserPhone(currentUserUid, ownPhone || '')
         .then((res) => {
           if (!res.success) {

@@ -330,7 +330,8 @@ export async function updateBusinessCurrency(
   businessId: string,
   userRole: number | string | undefined,
   currencyCode: string,
-  currencySymbol: string
+  currencySymbol: string,
+  country?: string
 ): Promise<{ success: boolean; error?: string }> {
   const isAdmin = userRole === 2 || userRole === 'admin';
   if (!isAdmin) {
@@ -346,7 +347,8 @@ export async function updateBusinessCurrency(
       .from('businesses')
       .update({
         base_currency_code: currencyCode,
-        base_currency_symbol: currencySymbol
+        base_currency_symbol: currencySymbol,
+        ...(country ? { base_country: country } : {})
       })
       .eq('id', businessId);
 
@@ -366,7 +368,7 @@ export async function updateBusinessCurrency(
  */
 export function subscribeToBusinessCurrency(
   businessId: string,
-  onUpdate: (currency: { currencyCode: string; currencySymbol: string }) => void
+  onUpdate: (currency: { currencyCode: string; currencySymbol: string; country?: string }) => void
 ): () => void {
   if (!businessId) {
     return () => { };
@@ -375,12 +377,13 @@ export function subscribeToBusinessCurrency(
   const fetchCurrency = () => {
     supabase
       .from('businesses')
-      .select('base_currency_code, base_currency_symbol')
+      .select('base_country, base_currency_code, base_currency_symbol')
       .eq('id', businessId)
       .single()
       .then(({ data, error }) => {
         if (error || !data) return;
         onUpdate({
+          country: data.base_country,
           currencyCode: data.base_currency_code,
           currencySymbol: data.base_currency_symbol
         });
@@ -416,12 +419,18 @@ export async function updateUserPhone(
   }
 
   try {
-    const { error } = await supabase
+    const cleanPhone = String(phone || '').trim().slice(0, 50);
+    const { data, error } = await supabase
       .from('profiles')
-      .update({ phone })
-      .eq('id', userUid);
+      .update({ phone: cleanPhone || null })
+      .eq('id', userUid)
+      .select('id, phone')
+      .single();
 
     if (error) throw error;
+    if (!data || data.id !== userUid) {
+      return { success: false, error: 'The authenticated profile was not updated.' };
+    }
     return { success: true };
   } catch (err: any) {
     console.error('updateUserPhone Error:', err);

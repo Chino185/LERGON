@@ -607,7 +607,10 @@ export default function SettingsScreen({
     if (config.businessName) {
       setBusName(config.businessName);
     }
-  }, [config.email, config.businessName]);
+    if (typeof config.phone === 'string') {
+      setBusPhone(config.phone);
+    }
+  }, [config.email, config.businessName, config.phone]);
   const [adminPhone, setAdminPhone] = useState(config.adminPhone || '');
   const [attendantPhone, setAttendantPhone] = useState(config.attendantPhone || '');
   const [currencyCode, setCurrencyCode] = useState(config.currency);
@@ -923,6 +926,8 @@ export default function SettingsScreen({
       onUpdateConfig({
         ...config,
         ownerName: cleanUsername,
+        phone: sanitizeInput(busPhone),
+        attendantPhone: sanitizeInput(busPhone),
         profilePhoto: resolvedPhotoUrl
       });
 
@@ -970,8 +975,8 @@ export default function SettingsScreen({
         language: 'English',
         languageCode: 'en',
         profilePhoto: resolvedPhotoUrl,
-        adminPhone: sanitizeInput(adminPhone),
-        attendantPhone: sanitizeInput(attendantPhone)
+        adminPhone: sanitizeInput(busPhone),
+        attendantPhone: config.attendantPhone || sanitizeInput(attendantPhone)
       });
 
       // Keep organization list name, adminName, and adminPhoto in sync if Admin updates organization / trade name
@@ -1223,13 +1228,9 @@ export default function SettingsScreen({
                     </label>
                     <input
                       type="text"
-                      disabled={userRole === 5}
                       value={busPhone}
                       onChange={(e) => setBusPhone(e.target.value)}
-                      className={`w-full rounded-lg border p-2.5 font-mono ${userRole === 5
-                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
-                        : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
-                        }`}
+                      className="w-full rounded-lg border p-2.5 font-mono border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
