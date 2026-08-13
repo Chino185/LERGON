@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
-import { 
-  Building, 
-  Save, 
+import {
+  Building,
+  Save,
   Check,
   Lock,
   KeyRound,
@@ -29,14 +29,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import MaterialIcon from './MaterialIcon';
 import { COUNTRIES_AND_CURRENCIES } from '../utils/countryData';
 import { translate } from '../utils/translations';
-import { 
-  validateEmail, 
-  validateUsername, 
-  validatePassword, 
-  validateBusinessName, 
-  sanitizeInput 
+import {
+  validateEmail,
+  validateUsername,
+  validatePassword,
+  validateBusinessName,
+  sanitizeInput
 } from '../utils/securityValidation';
-import { updateUserPassword } from '../utils/authServices';
+import { updateUserPassword, uploadProfilePhoto, clearProfilePhoto } from '../utils/authServices';
 
 
 interface SettingsScreenProps {
@@ -46,6 +46,7 @@ interface SettingsScreenProps {
   onWipeStorage: () => void;
   onClearTransactions?: () => void;
   userRole?: number;
+  userUid?: string;
   currentOrgId?: string;
   organizations?: Organization[];
   onUpdateOrganizations?: (updatedOrgs: Organization[]) => void;
@@ -477,9 +478,9 @@ const getTranslatedCurrencyName = (name: string, langCode: string): string => {
   const code = (langCode || "en").toLowerCase();
   const targetCode = code.startsWith("zh") ? "zh" : code;
   if (targetCode === "en") return name;
-  
+
   let cleanName = name.split(' (')[0];
-  
+
   if (targetCode === "fr") {
     const frMap: Record<string, string> = {
       "Euro": "Euro",
@@ -518,7 +519,7 @@ const getTranslatedCurrencyName = (name: string, langCode: string): string => {
       .replace(/Won/g, "Won");
     return result;
   }
-  
+
   if (targetCode === "zh") {
     const zhMap: Record<string, string> = {
       "Euro": "欧元",
@@ -549,7 +550,7 @@ const getTranslatedCurrencyName = (name: string, langCode: string): string => {
     if (zhMap[cleanName]) return zhMap[cleanName];
     return cleanName;
   }
-  
+
   return cleanName;
 };
 
@@ -560,6 +561,7 @@ export default function SettingsScreen({
   onWipeStorage,
   onClearTransactions,
   userRole,
+  userUid,
   currentOrgId,
   organizations,
   onUpdateOrganizations,
@@ -611,7 +613,14 @@ export default function SettingsScreen({
   const [currencySymbol, setCurrencySymbol] = useState(config.currencySymbol || '$');
   const [countryVal, setCountryVal] = useState(config.country || 'United States');
   const [profilePhoto, setProfilePhoto] = useState(initialUserPhoto);
+  // Holds the raw File pending upload to Supabase Storage. profilePhoto
+  // above is just the local preview (existing backend URL, or a blob
+  // preview of a not-yet-uploaded file) shown in the <img>.
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [photoError, setPhotoError] = useState('');
 
   // Supabase Auth Password Update States
   const [currentPwd, setCurrentPwd] = useState('');
@@ -721,8 +730,8 @@ export default function SettingsScreen({
     const found = COUNTRIES_AND_CURRENCIES.find(c => c.country === countryName);
     return found ? found.currencyCode : null;
   };
-  const isInitiallySynced = getCountryDefaultCurrency(config.country || 'United States') === config.currency && 
-                            COUNTRIES_AND_CURRENCIES.find(c => c.country === (config.country || 'United States'))?.currencySymbol === config.currencySymbol;
+  const isInitiallySynced = getCountryDefaultCurrency(config.country || 'United States') === config.currency &&
+    COUNTRIES_AND_CURRENCIES.find(c => c.country === (config.country || 'United States'))?.currencySymbol === config.currencySymbol;
   const [syncWithCountry, setSyncWithCountry] = useState(isInitiallySynced);
 
   // Password States
@@ -740,13 +749,13 @@ export default function SettingsScreen({
     const found = COUNTRIES_AND_CURRENCIES.find(c => c.country === countryName);
     if (found) {
       setCountryVal(found.country);
-      
+
       // Auto-update base currency only if link is active
       if (syncWithCountry) {
         setCurrencyCode(found.currencyCode);
         setCurrencySymbol(found.currencySymbol);
       }
-      
+
       // Auto-update dial prefix code for the phone callout
       let updatedPhone = busPhone.trim();
       const prefixRegex = /^\+\d+([- ]\d+)?/;
@@ -768,6 +777,12 @@ export default function SettingsScreen({
       alert('File size must be under 3MB.');
       return;
     }
+    setPhotoError('');
+    setPhotoRemoved(false);
+    // Keep the actual File for upload on save, and show a local preview
+    // immediately via a data URL (no backend round-trip needed just to
+    // preview).
+    setProfilePhotoFile(file);
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
@@ -798,7 +813,7 @@ export default function SettingsScreen({
   const filteredCountries = useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
     if (!q) return COUNTRIES_AND_CURRENCIES;
-    return COUNTRIES_AND_CURRENCIES.filter(c => 
+    return COUNTRIES_AND_CURRENCIES.filter(c =>
       c.country.toLowerCase().includes(q) ||
       c.code.toLowerCase().includes(q) ||
       c.currencyCode.toLowerCase().includes(q)
@@ -808,14 +823,14 @@ export default function SettingsScreen({
   const filteredCurrencies = useMemo(() => {
     const q = currencyQuery.trim().toLowerCase();
     if (!q) return UNIQUE_CURRENCIES;
-    return UNIQUE_CURRENCIES.filter(c => 
+    return UNIQUE_CURRENCIES.filter(c =>
       c.code.toLowerCase().includes(q) ||
       c.name.toLowerCase().includes(q)
     );
   }, [currencyQuery]);
 
   // Submit profile & system settings edit
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const usernameCheck = validateUsername(ownName);
@@ -825,14 +840,40 @@ export default function SettingsScreen({
     }
     const cleanUsername = usernameCheck.cleanUsername;
 
+    setPhotoError('');
+    setIsSavingProfile(true);
+
+    // Resolve the profile photo against the backend first. Admin and
+    // Attendant each own only their own photo (enforced by Storage RLS),
+    // keyed off their own userUid -- never a colleague's.
+    let resolvedPhotoUrl = profilePhoto;
+    if (profilePhotoFile && userUid && currentOrgId) {
+      const uploadRes = await uploadProfilePhoto(userUid, currentOrgId, profilePhotoFile);
+      if (!uploadRes.success) {
+        setIsSavingProfile(false);
+        setPhotoError(uploadRes.error || 'Failed to upload profile photo.');
+        return;
+      }
+      resolvedPhotoUrl = uploadRes.url || '';
+    } else if (photoRemoved && userUid) {
+      const clearRes = await clearProfilePhoto(userUid);
+      if (!clearRes.success) {
+        setIsSavingProfile(false);
+        setPhotoError(clearRes.error || 'Failed to remove profile photo.');
+        return;
+      }
+      resolvedPhotoUrl = '';
+    }
+
     if (isAttendant) {
+      // Attendants may only change their own name and photo here --
+      // country and currency are Admin-only, org-wide settings, so they
+      // are intentionally omitted from this payload and left untouched
+      // (the ...config spread preserves the current values).
       onUpdateConfig({
         ...config,
         ownerName: cleanUsername,
-        currency: currencyCode,
-        currencySymbol: currencySymbol,
-        country: countryVal,
-        profilePhoto: profilePhoto
+        profilePhoto: resolvedPhotoUrl
       });
 
       if (organizations && currentOrgId && onUpdateOrganizations) {
@@ -841,7 +882,7 @@ export default function SettingsScreen({
             return {
               ...org,
               attendantName: cleanUsername,
-              attendantPhoto: profilePhoto
+              attendantPhoto: resolvedPhotoUrl
             };
           }
           return org;
@@ -852,6 +893,7 @@ export default function SettingsScreen({
       const busNameCheck = validateBusinessName(busName);
       if (!busNameCheck.isValid) {
         alert(busNameCheck.error || 'Business name is invalid.');
+        setIsSavingProfile(false);
         return;
       }
       const cleanBusName = busNameCheck.cleanName;
@@ -860,6 +902,7 @@ export default function SettingsScreen({
         const emailCheck = validateEmail(busEmail);
         if (!emailCheck.isValid) {
           alert(emailCheck.error || 'Official Email address is invalid.');
+          setIsSavingProfile(false);
           return;
         }
       }
@@ -876,7 +919,7 @@ export default function SettingsScreen({
         country: countryVal,
         language: 'English',
         languageCode: 'en',
-        profilePhoto: profilePhoto,
+        profilePhoto: resolvedPhotoUrl,
         adminPhone: sanitizeInput(adminPhone),
         attendantPhone: sanitizeInput(attendantPhone)
       });
@@ -889,7 +932,7 @@ export default function SettingsScreen({
               ...org,
               name: cleanBusName,
               adminName: cleanUsername,
-              adminPhoto: profilePhoto
+              adminPhoto: resolvedPhotoUrl
             };
           }
           return org;
@@ -898,6 +941,10 @@ export default function SettingsScreen({
       }
     }
 
+    setProfilePhoto(resolvedPhotoUrl);
+    setProfilePhotoFile(null);
+    setPhotoRemoved(false);
+    setIsSavingProfile(false);
     setSaveSuccess(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => setSaveSuccess(false), 3500);
@@ -933,7 +980,7 @@ export default function SettingsScreen({
       }
 
       setPasswordFeedback({ message: 'Password updated successfully!', isError: false });
-      
+
       // Clear password inputs
       setCurrentPassword('');
       setNewPassword('');
@@ -957,7 +1004,7 @@ export default function SettingsScreen({
 
       <AnimatePresence>
         {saveSuccess && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -981,11 +1028,10 @@ export default function SettingsScreen({
           <button
             type="button"
             onClick={() => setActiveTab('profile')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${
-              activeTab === 'profile' 
-                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md' 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'profile'
+                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
                 : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
-            }`}
+              }`}
           >
             <MaterialIcon name="person" size={18} className="text-slate-800" />
             <span>{translate('profileSettings', config.languageCode)}</span>
@@ -993,11 +1039,10 @@ export default function SettingsScreen({
           <button
             type="button"
             onClick={() => setActiveTab('system')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${
-              activeTab === 'system' 
-                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md' 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'system'
+                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
                 : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
-            }`}
+              }`}
           >
             <MaterialIcon name="tune" size={18} className="text-slate-800" />
             <span>{translate('systemSettings', config.languageCode)}</span>
@@ -1005,11 +1050,10 @@ export default function SettingsScreen({
           <button
             type="button"
             onClick={() => setActiveTab('security')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${
-              activeTab === 'security' 
-                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md' 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'security'
+                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
                 : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
-            }`}
+              }`}
           >
             <MaterialIcon name="security" size={18} className="text-slate-800" />
             <span>{translate('securitySettings', config.languageCode)}</span>
@@ -1020,7 +1064,7 @@ export default function SettingsScreen({
         <div className="md:col-span-3">
           {/* Active Tab Component */}
           {activeTab === 'profile' && (
-<div className="finnova-card p-5 sm:p-6 space-y-4">
+            <div className="finnova-card p-5 sm:p-6 space-y-4">
               <h3 className="text-sm font-semibold text-gray-850 border-b pb-2.5 flex items-center gap-1.5">
                 <User size={16} className="text-indigo-550" />
                 <span>{translate('profileSettings', config.languageCode)}</span>
@@ -1032,14 +1076,20 @@ export default function SettingsScreen({
                   <label className="block font-semibold text-gray-700 mb-2">
                     Profile Photo
                   </label>
-                  
+                  {photoError && (
+                    <div className="mb-2 flex items-center gap-2 text-red-600 font-bold">
+                      <AlertCircle size={14} />
+                      <span>{photoError}</span>
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row items-center gap-5 p-5 finnova-card">
                     {/* Circle Preview */}
                     <div className="relative group shrink-0 w-20 h-20 neumorphic-circle text-slate-900 flex items-center justify-center overflow-hidden border border-white/90">
                       {profilePhoto ? (
-                        <img 
-                          src={profilePhoto} 
-                          alt="Profile Preview" 
+                        <img
+                          src={profilePhoto}
+                          alt="Profile Preview"
                           className="w-full h-full object-cover animate-fade-in"
                           referrerPolicy="no-referrer"
                         />
@@ -1049,13 +1099,15 @@ export default function SettingsScreen({
                           <span className="text-[8px] text-slate-800 font-extrabold select-none">No Photo</span>
                         </div>
                       )}
-                      
+
                       {profilePhoto && (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             setProfilePhoto('');
+                            setProfilePhotoFile(null);
+                            setPhotoRemoved(true);
                           }}
                           className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-150 cursor-pointer text-white text-[10px] font-bold"
                           title="Remove Photo"
@@ -1066,18 +1118,17 @@ export default function SettingsScreen({
                     </div>
 
                     {/* Drag and Drop Zone */}
-                    <div 
+                    <div
                       onDragOver={onDragOver}
                       onDragLeave={onDragLeave}
                       onDrop={onDrop}
-                      className={`flex-1 w-full border-2 border-dashed rounded-2xl p-5 flex flex-col items-center justify-center text-center transition cursor-pointer neumorphic-card ${
-                        isDragging 
-                          ? 'border-slate-800 bg-slate-200/60' 
+                      className={`flex-1 w-full border-2 border-dashed rounded-2xl p-5 flex flex-col items-center justify-center text-center transition cursor-pointer neumorphic-card ${isDragging
+                          ? 'border-slate-800 bg-slate-200/60'
                           : 'border-slate-300 bg-[#ebf0f7]/60 hover:border-slate-800'
-                      }`}
+                        }`}
                       onClick={() => document.getElementById('profile-photo-input')?.click()}
                     >
-                      <input 
+                      <input
                         type="file"
                         id="profile-photo-input"
                         className="hidden"
@@ -1104,17 +1155,16 @@ export default function SettingsScreen({
                   <label className="block font-semibold text-gray-700 mb-1">
                     {translate('registeredTradeName', config.languageCode)}
                   </label>
-                  <input 
+                  <input
                     type="text"
                     required
                     disabled={userRole === 5}
                     value={busName}
                     onChange={(e) => setBusName(e.target.value)}
-                    className={`w-full rounded-lg border p-2.5 font-medium ${
-                      userRole === 5 
-                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none' 
+                    className={`w-full rounded-lg border p-2.5 font-medium ${userRole === 5
+                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
                         : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
-                    }`}
+                      }`}
                   />
                   <p className="text-[10px] text-gray-400 mt-1">
                     Industrial legal name of your entity printed on bills and invoices. {userRole === 5 && <span className="text-amber-600 font-semibold">(Restricted to Admin)</span>}
@@ -1126,7 +1176,7 @@ export default function SettingsScreen({
                   <label className="block font-semibold text-gray-700 mb-1">
                     {translate('username', config.languageCode)} (Operator Username)
                   </label>
-                  <input 
+                  <input
                     type="text"
                     required
                     value={ownName}
@@ -1145,17 +1195,16 @@ export default function SettingsScreen({
                     <label className="block font-semibold text-gray-700 mb-1">
                       {translate('officialEmail', config.languageCode)}
                     </label>
-                    <input 
+                    <input
                       type="email"
                       required
                       disabled={userRole === 5}
                       value={busEmail}
                       onChange={(e) => setBusEmail(e.target.value)}
-                      className={`w-full rounded-lg border p-2.5 font-medium ${
-                        userRole === 5 
-                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none' 
+                      className={`w-full rounded-lg border p-2.5 font-medium ${userRole === 5
+                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
                           : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
-                      }`}
+                        }`}
                     />
                   </div>
 
@@ -1164,16 +1213,15 @@ export default function SettingsScreen({
                     <label className="block font-semibold text-gray-700 mb-1">
                       Contact Number
                     </label>
-                    <input 
+                    <input
                       type="text"
                       disabled={userRole === 5}
                       value={busPhone}
                       onChange={(e) => setBusPhone(e.target.value)}
-                      className={`w-full rounded-lg border p-2.5 font-mono ${
-                        userRole === 5 
-                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none' 
+                      className={`w-full rounded-lg border p-2.5 font-mono ${userRole === 5
+                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
                           : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
-                      }`}
+                        }`}
                     />
                   </div>
                 </div>
@@ -1184,10 +1232,11 @@ export default function SettingsScreen({
                 <div className="pt-3 border-t border-slate-200/60 flex justify-end">
                   <button
                     type="submit"
-                    className="flex items-center gap-2.5 neumorphic-btn text-slate-900 font-extrabold px-6 py-2.5 rounded-full transition cursor-pointer border border-white/90 hover:text-black select-none"
+                    disabled={isSavingProfile}
+                    className="flex items-center gap-2.5 neumorphic-btn text-slate-900 font-extrabold px-6 py-2.5 rounded-full transition cursor-pointer border border-white/90 hover:text-black select-none disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <MaterialIcon name="save" size={18} className="text-slate-800" />
-                    <span>Update Profile</span>
+                    <span>{isSavingProfile ? 'Saving...' : 'Update Profile'}</span>
                   </button>
                 </div>
               </form>
@@ -1195,15 +1244,22 @@ export default function SettingsScreen({
           )}
 
           {activeTab === 'system' && (
-<div className="finnova-card p-5 sm:p-6 space-y-4">
+            <div className="finnova-card p-5 sm:p-6 space-y-4">
               <h3 className="text-sm font-semibold text-gray-850 border-b pb-2.5 flex items-center gap-1.5">
                 <Globe size={16} className="text-indigo-550" />
                 <span>{translate('systemSettings', config.languageCode)}</span>
               </h3>
 
+              {isAttendant && (
+                <div className="flex items-center gap-2.5 p-3 px-4 rounded-2xl neumorphic-inset text-slate-700 dark:text-slate-300 text-[11px] font-extrabold">
+                  <Lock size={14} className="shrink-0" />
+                  <span>Base country and currency are managed by your Administrator and shown here read-only.</span>
+                </div>
+              )}
+
               <AnimatePresence>
                 {saveSuccess && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: -8, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -1231,11 +1287,12 @@ export default function SettingsScreen({
                     <div className="relative">
                       <button
                         type="button"
+                        disabled={isAttendant}
                         onClick={() => {
                           setIsCountryDropdownOpen(!isCountryDropdownOpen);
                           setIsCurrencyDropdownOpen(false);
                         }}
-                        className="w-full flex items-center justify-between rounded-xl border border-white/80 dark:border-slate-800/80 p-2.5 neumorphic-inset text-slate-900 dark:text-slate-100 text-left cursor-pointer min-h-[42px] font-extrabold"
+                        className="w-full flex items-center justify-between rounded-xl border border-white/80 dark:border-slate-800/80 p-2.5 neumorphic-inset text-slate-900 dark:text-slate-100 text-left cursor-pointer min-h-[42px] font-extrabold disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <div className="flex items-center gap-2 truncate">
                           <MaterialIcon name="public" size={16} className="text-slate-800 dark:text-slate-300 shrink-0" />
@@ -1248,7 +1305,7 @@ export default function SettingsScreen({
 
                       <AnimatePresence>
                         {isCountryDropdownOpen && (
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0, y: -6, scale: 0.98 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -6, scale: 0.98 }}
@@ -1266,9 +1323,9 @@ export default function SettingsScreen({
                                 autoFocus
                               />
                               {countryQuery && (
-                                <button 
-                                  type="button" 
-                                  onClick={() => setCountryQuery('')} 
+                                <button
+                                  type="button"
+                                  onClick={() => setCountryQuery('')}
                                   className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-1 font-bold shrink-0"
                                 >
                                   ✕
@@ -1286,16 +1343,14 @@ export default function SettingsScreen({
                                       setCountryQuery('');
                                       setIsCountryDropdownOpen(false);
                                     }}
-                                    className={`w-full flex items-center justify-between px-3.5 py-2.5 text-left transition-all duration-150 cursor-pointer rounded-xl font-extrabold text-xs ${
-                                      countryVal === c.country 
-                                        ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-md' 
+                                    className={`w-full flex items-center justify-between px-3.5 py-2.5 text-left transition-all duration-150 cursor-pointer rounded-xl font-extrabold text-xs ${countryVal === c.country
+                                        ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-md'
                                         : 'text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
-                                    }`}
+                                      }`}
                                   >
                                     <span className="truncate pr-2 font-bold">{getTranslatedCountry(c.country, config.languageCode)} ({c.code})</span>
-                                    <span className={`text-[10px] neumorphic-inset rounded-lg px-2 py-0.5 shrink-0 font-extrabold ${
-                                      countryVal === c.country ? 'bg-white/20 text-white border-0' : 'text-slate-600 dark:text-slate-400'
-                                    }`}>
+                                    <span className={`text-[10px] neumorphic-inset rounded-lg px-2 py-0.5 shrink-0 font-extrabold ${countryVal === c.country ? 'bg-white/20 text-white border-0' : 'text-slate-600 dark:text-slate-400'
+                                      }`}>
                                       {c.currencyCode} · {c.dialCode}
                                     </span>
                                   </button>
@@ -1320,11 +1375,12 @@ export default function SettingsScreen({
                     <div className="relative">
                       <button
                         type="button"
+                        disabled={isAttendant}
                         onClick={() => {
                           setIsCurrencyDropdownOpen(!isCurrencyDropdownOpen);
                           setIsCountryDropdownOpen(false);
                         }}
-                        className="w-full flex items-center justify-between rounded-xl border border-white/80 dark:border-slate-800/80 p-2.5 neumorphic-inset text-slate-900 dark:text-slate-100 text-left cursor-pointer min-h-[42px] font-extrabold"
+                        className="w-full flex items-center justify-between rounded-xl border border-white/80 dark:border-slate-800/80 p-2.5 neumorphic-inset text-slate-900 dark:text-slate-100 text-left cursor-pointer min-h-[42px] font-extrabold disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <div className="flex items-center gap-2 truncate">
                           <MaterialIcon name="currency_exchange" size={16} className="text-slate-800 dark:text-slate-300 shrink-0" />
@@ -1340,7 +1396,7 @@ export default function SettingsScreen({
 
                       <AnimatePresence>
                         {isCurrencyDropdownOpen && (
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0, y: -6, scale: 0.98 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -6, scale: 0.98 }}
@@ -1358,9 +1414,9 @@ export default function SettingsScreen({
                                 autoFocus
                               />
                               {currencyQuery && (
-                                <button 
-                                  type="button" 
-                                  onClick={() => setCurrencyQuery('')} 
+                                <button
+                                  type="button"
+                                  onClick={() => setCurrencyQuery('')}
                                   className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-1 font-bold shrink-0"
                                 >
                                   ✕
@@ -1380,18 +1436,16 @@ export default function SettingsScreen({
                                       setCurrencyQuery('');
                                       setIsCurrencyDropdownOpen(false);
                                     }}
-                                    className={`w-full flex items-center justify-between px-3.5 py-2.5 text-left transition-all duration-150 cursor-pointer rounded-xl font-extrabold text-xs ${
-                                      currencyCode === c.code 
-                                        ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-md' 
+                                    className={`w-full flex items-center justify-between px-3.5 py-2.5 text-left transition-all duration-150 cursor-pointer rounded-xl font-extrabold text-xs ${currencyCode === c.code
+                                        ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-md'
                                         : 'text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
-                                    }`}
+                                      }`}
                                   >
                                     <span className="truncate pr-2 font-bold">
                                       {getTranslatedCurrencyName(c.name, config.languageCode)}
                                     </span>
-                                    <span className={`font-extrabold neumorphic-inset rounded-lg px-2 py-0.5 text-[10px] shrink-0 ${
-                                      currencyCode === c.code ? 'bg-white/20 text-white border-0' : 'text-slate-700 dark:text-slate-300'
-                                    }`}>
+                                    <span className={`font-extrabold neumorphic-inset rounded-lg px-2 py-0.5 text-[10px] shrink-0 ${currencyCode === c.code ? 'bg-white/20 text-white border-0' : 'text-slate-700 dark:text-slate-300'
+                                      }`}>
                                       {c.symbol}
                                     </span>
                                   </button>
@@ -1416,7 +1470,8 @@ export default function SettingsScreen({
                       id="sync-with-country-toggle"
                       type="checkbox"
                       checked={syncWithCountry}
-                      className="neumorphic-checkbox"
+                      disabled={isAttendant}
+                      className="neumorphic-checkbox disabled:opacity-60 disabled:cursor-not-allowed"
                       onChange={(e) => {
                         const checked = e.target.checked;
                         setSyncWithCountry(checked);
@@ -1442,13 +1497,14 @@ export default function SettingsScreen({
                       <input
                         type="text"
                         required
+                        disabled={isAttendant}
                         value={currencyCode}
                         onChange={(e) => {
                           setCurrencyCode(e.target.value.toUpperCase());
                           setSyncWithCountry(false);
                         }}
                         placeholder="e.g. USD, EUR, BTC, COIN"
-                        className="w-full rounded-xl border border-white/80 p-2.5 neumorphic-inset text-slate-900 font-mono font-extrabold tracking-wider focus:outline-hidden text-xs"
+                        className="w-full rounded-xl border border-white/80 p-2.5 neumorphic-inset text-slate-900 font-mono font-extrabold tracking-wider focus:outline-hidden text-xs disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1458,13 +1514,14 @@ export default function SettingsScreen({
                       <input
                         type="text"
                         required
+                        disabled={isAttendant}
                         value={currencySymbol}
                         onChange={(e) => {
                           setCurrencySymbol(e.target.value);
                           setSyncWithCountry(false);
                         }}
                         placeholder="e.g. $, €, ₿, ¤"
-                        className="w-full rounded-xl border border-white/80 p-2.5 neumorphic-inset text-slate-900 font-extrabold focus:outline-hidden text-xs"
+                        className="w-full rounded-xl border border-white/80 p-2.5 neumorphic-inset text-slate-900 font-extrabold focus:outline-hidden text-xs disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -1472,16 +1529,20 @@ export default function SettingsScreen({
 
 
 
-                {/* Submit save button */}
-                <div className="pt-3 border-t border-slate-200/60 flex justify-end">
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2.5 neumorphic-btn text-slate-900 font-extrabold px-6 py-2.5 rounded-full transition cursor-pointer border border-white/90 hover:text-black select-none"
-                  >
-                    <MaterialIcon name="save" size={18} className="text-slate-800" />
-                    <span>Save System Settings</span>
-                  </button>
-                </div>
+                {/* Submit save button -- Admin only; Attendants have no
+                    editable fields on this tab, so no button is shown. */}
+                {!isAttendant && (
+                  <div className="pt-3 border-t border-slate-200/60 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={isSavingProfile}
+                      className="flex items-center gap-2.5 neumorphic-btn text-slate-900 font-extrabold px-6 py-2.5 rounded-full transition cursor-pointer border border-white/90 hover:text-black select-none disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <MaterialIcon name="save" size={18} className="text-slate-800" />
+                      <span>{isSavingProfile ? 'Saving...' : 'Save System Settings'}</span>
+                    </button>
+                  </div>
+                )}
               </form>
 
               {/* Add Attendant Section (Admin Only) */}
@@ -1567,29 +1628,29 @@ export default function SettingsScreen({
                   {pwdError && <div className="text-xs font-bold text-rose-600 p-2 bg-rose-50 rounded-lg">{pwdError}</div>}
                   <div>
                     <label className="block text-[11px] font-extrabold text-slate-700 mb-1">Current Password</label>
-                    <input 
-                      type="password" 
-                      required 
-                      value={currentPwd} 
-                      onChange={e => setCurrentPwd(e.target.value)} 
-                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono" 
+                    <input
+                      type="password"
+                      required
+                      value={currentPwd}
+                      onChange={e => setCurrentPwd(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono"
                       placeholder="Enter current password"
                     />
                   </div>
                   <div>
                     <label className="block text-[11px] font-extrabold text-slate-700 mb-1">New Password</label>
-                    <input 
-                      type="password" 
-                      required 
-                      value={newPwd} 
-                      onChange={e => setNewPwd(e.target.value)} 
-                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono" 
+                    <input
+                      type="password"
+                      required
+                      value={newPwd}
+                      onChange={e => setNewPwd(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono"
                       placeholder="Enter new password (min 6 characters)"
                     />
                   </div>
-                  <button 
-                    type="submit" 
-                    disabled={isChangingPwd} 
+                  <button
+                    type="submit"
+                    disabled={isChangingPwd}
                     className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl text-xs transition cursor-pointer"
                   >
                     {isChangingPwd ? 'Updating Password...' : 'Update Password'}
@@ -1765,7 +1826,7 @@ export default function SettingsScreen({
           )}
 
           {activeTab === 'security' && (
-<div className="finnova-card p-5 sm:p-6 space-y-4">
+            <div className="finnova-card p-5 sm:p-6 space-y-4">
               <h3 className="text-sm font-semibold text-gray-850 border-b pb-2.5 flex items-center gap-1.5">
                 <Lock size={16} className="text-indigo-550" />
                 <span>Security Settings</span>
@@ -1773,18 +1834,17 @@ export default function SettingsScreen({
 
               <AnimatePresence>
                 {passwordFeedback && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: -8, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -8, scale: 0.98 }}
                     transition={{ duration: 0.2 }}
                     className="p-3.5 px-4 rounded-2xl text-xs font-extrabold flex items-center gap-3 neumorphic-card border border-white/80 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 bg-[#ebf0f7] dark:bg-[#181f2c]"
                   >
-                    <div className={`w-7 h-7 rounded-full neumorphic-circle shrink-0 flex items-center justify-center ${
-                      passwordFeedback.isError 
-                        ? 'text-rose-600 dark:text-rose-400 border border-rose-500/30 bg-rose-500/10' 
+                    <div className={`w-7 h-7 rounded-full neumorphic-circle shrink-0 flex items-center justify-center ${passwordFeedback.isError
+                        ? 'text-rose-600 dark:text-rose-400 border border-rose-500/30 bg-rose-500/10'
                         : 'text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 bg-emerald-500/10'
-                    }`}>
+                      }`}>
                       {passwordFeedback.isError ? <AlertCircle size={16} className="stroke-[3]" /> : <Check size={16} className="stroke-[3]" />}
                     </div>
                     <span className="tracking-wide">{passwordFeedback.message}</span>
@@ -1794,7 +1854,7 @@ export default function SettingsScreen({
 
               {/* Attendant Forgot Password Reset Prompt */}
               {userRole === 2 && currentOrg?.attendantResetRequested && currentOrg?.attendantPass?.startsWith('__RESETTING_') && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-3 shadow-xs mb-4 text-slate-800"
@@ -1809,7 +1869,7 @@ export default function SettingsScreen({
                       <p className="text-[11px] font-mono text-amber-950 bg-amber-100/60 px-2 py-1 rounded mt-1.5 inline-block border border-amber-200">
                         {currentOrg.attendantResetEmail}
                       </p>
-                      
+
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-[10px] text-amber-900 font-semibold">
                           Status:{' '}
@@ -1830,7 +1890,7 @@ export default function SettingsScreen({
                       Set Temporary Passcode PIN
                     </label>
                     <div className="flex gap-2 max-w-md">
-                      <input 
+                      <input
                         type="text"
                         value={tempPasswordInput}
                         onChange={(e) => {
@@ -1901,7 +1961,7 @@ export default function SettingsScreen({
                   <label className="block font-semibold text-gray-700 mb-1">
                     Current Password
                   </label>
-                  <input 
+                  <input
                     type="password"
                     required
                     value={currentPassword}
@@ -1917,7 +1977,7 @@ export default function SettingsScreen({
                     <label className="block font-semibold text-gray-700 mb-1">
                       New Password
                     </label>
-                    <input 
+                    <input
                       type="password"
                       required
                       value={newPassword}
@@ -1930,7 +1990,7 @@ export default function SettingsScreen({
                     <label className="block font-semibold text-gray-700 mb-1">
                       Confirm New Password
                     </label>
-                    <input 
+                    <input
                       type="password"
                       required
                       value={confirmPassword}

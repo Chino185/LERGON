@@ -97,7 +97,9 @@ import {
   logActivity,
   markNotificationsAsRead,
   updateBusinessCurrency,
-  subscribeToBusinessCurrency
+  subscribeToBusinessCurrency,
+  updateBusinessCountry,
+  subscribeToBusinessCountry
 } from './utils/authServices';
 
 import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems } from './utils/inventoryServices';
@@ -1112,12 +1114,27 @@ export default function App() {
       });
     });
 
+    // 6. Real-time Base Country Listener -- base_country is an Admin-only,
+    // org-wide setting (enforced both by RLS on public.businesses and by
+    // the SettingsScreen UI). This keeps every device, including
+    // Attendants who cannot change it themselves, in sync the instant the
+    // Admin changes it.
+    const unsubCountry = subscribeToBusinessCountry(currentOrgId, (country) => {
+      setConfig(prev => {
+        if (prev.country === country) {
+          return prev;
+        }
+        return { ...prev, country };
+      });
+    });
+
     return () => {
       unsubInventory();
       unsubCredits();
       unsubSales();
       unsubActivity();
       unsubCurrency();
+      unsubCountry();
     };
   }, [isLoggedIn, currentOrgId]);
 
@@ -1968,6 +1985,20 @@ export default function App() {
           .then((res) => {
             if (!res.success) {
               console.error('Failed to sync currency to backend:', res.error);
+            }
+          });
+      }
+
+      // Push the base country to Supabase too, same admin-only, org-wide
+      // pattern as currency above -- so it's saved centrally and reflected
+      // for every device/teammate rather than staying local to this
+      // browser.
+      const countryChanged = newConfig.country !== config.country;
+      if (countryChanged && currentOrgId) {
+        updateBusinessCountry(currentOrgId, currentUserRole, newConfig.country || '')
+          .then((res) => {
+            if (!res.success) {
+              console.error('Failed to sync base country to backend:', res.error);
             }
           });
       }
@@ -3382,6 +3413,7 @@ export default function App() {
                 onWipeStorage={handleWipeStorage}
                 onClearTransactions={handleClearTransactions}
                 userRole={currentUserRole || undefined}
+                userUid={currentUserUid}
                 currentOrgId={currentOrgId}
                 organizations={organizations}
                 onUpdateOrganizations={handleUpdateOrganizations}

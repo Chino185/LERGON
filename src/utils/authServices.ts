@@ -385,3 +385,103 @@ export function subscribeToBusinessCurrency(
     supabase.removeChannel(channel);
   };
 }
+
+/**
+ * Persist the business's base (operation) country to Supabase so it's
+ * shared across all devices/sessions for the organization, not just the
+ * browser that changed it. Only Admins (role 2) may update it -- this is
+ * an org-wide setting, mirroring updateBusinessCurrency above. The
+ * Postgres RLS policy "Admins can update own business" enforces this
+ * server-side as well, so this check is defense-in-depth, not the only
+ * gate.
+ */
+export async function updateBusinessCountry(
+  businessId: string,
+  userRole: number | string | undefined,
+  country: string
+): Promise<{ success: boolean; error?: string }> {
+  const isAdmin = userRole === 2 || userRole === 'admin';
+  if (!isAdmin) {
+    return { success: false, error: 'Unauthorized: Only Administrators can change the base country.' };
+  }
+
+  if (!businessId) {
+    return { success: false, error: 'Business ID is required.' };
+  }
+
+  try {
+    const { error } = await supabase
+      .from('businesses')
+      .update({ base_country: country })
+      .eq('id', businessId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateBusinessCountry Error:', err);
+    return { success: false, error: err?.message || 'Failed to update base country.' };
+  }
+}
+
+/**
+ * Subscribe to Realtime changes on the business's base country so that
+ * every logged-in device (Admin or Attendant) picks up a country change
+ * immediately. Mirrors subscribeToBusinessCurrency above.
+ */
+export function subscribeToBusinessCountry(
+  businessId: string,
+  onUpdate: (country: string) => void
+): () => void {
+  if (!businessId) {
+    return () => { };
+  }
+
+  const fetchCountry = () => {
+    supabase
+      .from('businesses')
+      .select('base_country')
+      .eq('id', businessId)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        onUpdate(data.base_country);
+      });
+  };
+
+  fetchCountry();
+
+  const channel = getSafeChannel(`business_country_${businessId}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'businesses', filter: `id=eq.${businessId}` },
+      () => fetchCountry()
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Clear a user's profile photo in the profiles table. Each user owns only
+ * their own profile_photo_url row (enforced by the "Users can update own
+ * profile" RLS policy), so this can only ever clear the caller's own
+ * photo -- never a colleague's.
+ */
+export async function clearProfilePhoto(
+  userUid: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ profile_photo_url: null })
+      .eq('id', userUid);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('clearProfilePhoto Error:', err);
+    return { success: false, error: err?.message || 'Failed to remove profile photo.' };
+  }
+}
