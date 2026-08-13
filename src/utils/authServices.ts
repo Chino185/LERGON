@@ -204,11 +204,17 @@ export async function uploadProfilePhoto(
       .from('profile-photos')
       .getPublicUrl(filePath);
 
-    // Update profile with photo URL
-    await supabase
+    // Persist the photo URL on the profiles row in the background. The
+    // caller already has publicUrl and saves it into local/org state
+    // immediately, so the UI doesn't need to wait on this second
+    // round-trip -- it doesn't block the "Update Profile" flow.
+    supabase
       .from('profiles')
       .update({ profile_photo_url: publicUrl })
-      .eq('id', userUid);
+      .eq('id', userUid)
+      .then(({ error }) => {
+        if (error) console.error('uploadProfilePhoto (background profile sync) Error:', error);
+      });
 
     return { success: true, url: publicUrl };
   } catch (err: any) {

@@ -764,7 +764,53 @@ export default function SettingsScreen({
     }
   };
 
-  const handleFileChange = (file: File) => {
+  // Shrinks/re-encodes a profile photo client-side (max ~320px on the
+  // longest side, JPEG @ 0.82 quality) before it's ever uploaded. This is
+  // what keeps "Update Profile" fast -- a multi-MB camera photo becomes a
+  // tiny file in milliseconds locally, instead of a slow upload over the
+  // network. Falls back to the original file if anything goes wrong.
+  const resizeImageFile = (file: File, maxDim = 320, quality = 0.82): Promise<File> => {
+    return new Promise((resolve) => {
+      try {
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { resolve(file); return; }
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            if (!blob) { resolve(file); return; }
+            const resized = new File(
+              [blob],
+              file.name.replace(/\.[^./\\]+$/, '') + '.jpg',
+              { type: 'image/jpeg' }
+            );
+            resolve(resized);
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+        img.src = objectUrl;
+      } catch {
+        resolve(file);
+      }
+    });
+  };
+
+  const handleFileChange = async (file: File) => {
     if (!file) return;
     if (file.size > 3 * 1024 * 1024) {
       alert('File size must be under 3MB.');
@@ -772,17 +818,28 @@ export default function SettingsScreen({
     }
     setPhotoError('');
     setPhotoRemoved(false);
-    // Keep the actual File for upload on save, and show a local preview
-    // immediately via a data URL (no backend round-trip needed just to
-    // preview).
-    setProfilePhotoFile(file);
+
+    // Downscale/compress client-side before we ever touch the network.
+    // Phone camera photos can be several MB even under the 3MB cap, and
+    // a profile picture never needs to render bigger than a couple
+    // hundred pixels -- shrinking it here (canvas resize + JPEG
+    // re-encode) typically takes it down to tens of KB, which is what
+    // actually makes the upload (and therefore "Update Profile") fast.
+    // If anything about the resize fails, we just fall back to the
+    // original file so the feature still works.
+    const uploadFile = await resizeImageFile(file);
+
+    // Keep the (resized) File for upload on save, and show a local
+    // preview immediately via a data URL (no backend round-trip needed
+    // just to preview).
+    setProfilePhotoFile(uploadFile);
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setProfilePhoto(reader.result);
       }
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(uploadFile);
   };
 
   const onDragOver = (e: React.DragEvent) => {
@@ -1691,7 +1748,7 @@ export default function SettingsScreen({
                   <span>Security & Password Management</span>
                 </h4>
                 <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
-                  Update your account password securely via Supabase Authentication.
+                  Update your account password to keep your account secure.
                 </p>
                 <form onSubmit={handlePasswordChangeSubmit} className="finnova-card p-5 rounded-2xl space-y-3 border border-white/80 dark:border-slate-800 max-w-lg">
                   {pwdSuccess && <div className="text-xs font-bold text-emerald-600 p-2 bg-emerald-50 rounded-lg">{pwdSuccess}</div>}
