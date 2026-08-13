@@ -38,7 +38,6 @@ import {
   subscribeToDamageReports,
   subscribeToRestockRequests,
   reportDamagedStockTransaction,
-  verifyRestockRequestTransaction,
   DamageReport
 } from '../utils/inventoryServices';
 import { sanitizeTextInput } from '../utils/securityValidation';
@@ -54,7 +53,7 @@ interface InventoryScreenProps {
   onAddItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => Promise<{ success: boolean; error?: string }> | any;
   onUpdateItem: (id: string, updates: Partial<InventoryItem>) => Promise<{ success: boolean; error?: string }> | any;
   onDeleteItem: (id: string) => void;
-  onLogAdjustment: (itemId: string, qtyChanged: number, type: StockAdjustment['type'], notes: string) => void;
+  onLogAdjustment: (itemId: string, qtyChanged: number, type: StockAdjustment['type'], notes: string) => void | Promise<{ success: boolean; error?: string }>;
   userRole?: number;
   pendingRestocks?: PendingRestock[];
   onVerifyRestock?: (id: string, adminQty: number, notes?: string, forceResolveValue?: number) => 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error';
@@ -591,7 +590,7 @@ export default function InventoryScreen({
   };
 
   // 8. Submit Adjust
-  const handleSaveAdjustment = (e: React.FormEvent) => {
+  const handleSaveAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adjustItemId || qtyChangeAmt === '') return;
 
@@ -607,7 +606,8 @@ export default function InventoryScreen({
       return;
     }
 
-    onLogAdjustment(adjustItemId, finalChange, adjustType, adjustNotes || translate('manual adjustment log', config.languageCode));
+    const result = await onLogAdjustment(adjustItemId, finalChange, adjustType, adjustNotes || translate('manual adjustment log', config.languageCode));
+    if (result && !result.success) return;
     setShowAdjustModal(false);
   };
 
@@ -666,8 +666,8 @@ export default function InventoryScreen({
       return;
     }
 
-    // Also notify local adjustment state
-    onLogAdjustment(damageItemId, -qty, 'damaged', justification);
+    // The atomic RPC already decremented stock and recorded the damage report;
+    // realtime subscriptions refresh inventory and audit state.
     setShowDamageModal(false);
   };
 
@@ -1517,17 +1517,6 @@ export default function InventoryScreen({
                       key={restock.id}
                       restock={restock}
                       onVerifyRestock={(id, adminQty, notes, forceValue) => {
-                        verifyRestockRequestTransaction(
-                          businessId,
-                          userUid,
-                          userRole,
-                          id,
-                          restock.itemId,
-                          restock.attendantQty,
-                          adminQty,
-                          notes,
-                          forceValue
-                        );
                         if (onVerifyRestock) {
                           return onVerifyRestock(id, adminQty, notes, forceValue);
                         }

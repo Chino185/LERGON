@@ -93,17 +93,20 @@ import {
   sendVerificationEmail,
   resetPasswordForEmail,
   joinAttendantWithInviteCode,
+  validateAttendantInvite,
   subscribeToActivityLogs,
   logActivity,
   markNotificationsAsRead,
+  loadNotificationReadIds,
   updateBusinessCurrency,
   subscribeToBusinessCurrency,
   updateUserPhone
 } from './utils/authServices';
 
-import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems } from './utils/inventoryServices';
+import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems, subscribeToStockAdjustments, submitRestockRequest, verifyRestockRequestTransaction, recordStockAdjustmentTransaction, subscribeToRestockRequests, createAttendantInvite } from './utils/inventoryServices';
 import { saveCreditProfile, subscribeToCreditProfiles } from './utils/creditServices';
-import { recordSaleTransaction, subscribeToTransactions } from './utils/transactionServices';
+import { recordSaleTransaction, recordCreditSaleTransaction, recordSupplierCreditPurchaseTransaction, recordCreditChargeTransaction, recordRepaymentTransaction, subscribeToTransactions } from './utils/transactionServices';
+import { saveInvoice } from './utils/invoiceServices';
 import { LandingPageBackground } from './components/LandingPageBackground';
 import Navigation from './components/Navigation';
 
@@ -805,11 +808,21 @@ export default function App() {
     }
     const cleanCode = codeCheck.cleanCode;
 
-    const targetOrg = organizations.find(org => {
+    const backendInvite = await validateAttendantInvite(cleanCode);
+    const localTargetOrg = organizations.find(org => {
       const invite = org.activeInvite;
-      if (!invite) return false;
-      return invite.code === cleanCode && !invite.isUsed && Date.now() < invite.expiresAt;
+      return invite?.code === cleanCode && !invite.isUsed && Date.now() < invite.expiresAt;
     });
+    const targetOrg = backendInvite.success
+      ? ({
+        id: backendInvite.businessId!,
+        name: backendInvite.businessName || localTargetOrg?.name || 'Business',
+        adminPass: '',
+        attendantPass: '',
+        adminEmail: localTargetOrg?.adminEmail,
+        attendantName: localTargetOrg?.attendantName || 'Attendant'
+      } as Organization)
+      : localTargetOrg;
 
     if (!targetOrg) {
       const fail = recordFailedAttempt('invite_pin_attempts', 5, 300000);
@@ -872,7 +885,8 @@ export default function App() {
     console.log('[Attendant Signup] Attempting registration for:', cleanEmail, 'Business Name:', validatedJoinOrg.name);
     const authRes = await registerUser(cleanEmail, cleanPass, {
       role: 'attendant',
-      name: validatedJoinOrg.name
+      name: validatedJoinOrg.name,
+      inviteCode: inviteCodeInput.trim()
     });
 
     if (authRes.error || !authRes.user) {
@@ -882,9 +896,8 @@ export default function App() {
       return;
     }
 
-    if (inviteCodeInput) {
-      await joinAttendantWithInviteCode(inviteCodeInput, validatedJoinOrg.name);
-    }
+    // The signup trigger consumes the validated invite code and assigns the
+    // attendant profile to the business before email confirmation completes.
 
     // Immediately sign out - Don't auto-login after Sign Up!
     await logoutUser();
@@ -973,6 +986,43 @@ export default function App() {
 
         if (profileData) {
           const roleStr = profileData.role === 'admin' ? 'admin' : 'attendant';
+
+          if (profileData.business_id) {
+            const { data: businessData } = await supabase
+              .from('businesses')
+              .select('id, trade_name, base_country, base_currency_code, base_currency_symbol, owner_admin_id')
+              .eq('id', profileData.business_id)
+              .single();
+            const localOrg = organizations.find(o =>
+              o.id === profileData.business_id ||
+              o.adminEmail?.toLowerCase() === user.email?.toLowerCase() ||
+              o.attendantEmail?.toLowerCase() === user.email?.toLowerCase()
+            );
+            const normalizedOrg: Organization = {
+              id: profileData.business_id,
+              name: businessData?.trade_name || localOrg?.name || 'Business',
+              adminPass: localOrg?.adminPass || '',
+              attendantPass: localOrg?.attendantPass || '',
+              adminEmail: roleStr === 'admin' ? (user.email || localOrg?.adminEmail) : localOrg?.adminEmail,
+              attendantEmail: roleStr === 'attendant' ? (user.email || localOrg?.attendantEmail) : localOrg?.attendantEmail,
+              adminName: roleStr === 'admin' ? (profileData.display_username || localOrg?.adminName || 'Administrator') : localOrg?.adminName,
+              attendantName: roleStr === 'attendant' ? (profileData.display_username || localOrg?.attendantName || 'Attendant') : localOrg?.attendantName,
+              adminPhoto: localOrg?.adminPhoto,
+              attendantPhoto: localOrg?.attendantPhoto,
+              activeInvite: localOrg?.activeInvite
+            };
+            setOrganizations(prev => [normalizedOrg, ...prev.filter(o => o.id !== normalizedOrg.id && o.id !== localOrg?.id)]);
+            if (businessData) {
+              setConfig(prev => ({
+                ...prev,
+                businessName: businessData.trade_name || prev.businessName,
+                country: businessData.base_country || prev.country,
+                currency: businessData.base_currency_code || prev.currency,
+                currencySymbol: businessData.base_currency_symbol || prev.currencySymbol,
+                email: roleStr === 'admin' ? (user.email || prev.email) : prev.email
+              }));
+            }
+          }
           const roleNum: UserRole = roleStr === 'admin' ? 2 : 5;
           setCurrentUserRole(roleNum);
           setCurrentOrgId(profileData.business_id || '');
@@ -1079,6 +1129,15 @@ export default function App() {
     };
   }, []);
 
+  // Restore per-user notification read state from the current tenant.
+  useEffect(() => {
+    if (!isLoggedIn || !currentOrgId || !currentUserUid) {
+      setReadNotificationIds([]);
+      return;
+    }
+    loadNotificationReadIds(currentUserUid, currentOrgId).then(setReadNotificationIds);
+  }, [isLoggedIn, currentOrgId, currentUserUid]);
+
   // Sync role & screen state
   useEffect(() => {
     if (currentUserRole !== 2 && activeScreen === 'activity_log') {
@@ -1091,7 +1150,7 @@ export default function App() {
       const effective = loadEffectiveConfig(currentOrgId, currentUserRole, organizations);
       setConfig(effective);
     }
-  }, [currentOrgId, currentUserRole, isLoggedIn]);
+  }, [currentOrgId, currentUserRole, isLoggedIn, organizations]);
 
   // Fetch real inventory, credits, transactions, and activity logs from Cloud Firestore onSnapshot Subscriptions
   useEffect(() => {
@@ -1117,12 +1176,17 @@ export default function App() {
       setTransactions(txns || []);
     });
 
-    // 4. Real-time Activity Logs Listener
-    const unsubActivity = subscribeToActivityLogs(currentOrgId, (logs) => {
-      setAdjustments(logs || []);
+    // 4. Real-time typed stock-adjustment ledger listener
+    const unsubAdjustments = subscribeToStockAdjustments(currentOrgId, (items) => {
+      setAdjustments(items || []);
     });
 
-    // 5. Real-time Business Currency Listener — keeps every device (Admin
+    // 5. Real-time pending restock requests listener
+    const unsubRestocks = subscribeToRestockRequests(currentOrgId, (requests) => {
+      setPendingRestocks(requests || []);
+    });
+
+    // 6. Real-time Business Currency Listener — keeps every device (Admin
     // and Attendant) in sync the instant the Admin changes the business
     // currency, instead of waiting on next login/refresh.
     const unsubCurrency = subscribeToBusinessCurrency(currentOrgId, ({ currencyCode, currencySymbol }) => {
@@ -1138,7 +1202,8 @@ export default function App() {
       unsubInventory();
       unsubCredits();
       unsubSales();
-      unsubActivity();
+      unsubAdjustments();
+      unsubRestocks();
       unsubCurrency();
     };
   }, [isLoggedIn, currentOrgId]);
@@ -1415,7 +1480,7 @@ export default function App() {
   };
 
 
-  const handleLogAdjustment = (
+  const handleLogAdjustment = async (
     itemId: string,
     qtyChanged: number,
     type: StockAdjustment['type'],
@@ -1424,77 +1489,55 @@ export default function App() {
     performedBy?: string
   ) => {
     const item = inventory.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) return { success: false, error: 'Inventory item not found.' };
 
-    const actor = performedBy || activeUserName;
     const userUid = currentUserUid || '';
+    let result: { success: boolean; error?: string };
 
-    // Intercept attendant restocks
+    // Attendants submit restock requests; only an approved request changes stock.
     if (currentUserRole === 5 && qtyChanged > 0 && type === 'purchase_in') {
-      const pendingId = `pending-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      const pendingEntry: PendingRestock = {
-        id: pendingId,
+      result = await submitRestockRequest(currentOrgId, userUid, '', currentUserRole, {
         itemId,
         itemName: item.name,
-        attendantQty: qtyChanged,
-        attendantNotes: notes,
-        date: new Date().toISOString(),
-        submittedBy: actor,
-        status: 'pending'
-      };
-      setPendingRestocks(prev => [pendingEntry, ...prev]);
-      return;
-    }
-
-    const adjustmentLog: StockAdjustment = {
-      id: `adj-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      itemId,
-      itemName: item.name,
-      qtyChanged,
-      type,
-      date: new Date().toISOString(),
-      notes,
-      creditAccountId,
-      performedBy: actor
-    };
-    setAdjustments(prev => [adjustmentLog, ...prev]);
-    logActivity(
-      currentOrgId,
-      `Stock Adjustment (${type})`,
-      `${actor} adjusted ${item.name} quantity by ${qtyChanged} units (${type}). Notes: ${notes || 'N/A'}`,
-      currentUserUid,
-      'manual'
-    );
-
-    let computedNextQty = 0;
-    setInventory(prev => prev.map(i => {
-      if (i.id === itemId) {
-        computedNextQty = Math.max(0, i.quantity + qtyChanged);
-        return {
-          ...i,
-          quantity: computedNextQty,
-          lastUpdated: new Date().toISOString()
-        };
-      }
-      return i;
-    }));
-
-    if (item) {
-      saveInventoryItem(currentOrgId, userUid, currentUserRole || 2, {
-        name: item.name,
-        sku: item.sku,
-        category: item.category,
-        quantity: computedNextQty,
-        reorderPoint: item.reorderPoint || 0,
-        unitCost: item.unitCost || 0,
-        unitPrice: item.unitPrice || 0,
-        supplier: item.supplier || '',
-        location: item.location || '',
+        requestedQuantity: qtyChanged,
         notes
-      }, itemId);
+      });
+    } else if (type === 'sale_out' && creditAccountId) {
+      const saleResult = await recordCreditSaleTransaction(
+        currentOrgId,
+        userUid,
+        creditAccountId,
+        itemId,
+        Math.abs(qtyChanged),
+        item.unitPrice || 0,
+        notes,
+        'manual'
+      );
+      result = saleResult;
+    } else if (type === 'sale_out' && !creditAccountId) {
+      result = await recordSaleTransaction(
+        currentOrgId,
+        userUid,
+        itemId,
+        Math.abs(qtyChanged),
+        item.unitPrice || 0,
+        'Cash',
+        'manual'
+      );
+    } else {
+      result = await recordStockAdjustmentTransaction(
+        currentOrgId,
+        userUid,
+        currentUserRole || 2,
+        { itemId, qtyChanged, type, notes, creditAccountId }
+      );
     }
-  };
 
+    if (!result.success) {
+      alert(result.error || 'Failed to persist the stock movement.');
+    }
+    return result;
+  };
 
   const handleVerifyRestock = (
     id: string,
@@ -1505,67 +1548,29 @@ export default function App() {
     const pending = pendingRestocks.find(r => r.id === id);
     if (!pending) return 'error';
 
-    if (forceResolveValue !== undefined) {
-      handleLogAdjustment(
-        pending.itemId,
-        forceResolveValue,
-        'purchase_in',
-        `Discrepancy resolved by Admin: ${discrepancyNotes || 'Forced manual resolution'}`
-      );
-
-      setPendingRestocks(prev => prev.map(r => {
-        if (r.id === id) {
-          return {
-            ...r,
-            status: 'resolved',
-            adminInputQty: adminQty,
-            resolvedQty: forceResolveValue,
-            discrepancyNotes: discrepancyNotes || 'Resolved discrepancy',
-            resolvedAt: new Date().toISOString()
-          };
-        }
-        return r;
-      }));
-      return 'resolved_forced';
-    }
-
+    const isForced = forceResolveValue !== undefined;
     const isMatch = adminQty === pending.attendantQty;
+    const status = (isForced || isMatch) ? 'approved' : 'on_hold';
+    const targetQty = isForced ? Number(forceResolveValue) : adminQty;
 
-    if (isMatch) {
-      handleLogAdjustment(
-        pending.itemId,
-        pending.attendantQty,
-        'purchase_in',
-        `Verified restock: ${pending.attendantNotes || 'Matched attendant input'}`
-      );
+    verifyRestockRequestTransaction(
+      currentOrgId,
+      currentUserUid || '',
+      currentUserRole || 2,
+      id,
+      pending.itemId,
+      pending.attendantQty,
+      targetQty,
+      discrepancyNotes,
+      isForced ? Number(forceResolveValue) : undefined
+    ).then(result => {
+      if (result.result === 'error' || !result.success) {
+        alert(result.error || 'Failed to persist restock verification.');
+      }
+    });
 
-      setPendingRestocks(prev => prev.map(r => {
-        if (r.id === id) {
-          return {
-            ...r,
-            status: 'resolved',
-            adminInputQty: adminQty,
-            resolvedQty: pending.attendantQty,
-            resolvedAt: new Date().toISOString()
-          };
-        }
-        return r;
-      }));
-      return 'resolved_matched';
-    } else {
-      setPendingRestocks(prev => prev.map(r => {
-        if (r.id === id) {
-          return {
-            ...r,
-            status: 'on_hold',
-            adminInputQty: adminQty,
-            discrepancyNotes: discrepancyNotes || `Discrepancy: Attendant entered ${pending.attendantQty} pcs, Admin counted ${adminQty} pcs.`
-          };
-        }
-        return r;
-      }));
-      return 'on_hold';
-    }
+    if (status === 'on_hold') return 'on_hold';
+    return isForced ? 'resolved_forced' : 'resolved_matched';
   };
 
   const handleFlagAdjustment = (id: string, comment: string) => {
@@ -1766,76 +1771,68 @@ export default function App() {
   };
 
   // --- Handlers: Credit Ledger ---
-  const handleAddAccount = (
+  const handleAddAccount = async (
     newAccData: Omit<CreditAccount, 'id' | 'remainingAmount' | 'status' | 'lastUpdated'>,
     items?: Array<{ itemId: string; qty: number; unitPrice: number }>,
     performedBy?: string
-  ) => {
-    const parentId = `credit-${Date.now()}`;
+  ): Promise<string | null> => {
     const actor = performedBy || activeUserName;
+    const itemTotal = items?.reduce((sum, item) => {
+      const inventoryItem = inventory.find(i => i.id === item.itemId);
+      const unitValue = newAccData.type === 'receivable' ? item.unitPrice : (inventoryItem?.unitCost || item.unitPrice);
+      return sum + item.qty * unitValue;
+    }, 0) || 0;
+    const initialAmount = items && items.length > 0 ? 0 : Number(newAccData.totalAmount || 0);
 
+    const saveResult = await saveCreditProfile(currentOrgId, currentUserUid || '', {
+      name: newAccData.name,
+      type: newAccData.type,
+      phone: newAccData.phone,
+      email: newAccData.email,
+      totalAmount: initialAmount,
+      dueDate: newAccData.dueDate,
+      notes: newAccData.notes
+    });
+    if (!saveResult.success || !saveResult.id) {
+      alert(saveResult.error || 'Failed to save credit account.');
+      return null;
+    }
+
+    const parentId = saveResult.id;
     const freshAcc: CreditAccount = {
       ...newAccData,
       id: parentId,
-      remainingAmount: newAccData.totalAmount,
-      status: 'active',
+      totalAmount: initialAmount + itemTotal,
+      remainingAmount: initialAmount + itemTotal,
+      status: initialAmount + itemTotal === 0 ? 'settled' : 'active',
       lastUpdated: new Date().toISOString(),
       dateOfCrediting: new Date().toISOString(),
       paymentDate: undefined
     };
 
-    // If items are provided, log a StockAdjustment and update inventory counts for each!
+    setCreditAccounts(prev => [freshAcc, ...prev.filter(acc => acc.id !== parentId)]);
+
     if (items && items.length > 0) {
-      items.forEach((it, idx) => {
-        const item = inventory.find(i => i.id === it.itemId);
-        if (!item) return;
-
-        const qtyChanged = newAccData.type === 'receivable' ? -it.qty : it.qty;
-        const adjType = newAccData.type === 'receivable' ? 'sale_out' : 'purchase_in';
-
-        const adjustmentLog: StockAdjustment = {
-          id: `adj-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
-          itemId: it.itemId,
-          itemName: item.name,
-          qtyChanged,
-          type: adjType,
-          date: new Date().toISOString(),
-          notes: newAccData.type === 'receivable'
-            ? `Credited to customer ${newAccData.name} on account profile setup.`
-            : `Purchased on credit from supplier ${newAccData.name} on account profile setup.`,
-          creditAccountId: parentId,
-          performedBy: actor
-        };
-
-        // Append to local adjustments state
-        setAdjustments(prev => [adjustmentLog, ...prev]);
-        setInventory(prev => prev.map(inv => {
-          if (inv.id === it.itemId) {
-            return {
-              ...inv,
-              quantity: Math.max(0, inv.quantity + qtyChanged),
-              lastUpdated: new Date().toISOString()
-            };
-          }
-          return inv;
-        }));
-      });
+      for (const it of items) {
+        const inventoryItem = inventory.find(i => i.id === it.itemId);
+        if (!inventoryItem) continue;
+        const note = newAccData.type === 'receivable'
+          ? `Credited to customer ${newAccData.name} on account profile setup.`
+          : `Purchased on credit from supplier ${newAccData.name} on account profile setup.`;
+        const result = newAccData.type === 'receivable'
+          ? await recordCreditSaleTransaction(currentOrgId, currentUserUid || '', parentId, it.itemId, it.qty, it.unitPrice, note)
+          : await recordSupplierCreditPurchaseTransaction(currentOrgId, currentUserUid || '', parentId, it.itemId, it.qty, inventoryItem.unitCost || it.unitPrice, note);
+        if (!result.success) {
+          alert(result.error || `Failed to persist linked item ${inventoryItem.name}.`);
+          return null;
+        }
+      }
     }
 
-    setCreditAccounts(prev => [freshAcc, ...prev]);
-    saveCreditProfile(currentOrgId, currentUserUid || '', {
-      name: freshAcc.name,
-      type: freshAcc.type,
-      phone: freshAcc.phone,
-      email: freshAcc.email,
-      totalAmount: freshAcc.totalAmount,
-      dueDate: freshAcc.dueDate,
-      notes: freshAcc.notes
-    });
-
+    return parentId;
   };
 
-  const handleAddTransaction = (
+  const handleAddTransaction = async (
     accountId: string,
     amount: number,
     type: CreditTransaction['type'],
@@ -1845,109 +1842,16 @@ export default function App() {
     relatedCreditTxnId?: string,
     performedBy?: string
   ) => {
-    const nowStr = new Date().toISOString();
-    const actor = performedBy || activeUserName;
+    if (!accountId || amount <= 0) return { success: false, error: 'A valid account and positive amount are required.' };
 
-    // 1. Log payment/charge item
-    const newTxn: CreditTransaction = {
-      id: `txn-${Date.now()}`,
-      creditAccountId: accountId,
-      accountName: '',
-      type,
-      amount,
-      date: nowStr,
-      notes,
-      paymentMethod,
-      transactionProof,
-      relatedCreditTxnId,
-      performedBy: actor,
-      ...((type === 'charge' || type === 'borrow') ? { remainingAmount: amount } : {})
-    };
+    const result = type === 'pay'
+      ? await recordRepaymentTransaction(currentOrgId, currentUserUid || '', accountId, amount, paymentMethod || 'Cash', notes)
+      : await recordCreditChargeTransaction(currentOrgId, currentUserUid || '', accountId, amount, notes);
 
-    setCreditAccounts(prev => prev.map(acc => {
-      if (acc.id === accountId) {
-        newTxn.accountName = acc.name; // Fill reference safely
-
-        let nextRemaining = acc.remainingAmount;
-        let nextPaymentDate = acc.paymentDate;
-        let nextTotalAmount = acc.totalAmount;
-        if (type === 'pay') {
-          nextRemaining = Math.max(0, acc.remainingAmount - amount);
-          nextPaymentDate = nowStr;
-        } else if (type === 'charge' || type === 'borrow') {
-          nextRemaining = acc.remainingAmount + amount;
-          nextTotalAmount = acc.totalAmount + amount;
-        }
-
-        // Determine next status
-        let nextStatus: CreditAccount['status'] = 'active';
-        if (nextRemaining === 0) {
-          nextStatus = 'settled';
-        } else if (nextRemaining < nextTotalAmount && nextRemaining > 0) {
-          nextStatus = 'partially_paid';
-        } else if (acc.dueDate < nowStr.split('T')[0]) {
-          nextStatus = 'overdue';
-        }
-
-        return {
-          ...acc,
-          totalAmount: nextTotalAmount,
-          remainingAmount: nextRemaining,
-          status: nextStatus,
-          lastUpdated: nowStr,
-          paymentDate: nextPaymentDate
-        };
-      }
-      return acc;
-    }));
-
-    setTransactions(prev => {
-      let updatedPrev = [...prev];
-      if (type === 'pay') {
-        let paymentToAllocate = amount;
-
-        if (relatedCreditTxnId) {
-          // Explicit targeting of a specific session credit
-          updatedPrev = updatedPrev.map(t => {
-            if (t.id === relatedCreditTxnId) {
-              const currentRemaining = t.remainingAmount !== undefined ? t.remainingAmount : t.amount;
-              const nextRemaining = Math.max(0, currentRemaining - paymentToAllocate);
-              return { ...t, remainingAmount: nextRemaining };
-            }
-            return t;
-          });
-        } else {
-          // Fallback Auto FIFO allocation for the same account!
-          // Find all outstanding charges/borrows for this account, sorted chronologically.
-          const chargeTxnsToUpdate = updatedPrev
-            .filter(t => t.creditAccountId === accountId && (t.type === 'charge' || t.type === 'borrow'))
-            .map(t => ({ id: t.id, date: t.date, rem: t.remainingAmount !== undefined ? t.remainingAmount : t.amount }))
-            .filter(t => t.rem > 0)
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // oldest first!
-
-          for (const item of chargeTxnsToUpdate) {
-            if (paymentToAllocate <= 0) break;
-            const deduct = Math.min(item.rem, paymentToAllocate);
-            paymentToAllocate -= deduct;
-
-            updatedPrev = updatedPrev.map(t => {
-              if (t.id === item.id) {
-                const currentRemaining = t.remainingAmount !== undefined ? t.remainingAmount : t.amount;
-                return { ...t, remainingAmount: Math.max(0, currentRemaining - deduct) };
-              }
-              return t;
-            });
-          }
-        }
-      } else if (type === 'charge' || type === 'borrow') {
-        // Just fill the remainingAmount
-        newTxn.remainingAmount = amount;
-      }
-
-      newTxn.accountName = creditAccounts.find(a => a.id === accountId)?.name || '';
-      return [newTxn, ...updatedPrev];
-
-    });
+    if (!result.success) {
+      alert(result.error || 'Failed to persist the credit transaction.');
+    }
+    return result;
   };
 
   const handleSettleAccount = (accountId: string) => {
@@ -2019,6 +1923,15 @@ export default function App() {
     setOrganizations(updatedOrgs);
   };
 
+  const handleGenerateInvite = async (): Promise<{ code: string; expiresAt: string } | null> => {
+    const result = await createAttendantInvite(currentOrgId, currentUserRole || 2);
+    if (!result.success || !result.code || !result.expiresAt) {
+      alert(result.error || 'Failed to create attendant invite.');
+      return null;
+    }
+    return { code: result.code, expiresAt: result.expiresAt };
+  };
+
   const handleResetSeedData = () => {
     localStorage.removeItem(getOrgStorageKey(CONFIG_KEY, currentOrgId));
     localStorage.removeItem(getUserPrefStorageKey(currentOrgId, currentUserRole));
@@ -2075,104 +1988,61 @@ export default function App() {
   };
 
   // --- Dashboard helper proxies ---
-  const handleQuickStockIn = (items: Array<{ itemId: string; qty: number }>, notes: string) => {
-    items.forEach(it => {
-      handleLogAdjustment(it.itemId, it.qty, 'purchase_in', notes);
-    });
+  const handleQuickStockIn = async (items: Array<{ itemId: string; qty: number }>, notes: string) => {
+    for (const item of items) {
+      await handleLogAdjustment(item.itemId, item.qty, 'purchase_in', notes);
+    }
   };
 
-  const handleQuickStockOut = (
+  const handleQuickStockOut = async (
     items: Array<{ itemId: string; qty: number }>,
     notes: string,
     creditAccountIdOrName?: string,
     totalAmount?: number
   ) => {
-    // Build line items for atomic transaction processing
     const saleItems = items.map(it => {
       const inv = inventory.find(i => i.id === it.itemId);
       return {
         itemId: it.itemId,
         name: inv ? inv.name : 'Item',
-        sku: inv ? inv.sku : '',
         quantity: it.qty,
-        unitPrice: inv ? (inv.unitPrice || inv.sellingPrice || 0) : 0,
-        unitCost: inv ? (inv.unitCost || inv.costPrice || 0) : 0
+        unitPrice: inv?.unitPrice || 0,
+        unitCost: inv?.unitCost || 0
       };
     });
-
-    const calculatedTotal = totalAmount || saleItems.reduce((acc, it) => acc + (it.quantity * it.unitPrice), 0);
-
-    const paymentMethod = creditAccountIdOrName ? 'Credit' : 'Cash';
-    for (const it of saleItems) {
-      recordSaleTransaction(currentOrgId, currentUserUid || '', it.itemId, it.quantity, it.unitPrice, paymentMethod, 'manual');
-    }
-
+    const calculatedTotal = totalAmount || saleItems.reduce((acc, it) => acc + it.quantity * it.unitPrice, 0);
 
     if (!creditAccountIdOrName) {
-      items.forEach(it => {
-        handleLogAdjustment(it.itemId, -it.qty, 'sale_out', notes);
-      });
+      for (const item of saleItems) {
+        await handleLogAdjustment(item.itemId, -item.quantity, 'sale_out', notes);
+      }
       return;
     }
 
-    // Try finding by ID first
-    let account = creditAccounts.find(acc => acc.id === creditAccountIdOrName);
-
-    // If not found by ID, try case-insensitive name match to avoid duplicates
-    if (!account) {
-      const cleanName = creditAccountIdOrName.trim();
-      account = creditAccounts.find(acc => acc.name.trim().toLowerCase() === cleanName.toLowerCase());
-    }
-
-    const targetAccountId = account ? account.id : `credit-${Date.now()}`;
+    let account = creditAccounts.find(acc => acc.id === creditAccountIdOrName) ||
+      creditAccounts.find(acc => acc.name.trim().toLowerCase() === creditAccountIdOrName.trim().toLowerCase());
 
     if (!account) {
-      // Create new account profile automatically
-      const cleanName = creditAccountIdOrName.trim();
-      const freshAcc: CreditAccount = {
-        id: targetAccountId,
-        name: cleanName,
+      const createdId = await handleAddAccount({
+        name: creditAccountIdOrName.trim(),
         type: 'receivable',
         phone: '',
         email: '',
-        totalAmount: totalAmount || 0,
-        remainingAmount: totalAmount || 0,
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // default 30 days
-        status: 'active',
-        notes: 'Created automatically via Credit Sale.',
-        lastUpdated: new Date().toISOString(),
-        dateOfCrediting: new Date().toISOString(),
-      };
-
-      // Append initial transaction entry
-      const initialTxn: CreditTransaction = {
-        id: `txn-${Date.now()}`,
-        creditAccountId: targetAccountId,
-        accountName: cleanName,
-        type: 'charge',
-        amount: totalAmount || 0,
-        date: new Date().toISOString(),
-        notes: `Opened ledger credit profile via quick stock-out.`
-      };
-
-      setCreditAccounts(prev => [freshAcc, ...prev]);
-      setTransactions(prev => [initialTxn, ...prev]);
-      items.forEach(it => {
-        handleLogAdjustment(it.itemId, -it.qty, 'sale_out', notes, targetAccountId);
+        totalAmount: 0,
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        notes: 'Created automatically via Credit Sale.'
       });
-    } else {
-      // Account exists, just run standard log adjustment and charge transaction!
-      items.forEach(it => {
-        handleLogAdjustment(it.itemId, -it.qty, 'sale_out', notes, targetAccountId);
-      });
-      if (totalAmount) {
-        handleAddTransaction(targetAccountId, totalAmount, 'charge', notes);
-      }
+      if (!createdId) return;
+      account = { id: createdId } as CreditAccount;
+    }
+
+    for (const item of saleItems) {
+      await handleLogAdjustment(item.itemId, -item.quantity, 'sale_out', notes, account.id);
     }
   };
 
-  const handleQuickRepayment = (accountId: string, amount: number, notes: string) => {
-    handleAddTransaction(accountId, amount, 'pay', notes);
+  const handleQuickRepayment = async (accountId: string, amount: number, notes: string) => {
+    return handleAddTransaction(accountId, amount, 'pay', notes);
   };
 
   // --- Calculations for alarms inside Navigation tab ---
@@ -3263,7 +3133,10 @@ export default function App() {
             pendingRestocks={pendingRestocks}
             onNavigateToInventoryTab={(tab) => setInventoryTabOverride(tab)}
             readNotificationIds={readNotificationIds}
-            onMarkAsRead={(ids) => { markNotificationsAsRead(currentUserUid, ids); }}
+            onMarkAsRead={(ids) => {
+              setReadNotificationIds(prev => Array.from(new Set([...prev, ...ids])));
+              markNotificationsAsRead(currentUserUid, ids, currentOrgId);
+            }}
           >
             {/* Dynamic Screen Routing */}
             {activeScreen === 'dashboard' && (
@@ -3310,7 +3183,10 @@ export default function App() {
                 currentOrg={organizations.find(o => o.id === currentOrgId)}
                 pendingRestocks={pendingRestocks}
                 readNotificationIds={readNotificationIds}
-                onMarkAsRead={(ids) => { markNotificationsAsRead(currentUserUid, ids); }}
+                onMarkAsRead={(ids) => {
+                  setReadNotificationIds(prev => Array.from(new Set([...prev, ...ids])));
+                  markNotificationsAsRead(currentUserUid, ids, currentOrgId);
+                }}
                 onNavigate={(screen, tab) => {
                   if (screen === 'credit-new') {
                     setActiveScreen('credit');
@@ -3399,6 +3275,7 @@ export default function App() {
                 adjustments={adjustments}
                 transactions={transactions}
                 config={config}
+                onPersistInvoice={async (payload) => saveInvoice(currentOrgId, currentUserUid, payload)}
               />
             )}
 
@@ -3423,6 +3300,7 @@ export default function App() {
                 currentOrgId={currentOrgId}
                 organizations={organizations}
                 onUpdateOrganizations={handleUpdateOrganizations}
+                onGenerateInvite={handleGenerateInvite}
                 settingsTabOverride={settingsTabOverride}
                 onClearSettingsTabOverride={() => setSettingsTabOverride(null)}
               />

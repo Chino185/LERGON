@@ -286,7 +286,7 @@ export function subscribeToDamageReports(
   const fetchReports = () => {
     supabase
       .from('damage_reports')
-      .select('*')
+      .select('*, inventory_items(product_title)')
       .eq('business_id', businessId)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
@@ -299,7 +299,7 @@ export function subscribeToDamageReports(
             id: d.id,
             business_id: d.business_id,
             product_ref: d.item_id,
-            product_title: d.justification_text,
+            product_title: d.inventory_items?.product_title || 'Item',
             quantity_damaged: d.quantity_damaged,
             justification_text: d.justification_text,
             cost_price: Number(d.cost_price_at_time) || 0,
@@ -523,4 +523,120 @@ export function subscribeToRestockRequests(
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+
+/** Subscribe to the typed, authoritative stock-adjustment ledger. */
+export function subscribeToStockAdjustments(
+  businessId: string,
+  onUpdate: (adjustments: any[]) => void,
+  onError?: (err: any) => void
+): () => void {
+  if (!businessId) {
+    onUpdate([]);
+    return () => { };
+  }
+
+  const fetchAdjustments = () => {
+    supabase
+      .from('stock_adjustments')
+      .select('*')
+      .eq('business_id', businessId)
+      .order('created_at', { ascending: false })
+      .limit(500)
+      .then(({ data, error }) => {
+        if (error) {
+          onError?.(error);
+          return;
+        }
+        onUpdate((data || []).map((d: any) => ({
+          id: d.id,
+          itemId: d.item_id,
+          itemName: d.item_name || '',
+          qtyChanged: Number(d.qty_changed) || 0,
+          type: d.adjustment_type,
+          date: d.created_at,
+          notes: d.notes || '',
+          creditAccountId: d.credit_account_id || undefined,
+          performedBy: d.performed_by || 'System',
+          isFlagged: Boolean(d.is_flagged),
+          flagComment: d.flag_comment || undefined,
+          flaggedBy: d.flagged_by || undefined,
+          flaggedAt: d.flagged_at || undefined,
+          isResolved: Boolean(d.is_resolved),
+          resolvedAt: d.resolved_at || undefined,
+          resolvedBy: d.resolved_by || undefined,
+          originalQtyChanged: d.original_qty_changed ?? undefined,
+          correctionNotes: d.correction_notes || undefined
+        })));
+      });
+  };
+
+  fetchAdjustments();
+  const channel = getSafeChannel(`stock_adjustments_${businessId}`)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'stock_adjustments', filter: `business_id=eq.${businessId}`
+    }, fetchAdjustments)
+    .subscribe();
+
+  return () => { supabase.removeChannel(channel); };
+}
+
+/** Record a normal stock movement atomically in Postgres. */
+export async function recordStockAdjustmentTransaction(
+  businessId: string,
+  userUid: string,
+  userRole: number | string | undefined,
+  payload: {
+    itemId: string;
+    qtyChanged: number;
+    type: 'purchase_in' | 'sale_out' | 'damaged' | 'returned' | 'audit_adjustment';
+    notes?: string;
+    creditAccountId?: string;
+  }
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  if (!businessId || !userUid || !payload.itemId) return { success: false, error: 'Business, user, and item identifiers are required.' };
+  if (!Number.isInteger(payload.qtyChanged) || payload.qtyChanged === 0) return { success: false, error: 'Stock movement must be a non-zero whole number.' };
+  if (payload.type === 'purchase_in' && !(userRole === 2 || userRole === 'admin')) {
+    return { success: false, error: 'Attendants must submit restock requests for approval.' };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('record_stock_adjustment', {
+      p_business_id: businessId,
+      p_item_id: payload.itemId,
+      p_qty_changed: payload.qtyChanged,
+      p_adjustment_type: payload.type,
+      p_notes: sanitizeTextInput(payload.notes || '', 500),
+      p_credit_account_id: payload.creditAccountId || null,
+      p_performed_by: userUid,
+      p_source: 'manual'
+    });
+    if (error) throw error;
+    return { success: true, id: data as string };
+  } catch (err: any) {
+    console.error('recordStockAdjustmentTransaction Error:', err);
+    return { success: false, error: err?.message || 'Failed to record stock movement.' };
+  }
+}
+
+/** Create the five-minute admin invite in the canonical invite_codes table. */
+export async function createAttendantInvite(
+  businessId: string,
+  userRole: number | string | undefined
+): Promise<{ success: boolean; code?: string; expiresAt?: string; error?: string }> {
+  if (!(userRole === 2 || userRole === 'admin')) return { success: false, error: 'Only Administrators can create invites.' };
+  if (!businessId) return { success: false, error: 'Business ID is required.' };
+  try {
+    const { data, error } = await supabase.rpc('create_attendant_invite', {
+      p_business_id: businessId,
+      p_expires_in_seconds: 300
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    return { success: true, code: row?.code, expiresAt: row?.expires_at };
+  } catch (err: any) {
+    console.error('createAttendantInvite Error:', err);
+    return { success: false, error: err?.message || 'Failed to create attendant invite.' };
+  }
 }

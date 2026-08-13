@@ -82,7 +82,7 @@ export async function saveCreditProfile(
   const dbType = payload.type === 'receivable' ? 'customer_receivable' : 'supplier_payable';
 
   if (!cleanName) return { success: false, error: 'Contact name is required.' };
-  if (payload.totalAmount <= 0) return { success: false, error: 'Credit amount must be greater than zero.' };
+  if (payload.totalAmount < 0) return { success: false, error: 'Credit amount cannot be negative.' };
 
   try {
     let receiptUrl = '';

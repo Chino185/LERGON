@@ -1,29 +1,29 @@
 import React, { useState, useMemo } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
-import { 
-  TrendingUp, 
-  Package, 
-  AlertTriangle, 
-  Plus, 
-  Minus, 
-  Search, 
-  CheckCircle2, 
-  X, 
-  Activity, 
-  ClipboardList, 
-  ListPlus, 
-  ChevronLeft, 
-  ChevronRight, 
-  Image as ImageIcon, 
-  Check, 
-  Sparkles, 
-  RotateCw 
+import {
+  TrendingUp,
+  Package,
+  AlertTriangle,
+  Plus,
+  Minus,
+  Search,
+  CheckCircle2,
+  X,
+  Activity,
+  ClipboardList,
+  ListPlus,
+  ChevronLeft,
+  ChevronRight,
+  Image as ImageIcon,
+  Check,
+  Sparkles,
+  RotateCw
 } from 'lucide-react';
-import { 
-  Tooltip, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
+import {
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
   Cell,
   Legend
 } from 'recharts';
@@ -68,7 +68,7 @@ const getItemImage = (name: string, category: string): string => {
   if (nameLower.includes('desk pad') || nameLower.includes('leather')) {
     return 'https://images.unsplash.com/photo-1585776245991-cf89dd7fc73a?auto=format&fit=crop&w=1200&q=90';
   }
-  
+
   // Category fallbacks
   const catLower = category.toLowerCase();
   if (catLower.includes('electronics')) {
@@ -80,7 +80,7 @@ const getItemImage = (name: string, category: string): string => {
   if (catLower.includes('home') || catLower.includes('office')) {
     return 'https://images.unsplash.com/photo-1493934558415-9d19f0b2b4d2?auto=format&fit=crop&w=1200&q=90';
   }
-  
+
   return `https://picsum.photos/seed/${encodeURIComponent(name)}/800/600`;
 };
 
@@ -227,7 +227,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
   };
   const [modalLowStockOnly, setModalLowStockOnly] = useState(false);
   const [activeMobileTab, setActiveMobileTab] = useState<'picker' | 'basket'>('picker');
-  
+
   // Basket list for multiple item restock/sale entries
   const [basketItems, setBasketItems] = useState<Array<{
     itemId: string;
@@ -243,7 +243,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
   const [isItemDropdownOpen, setIsItemDropdownOpen] = useState(false);
   const [accountQuery, setAccountQuery] = useState('');
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
-  
+
   // Dense Dashboard UI Search
   const [itemSearch, setItemSearch] = useState('');
 
@@ -385,7 +385,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
       if (item) {
         const margin = item.unitPrice - item.unitCost;
         const totalProfitPossible = Math.abs(adj.qtyChanged) * margin;
-        
+
         if (isCreditAdjustment(adj)) {
           const account = getLinkedAccount(adj);
           if (account) {
@@ -394,7 +394,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
           }
           return acc;
         }
-        
+
         return acc + totalProfitPossible;
       }
       return acc;
@@ -415,15 +415,15 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
         const unitPrice = item ? item.unitPrice : 0;
         const revenue = qty * unitPrice;
         const cost = qty * unitCost;
-        
+
         const totalProfitPossible = revenue - cost;
         const isOnCredit = isCreditAdjustment(adj);
         const account = getLinkedAccount(adj);
-        
+
         const paidRatio = account ? getCreditAccountPaidRatio(account) : 0;
         const profit = isOnCredit ? totalProfitPossible * paidRatio : totalProfitPossible;
         let creditStatus: 'cash' | 'credit_unpaid' | 'credit_paid' = 'cash';
-        
+
         if (isOnCredit) {
           creditStatus = paidRatio >= 1 ? 'credit_paid' : 'credit_unpaid';
         }
@@ -451,18 +451,20 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
   }, [adjustments, inventory, creditAccounts, transactions]);
 
   const aggregatedSoldItemsBreakdown = useMemo(() => {
-    const groups: { [itemId: string]: { 
-      itemId: string;
-      itemName: string;
-      sku: string;
-      category: string;
-      totalQty: number;
-      unitCost: number;
-      unitPrice: number;
-      totalRevenue: number;
-      totalCost: number;
-      totalProfit: number;
-    }} = {};
+    const groups: {
+      [itemId: string]: {
+        itemId: string;
+        itemName: string;
+        sku: string;
+        category: string;
+        totalQty: number;
+        unitCost: number;
+        unitPrice: number;
+        totalRevenue: number;
+        totalCost: number;
+        totalProfit: number;
+      }
+    } = {};
 
     soldItemsBreakdown.forEach(record => {
       const id = record.itemId;
@@ -492,7 +494,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
   const filteredSoldItems = useMemo(() => {
     const q = profitSearchQuery.trim().toLowerCase();
     if (!q) return soldItemsBreakdown;
-    return soldItemsBreakdown.filter(item => 
+    return soldItemsBreakdown.filter(item =>
       item.itemName.toLowerCase().includes(q) ||
       item.sku.toLowerCase().includes(q) ||
       item.category.toLowerCase().includes(q)
@@ -502,7 +504,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
   const filteredAggregatedSoldItems = useMemo(() => {
     const q = profitSearchQuery.trim().toLowerCase();
     if (!q) return aggregatedSoldItemsBreakdown;
-    return aggregatedSoldItemsBreakdown.filter(item => 
+    return aggregatedSoldItemsBreakdown.filter(item =>
       item.itemName.toLowerCase().includes(q) ||
       item.sku.toLowerCase().includes(q) ||
       item.category.toLowerCase().includes(q)
@@ -558,14 +560,14 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
   };
 
   // --- Handle Action Submissions ---
-  const handleQuickActionSubmit = (e: React.FormEvent) => {
+  const handleQuickActionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (quickAction === 'stock_in') {
       if (basketItems.length === 0) {
         triggerFeedback('Please add at least one product to the restock batch.', 'error');
         return;
       }
-      onQuickStockIn(
+      await onQuickStockIn(
         basketItems.map(it => ({ itemId: it.itemId, qty: it.qty })),
         'Batch Quick Restock'
       );
@@ -602,11 +604,11 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
       const totalSaleValue = basketItems.reduce((sum, it) => sum + (it.unitPrice * it.qty), 0);
 
       const itemsDesc = basketItems.map(it => `${it.qty}x ${it.name}`).join(', ');
-      const defaultNotes = quickAction === 'stock_out_credit' 
-        ? `Sold ${itemsDesc} on Credit to ${finalClientName} (Total: ${formatMoney(totalSaleValue)})` 
+      const defaultNotes = quickAction === 'stock_out_credit'
+        ? `Sold ${itemsDesc} on Credit to ${finalClientName} (Total: ${formatMoney(totalSaleValue)})`
         : `Quick Cash Sale of: ${itemsDesc}`;
 
-      onQuickStockOut(
+      await onQuickStockOut(
         basketItems.map(it => ({ itemId: it.itemId, qty: it.qty })),
         defaultNotes,
         quickAction === 'stock_out_credit' ? targetAccountIdOrName : undefined,
@@ -614,9 +616,9 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
       );
 
       triggerFeedback(
-        quickAction === 'stock_out_credit' 
-          ? `Credit sale batch & ${formatMoney(totalSaleValue)} successfully charged to ${finalClientName}.` 
-          : 'Cash sale batch successfully processed.', 
+        quickAction === 'stock_out_credit'
+          ? `Credit sale batch & ${formatMoney(totalSaleValue)} successfully charged to ${finalClientName}.`
+          : 'Cash sale batch successfully processed.',
         'success'
       );
     } else if (quickAction === 'repayment') {
@@ -633,7 +635,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
         triggerFeedback(`Amount too high! Balance is: ${formatMoney(account.remainingAmount)}`, 'error');
         return;
       }
-      onQuickRepayment(selectedAccountId, Number(repaymentAmount), repaymentNotes || 'Quick Repayment');
+      await onQuickRepayment(selectedAccountId, Number(repaymentAmount), repaymentNotes || 'Quick Repayment');
       triggerFeedback('Repayment processed successfully.', 'success');
     }
 
@@ -657,8 +659,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
   const filteredInventory = useMemo(() => {
     const query = itemSearch.trim().toLowerCase();
     if (!query) return inventory;
-    return inventory.filter(item => 
-      item.name.toLowerCase().includes(query) || 
+    return inventory.filter(item =>
+      item.name.toLowerCase().includes(query) ||
       item.sku.toLowerCase().includes(query) ||
       item.category.toLowerCase().includes(query)
     );
@@ -668,8 +670,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
   const filteredDropdownItems = useMemo(() => {
     const q = itemQuery.trim().toLowerCase();
     if (!q) return inventory;
-    return inventory.filter(item => 
-      item.name.toLowerCase().includes(q) || 
+    return inventory.filter(item =>
+      item.name.toLowerCase().includes(q) ||
       item.sku.toLowerCase().includes(q)
     );
   }, [inventory, itemQuery]);
@@ -683,7 +685,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
     });
     const q = accountQuery.trim().toLowerCase();
     if (!q) return candidateAccs;
-    return candidateAccs.filter(acc => 
+    return candidateAccs.filter(acc =>
       acc.name.toLowerCase().includes(q) ||
       (acc.phone && acc.phone.toLowerCase().includes(q)) ||
       (acc.type && acc.type.toLowerCase().includes(q))
@@ -699,11 +701,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-xl shadow-lg border text-xs font-bold ${
-              feedback.type === 'success' 
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-100' 
+            className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-xl shadow-lg border text-xs font-bold ${feedback.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
                 : 'bg-rose-50 text-rose-800 border-rose-100'
-            }`}
+              }`}
           >
             {feedback.type === 'success' ? <CheckCircle2 size={14} className="text-emerald-600" /> : <AlertTriangle size={14} className="text-rose-600" />}
             <span>{feedback.message}</span>
@@ -731,8 +732,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
 
         {/* Action Command Pills - Neumorphic Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <button 
-            type="button" 
+          <button
+            type="button"
             id="action-btn-stock-in"
             onClick={() => {
               setQuickAction(quickAction === 'stock_in' ? 'none' : 'stock_in');
@@ -743,19 +744,18 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               setIsItemDropdownOpen(false);
               setIsAccountDropdownOpen(false);
             }}
-            className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${
-              quickAction === 'stock_in' 
-                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black' 
+            className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${quickAction === 'stock_in'
+                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
                 : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
-            }`}
+              }`}
           >
             <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${quickAction === 'stock_in' ? 'bg-white/20 text-white' : 'neumorphic-circle bg-[#ebf0f7] dark:bg-[#202225] text-blue-600 dark:text-sky-400'}`}>
               <MaterialIcon name="add" size={13} className={quickAction === 'stock_in' ? 'text-white' : 'text-blue-600 dark:text-sky-400'} />
             </div>
             <span>Restock</span>
           </button>
-          
-          <button 
+
+          <button
             type="button"
             id="action-btn-stock-out"
             onClick={() => {
@@ -767,11 +767,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               setIsItemDropdownOpen(false);
               setIsAccountDropdownOpen(false);
             }}
-            className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${
-              quickAction === 'stock_out' 
-                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black' 
+            className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${quickAction === 'stock_out'
+                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
                 : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
-            }`}
+              }`}
           >
             <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${quickAction === 'stock_out' ? 'bg-white/20 text-white' : 'neumorphic-circle bg-[#ebf0f7] dark:bg-[#202225] text-blue-600 dark:text-sky-400'}`}>
               <MaterialIcon name="remove" size={13} className={quickAction === 'stock_out' ? 'text-white' : 'text-blue-600 dark:text-sky-400'} />
@@ -779,7 +778,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
             <span>Record Sell</span>
           </button>
 
-          <button 
+          <button
             type="button"
             id="action-btn-stock-out-credit"
             onClick={() => {
@@ -791,11 +790,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               setIsItemDropdownOpen(false);
               setIsAccountDropdownOpen(false);
             }}
-            className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${
-              quickAction === 'stock_out_credit' 
-                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black' 
+            className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${quickAction === 'stock_out_credit'
+                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
                 : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
-            }`}
+              }`}
           >
             <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${quickAction === 'stock_out_credit' ? 'bg-white/20 text-white' : 'neumorphic-circle bg-[#ebf0f7] dark:bg-[#202225] text-blue-600 dark:text-sky-400'}`}>
               <MaterialIcon name="credit_card" size={13} className={quickAction === 'stock_out_credit' ? 'text-white' : 'text-blue-600 dark:text-sky-400'} />
@@ -803,7 +801,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
             <span>Record Credit</span>
           </button>
 
-          <button 
+          <button
             type="button"
             id="action-btn-payment"
             onClick={() => {
@@ -815,11 +813,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               setIsItemDropdownOpen(false);
               setIsAccountDropdownOpen(false);
             }}
-            className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${
-              quickAction === 'repayment' 
-                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black' 
+            className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${quickAction === 'repayment'
+                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
                 : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
-            }`}
+              }`}
           >
             <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${quickAction === 'repayment' ? 'bg-white/20 text-white' : 'neumorphic-circle bg-[#ebf0f7] dark:bg-[#202225] text-blue-600 dark:text-sky-400'}`}>
               <MaterialIcon name="payments" size={13} className={quickAction === 'repayment' ? 'text-white' : 'text-blue-600 dark:text-sky-400'} />
@@ -831,9 +828,9 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
 
       {/* Finnova Style 5-Column KPI Cards Grid (Compact Zero-Scroll) */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 ${userRole === 2 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-5 sm:gap-6 shrink-0`}>
-        
+
         {/* Total Inventory Value */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut', delay: 0.05 }}
@@ -856,7 +853,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
         </motion.div>
 
         {/* Stock in Hand Card */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut', delay: 0.1 }}
@@ -879,7 +876,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
         </motion.div>
 
         {/* Value Sold Card */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut', delay: 0.15 }}
@@ -902,7 +899,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
         </motion.div>
 
         {/* Value of Asset on Credit Card */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut', delay: 0.2 }}
@@ -926,7 +923,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
 
         {/* Total Realized Profit Card */}
         {userRole === 2 && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: 'easeOut', delay: 0.25 }}
@@ -954,7 +951,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
       {/* Main Grid Workspace - Compact Content-Fitted Cards */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8">
         {/* Left Side: Stock Distribution Analysis */}
-        <div 
+        <div
           className="finnova-card p-5 sm:p-6 flex flex-col justify-between transition-colors duration-200 ease-in-out overflow-hidden"
         >
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-200/40 pb-3 flex items-center justify-between shrink-0">
@@ -969,8 +966,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                   className="flex items-center justify-center relative"
                   initial={{ opacity: 0, scale: 0.85, y: 15 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ 
-                    duration: 0.75, 
+                  transition={{
+                    duration: 0.75,
                     type: "spring",
                     stiffness: 80,
                     damping: 16
@@ -1034,16 +1031,16 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                             'url(#chartGradientTeal)'
                           ];
                           return (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={gradients[index % gradients.length]} 
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={gradients[index % gradients.length]}
                               stroke="#ebf0f7"
                               strokeWidth={3}
                             />
                           );
                         })}
                       </Pie>
-                      <Tooltip 
+                      <Tooltip
                         wrapperStyle={{ zIndex: 50 }}
                         position={{ y: -30 }}
                         content={({ active, payload }) => {
@@ -1074,7 +1071,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                     </PieChart>
 
                     {/* Centered Floating 3D Neumorphic Hub (Perfect Circle) */}
-                    <div 
+                    <div
                       className="absolute w-[100px] h-[100px] !rounded-full neumorphic-card flex flex-col items-center justify-center pointer-events-none select-none border border-white/90 dark:border-slate-700 shadow-lg z-10"
                       style={{ borderRadius: '9999px' }}
                     >
@@ -1099,7 +1096,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
         </div>
 
         {/* Right Side: Active Inventory Showcase & Auto Image Slider */}
-        <div 
+        <div
           className="finnova-card p-5 sm:p-6 flex flex-col justify-between transition-colors duration-200 ease-in-out"
         >
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-200/40 pb-3 flex items-center justify-between shrink-0">
@@ -1125,16 +1122,16 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                   {/* Photo area with 3D Neumorphic Frame */}
                   <div className="neumorphic-card p-2 rounded-2xl shrink-0">
                     <div className="relative group h-56 sm:h-64 w-full rounded-xl overflow-hidden bg-slate-950 shrink-0">
-                      <img 
-                        src={resolvedImg} 
-                        alt={item.name} 
+                      <img
+                        src={resolvedImg}
+                        alt={item.name}
                         className="w-full h-full object-cover opacity-100 group-hover:scale-105 transition duration-500 rounded-xl"
                         referrerPolicy="no-referrer"
                         onError={(e) => {
                           (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=1200&q=90';
                         }}
                       />
-                      
+
                       {/* Subtle bottom gradient overlay for readability */}
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent pointer-events-none" />
 
@@ -1257,7 +1254,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
             />
 
             {/* Modal Card Content */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -1269,7 +1266,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                 <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-950 dark:text-white flex items-center gap-2 font-jakarta">
                   <MaterialIcon name="payments" className="text-emerald-600 dark:text-emerald-400 text-base" /> Repayment Record
                 </h3>
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     setQuickAction('none');
@@ -1289,7 +1286,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               {/* Compact Interactive Repayment Form */}
               <form onSubmit={handleQuickActionSubmit} className="p-6 space-y-5">
                 <div className="space-y-4">
-                  
+
                   {/* Client Name Input + Autocomplete Suggestions */}
                   <div className="relative">
                     <label className="block text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between font-jakarta">
@@ -1355,9 +1352,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                                 setAccountQuery(acc.name);
                                 setIsAccountDropdownOpen(false);
                               }}
-                              className={`w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800/80 transition flex items-center justify-between cursor-pointer font-jakarta ${
-                                selectedAccountId === acc.id ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-extrabold border border-indigo-500/20' : 'text-slate-950 dark:text-white font-bold'
-                              }`}
+                              className={`w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800/80 transition flex items-center justify-between cursor-pointer font-jakarta ${selectedAccountId === acc.id ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-extrabold border border-indigo-500/20' : 'text-slate-950 dark:text-white font-bold'
+                                }`}
                             >
                               <div className="truncate pr-2">
                                 <p className="font-extrabold truncate text-slate-950 dark:text-white text-xs">{acc.name}</p>
@@ -1385,7 +1381,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                     <label className="block text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 font-jakarta">
                       Payment Handed ({config.currencySymbol})
                     </label>
-                    <input 
+                    <input
                       type="number"
                       required
                       min="0.01"
@@ -1402,7 +1398,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                     <label className="block text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 font-jakarta">
                       Optional Ledger Note
                     </label>
-                    <input 
+                    <input
                       type="text"
                       placeholder="e.g. Cleared invoice, installment"
                       value={repaymentNotes}
@@ -1415,7 +1411,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
 
                 {/* Submit Action Button */}
                 <div className="pt-2">
-                  <button 
+                  <button
                     type="submit"
                     className="neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white py-3.5 px-5 rounded-2xl text-xs font-extrabold font-jakarta uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] transition cursor-pointer shadow-md w-full text-center flex items-center justify-center gap-1.5"
                   >
@@ -1594,10 +1590,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
             </motion.div>
           </div>
         )}
-              {/* Universal Landscape Pop-Up for Restock & Sale Operations */}
+        {/* Universal Landscape Pop-Up for Restock & Sale Operations */}
         {(quickAction === 'stock_in' || quickAction === 'stock_out' || quickAction === 'stock_out_credit') && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 10 }}
@@ -1613,10 +1609,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                   </div>
                   <div>
                     <h3 className="font-extrabold text-slate-900 text-sm tracking-tight uppercase">
-                      {quickAction === 'stock_in' 
-                        ? 'Procurement & Restock Portal' 
-                        : quickAction === 'stock_out_credit' 
-                          ? 'Credit Outflow Ledger Hub' 
+                      {quickAction === 'stock_in'
+                        ? 'Procurement & Restock Portal'
+                        : quickAction === 'stock_out_credit'
+                          ? 'Credit Outflow Ledger Hub'
                           : 'Cash Sale Operations Desk'}
                     </h3>
                     <p className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase mt-0.5">
@@ -1644,37 +1640,34 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                 <button
                   type="button"
                   onClick={() => setActiveMobileTab('picker')}
-                  className={`flex-1 py-1.5 px-2 text-center text-xs font-black uppercase tracking-wider rounded-lg transition ${
-                    activeMobileTab === 'picker' 
-                      ? (quickAction === 'stock_in' 
-                          ? 'bg-indigo-600 text-white shadow-xs' 
-                          : quickAction === 'stock_out_credit' 
-                            ? 'bg-amber-600 text-white shadow-xs' 
-                            : 'bg-orange-600 text-white shadow-xs')
+                  className={`flex-1 py-1.5 px-2 text-center text-xs font-black uppercase tracking-wider rounded-lg transition ${activeMobileTab === 'picker'
+                      ? (quickAction === 'stock_in'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : quickAction === 'stock_out_credit'
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-orange-600 text-white shadow-xs')
                       : 'text-slate-650 hover:bg-slate-200 font-bold'
-                  }`}
+                    }`}
                 >
                   Find Items
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveMobileTab('basket')}
-                  className={`flex-1 py-1.5 px-2 text-center text-xs font-black uppercase tracking-wider rounded-lg transition flex items-center justify-center gap-1.5 ${
-                    activeMobileTab === 'basket' 
-                      ? (quickAction === 'stock_in' 
-                          ? 'bg-indigo-600 text-white shadow-xs' 
-                          : quickAction === 'stock_out_credit' 
-                            ? 'bg-amber-600 text-white shadow-xs' 
-                            : 'bg-orange-600 text-white shadow-xs')
+                  className={`flex-1 py-1.5 px-2 text-center text-xs font-black uppercase tracking-wider rounded-lg transition flex items-center justify-center gap-1.5 ${activeMobileTab === 'basket'
+                      ? (quickAction === 'stock_in'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : quickAction === 'stock_out_credit'
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-orange-600 text-white shadow-xs')
                       : 'text-slate-650 hover:bg-slate-200 font-bold'
-                  }`}
+                    }`}
                 >
                   Added List
-                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded-md font-mono font-black ${
-                    activeMobileTab === 'basket' 
-                      ? 'bg-black/20 text-white' 
+                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded-md font-mono font-black ${activeMobileTab === 'basket'
+                      ? 'bg-black/20 text-white'
                       : 'bg-slate-200 text-slate-705'
-                  }`}>
+                    }`}>
                     {basketItems.length}
                   </span>
                 </button>
@@ -1683,9 +1676,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               {/* Master Dual-Column Landscape Container */}
               <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 xl:overflow-hidden min-h-0 bg-slate-50/20">
                 {/* LEFT COLUMN: Product Discovery & Quick Pick */}
-                <div className={`col-span-1 xl:col-span-6 flex flex-col h-full min-h-0 border-r border-slate-200/60 bg-[#ebf0f7] ${
-                  activeMobileTab === 'picker' ? 'flex' : 'hidden xl:flex'
-                }`}>
+                <div className={`col-span-1 xl:col-span-6 flex flex-col h-full min-h-0 border-r border-slate-200/60 bg-[#ebf0f7] ${activeMobileTab === 'picker' ? 'flex' : 'hidden xl:flex'
+                  }`}>
                   {/* Search and Filters Header */}
                   <div className="p-3 border-b border-slate-200/60 bg-[#ebf0f7] space-y-2 flex-shrink-0">
                     <div className="relative">
@@ -1709,8 +1701,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
 
                     <div className="flex items-center justify-between">
                       <span className="text-[9px] text-slate-500 font-extrabold tracking-wider uppercase">
-                        {quickAction === 'stock_in' 
-                          ? (!modalSearchQuery ? 'Low Stock Recommendations' : 'Search Results') 
+                        {quickAction === 'stock_in'
+                          ? (!modalSearchQuery ? 'Low Stock Recommendations' : 'Search Results')
                           : 'Search Products to Add'}
                       </span>
                       {quickAction === 'stock_in' && (
@@ -1736,9 +1728,9 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                           filteredModalItems = lowStockItems;
                         } else {
                           // Filter full inventory by search query
-                          filteredModalItems = inventory.filter(item => 
-                            item.name.toLowerCase().includes(modalSearchQuery.toLowerCase()) || 
-                            item.sku.toLowerCase().includes(modalSearchQuery.toLowerCase()) || 
+                          filteredModalItems = inventory.filter(item =>
+                            item.name.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
+                            item.sku.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
                             item.category.toLowerCase().includes(modalSearchQuery.toLowerCase())
                           );
                         }
@@ -1749,9 +1741,9 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                           filteredModalItems = [];
                         } else {
                           // Filter full inventory by search query
-                          filteredModalItems = inventory.filter(item => 
-                            item.name.toLowerCase().includes(modalSearchQuery.toLowerCase()) || 
-                            item.sku.toLowerCase().includes(modalSearchQuery.toLowerCase()) || 
+                          filteredModalItems = inventory.filter(item =>
+                            item.name.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
+                            item.sku.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
                             item.category.toLowerCase().includes(modalSearchQuery.toLowerCase())
                           );
                         }
@@ -1799,13 +1791,12 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                         const hasLowStock = item.quantity <= item.reorderPoint;
 
                         return (
-                          <div 
+                          <div
                             key={`modal-picker-${item.id}`}
-                            className={`flex items-center justify-between p-3 rounded-2xl transition finnova-card ${
-                              qtyInBasket > 0 
-                                ? 'border border-blue-400/50 shadow-xs' 
+                            className={`flex items-center justify-between p-3 rounded-2xl transition finnova-card ${qtyInBasket > 0
+                                ? 'border border-blue-400/50 shadow-xs'
                                 : 'border border-white/80'
-                            }`}
+                              }`}
                           >
                             <div className="min-w-0 flex-1 pr-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
@@ -1842,16 +1833,16 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                                     >
                                       <Minus size={10} />
                                     </button>
-                                     <input
-                                       type="number"
-                                       min={1}
-                                       value={qtyInBasket}
-                                       onChange={(e) => {
-                                         const val = parseInt(e.target.value, 10);
-                                         if (!isNaN(val) && val >= 1) handleUpdateQuantity(item.id, val);
-                                       }}
-                                       className="w-10 text-center text-xs font-bold text-slate-900 bg-transparent focus:outline-hidden"
-                                     />
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={qtyInBasket}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value, 10);
+                                        if (!isNaN(val) && val >= 1) handleUpdateQuantity(item.id, val);
+                                      }}
+                                      className="w-10 text-center text-xs font-bold text-slate-900 bg-transparent focus:outline-hidden"
+                                    />
                                     <button
                                       type="button"
                                       onClick={() => handleUpdateQuantity(item.id, qtyInBasket + 1)}
@@ -1885,11 +1876,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                 </div>
 
                 {/* RIGHT COLUMN: Active Work List, Ledger Parameters & Final Submit Form */}
-                <span className="hidden"/> {/* Extra space anchor */}
+                <span className="hidden" /> {/* Extra space anchor */}
                 <div
-                  className={`col-span-1 xl:col-span-6 flex flex-col h-full min-h-0 bg-[#ebf0f7] p-4 justify-between ${
-                    activeMobileTab === 'basket' ? 'flex animate-fade-in' : 'hidden xl:flex'
-                  }`}
+                  className={`col-span-1 xl:col-span-6 flex flex-col h-full min-h-0 bg-[#ebf0f7] p-4 justify-between ${activeMobileTab === 'basket' ? 'flex animate-fade-in' : 'hidden xl:flex'
+                    }`}
                 >
                   {/* Active List Section */}
                   <div className="flex-1 flex flex-col min-h-0">
@@ -1916,11 +1906,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                         const exceedsStock = (quickAction === 'stock_out' || quickAction === 'stock_out_credit') && maxAvailable < it.qty;
 
                         return (
-                          <div 
-                            key={`basket-list-${it.itemId}`} 
-                            className={`flex items-center justify-between p-3 finnova-card rounded-2xl transition ${
-                              exceedsStock ? 'border-rose-400 bg-rose-50/20' : 'border-white/80'
-                            }`}
+                          <div
+                            key={`basket-list-${it.itemId}`}
+                            className={`flex items-center justify-between p-3 finnova-card rounded-2xl transition ${exceedsStock ? 'border-rose-400 bg-rose-50/20' : 'border-white/80'
+                              }`}
                           >
                             <div className="min-w-0 flex-1 pr-3">
                               <p className="font-extrabold text-slate-900 text-xs leading-normal break-words whitespace-normal">{it.name}</p>
@@ -2037,7 +2026,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                             </span>
                           ) : null}
                         </div>
-                        
+
                         <div className="relative">
                           <input
                             type="text"
@@ -2138,14 +2127,13 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                           type="button"
                           disabled={basketItems.length === 0}
                           onClick={() => {
-                            const mockEvent = { preventDefault: () => {} } as React.FormEvent;
+                            const mockEvent = { preventDefault: () => { } } as React.FormEvent;
                             handleQuickActionSubmit(mockEvent);
                           }}
-                          className={`flex-1 sm:flex-initial text-xs font-black px-5 py-2 rounded-xl transition whitespace-nowrap cursor-pointer flex items-center justify-center gap-1.5 neumorphic-btn ${
-                            basketItems.length === 0 
-                              ? 'opacity-40 cursor-not-allowed text-slate-400' 
+                          className={`flex-1 sm:flex-initial text-xs font-black px-5 py-2 rounded-xl transition whitespace-nowrap cursor-pointer flex items-center justify-center gap-1.5 neumorphic-btn ${basketItems.length === 0
+                              ? 'opacity-40 cursor-not-allowed text-slate-400'
                               : 'text-slate-900 hover:text-black border border-white/80'
-                          }`}
+                            }`}
                         >
                           <span>Confirm & Process</span>
                         </button>

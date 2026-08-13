@@ -49,6 +49,7 @@ interface SettingsScreenProps {
   currentOrgId?: string;
   organizations?: Organization[];
   onUpdateOrganizations?: (updatedOrgs: Organization[]) => void;
+  onGenerateInvite?: () => Promise<{ code: string; expiresAt: string } | null>;
   settingsTabOverride?: 'profile' | 'system' | 'security' | null;
   onClearSettingsTabOverride?: () => void;
 }
@@ -564,6 +565,7 @@ export default function SettingsScreen({
   currentOrgId,
   organizations,
   onUpdateOrganizations,
+  onGenerateInvite,
   settingsTabOverride,
   onClearSettingsTabOverride
 }: SettingsScreenProps) {
@@ -697,30 +699,28 @@ export default function SettingsScreen({
     return () => clearInterval(interval);
   }, [currentActiveInvite]);
 
-  const handleGenerateInvite = () => {
+  const handleGenerateInvite = async () => {
+    if (onGenerateInvite) {
+      const backendInvite = await onGenerateInvite();
+      if (!backendInvite) return;
+      const newInvite: OrganizationInvite = {
+        code: backendInvite.code,
+        createdAt: Date.now(),
+        expiresAt: new Date(backendInvite.expiresAt).getTime(),
+        isUsed: false
+      };
+      if (organizations && currentOrgId && onUpdateOrganizations) {
+        onUpdateOrganizations(organizations.map(org => org.id === currentOrgId ? { ...org, activeInvite: newInvite } : org));
+      }
+      setInviteTimeLeftSec(Math.max(0, Math.floor((newInvite.expiresAt - Date.now()) / 1000)));
+      return;
+    }
+
     if (!organizations || !currentOrgId || !onUpdateOrganizations) return;
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const now = Date.now();
-    const expiresAt = now + 5 * 60 * 1000; // 5 minutes
-
-    const newInvite: OrganizationInvite = {
-      code,
-      createdAt: now,
-      expiresAt,
-      isUsed: false
-    };
-
-    const updatedOrgs = organizations.map(org => {
-      if (org.id === currentOrgId) {
-        return {
-          ...org,
-          activeInvite: newInvite
-        };
-      }
-      return org;
-    });
-
-    onUpdateOrganizations(updatedOrgs);
+    const newInvite: OrganizationInvite = { code, createdAt: now, expiresAt: now + 5 * 60 * 1000, isUsed: false };
+    onUpdateOrganizations(organizations.map(org => org.id === currentOrgId ? { ...org, activeInvite: newInvite } : org));
     setInviteTimeLeftSec(300);
   };
 

@@ -34,7 +34,7 @@ export async function resetPasswordForEmail(email: string): Promise<{ success: b
 export async function registerUser(
   email: string,
   password: string,
-  metadata?: { name?: string; role?: 'admin' | 'attendant'; businessName?: string }
+  metadata?: { name?: string; role?: 'admin' | 'attendant'; businessName?: string; inviteCode?: string }
 ): Promise<{ success: boolean; user?: any; session?: any; error?: string }> {
   try {
     const cleanEmail = email.trim().toLowerCase();
@@ -49,7 +49,8 @@ export async function registerUser(
         data: {
           display_username: displayUsername,
           role: role,
-          business_name: businessName
+          business_name: businessName,
+          invite_code: metadata?.inviteCode || ''
         }
       }
     });
@@ -164,24 +165,39 @@ export async function joinAttendantWithInviteCode(
   }
 }
 
-export async function markNotificationsAsRead(userUid: string, notifIds: string[]): Promise<boolean> {
-  if (!userUid || !notifIds || notifIds.length === 0) return true;
+export async function markNotificationsAsRead(userUid: string, notifIds: string[], businessId?: string): Promise<boolean> {
+  if (!userUid || !businessId || !notifIds || notifIds.length === 0) return true;
   try {
-    const inserts = notifIds.map(notifId => ({
-      notification_id: notifId,
+    const inserts = notifIds.map(notificationKey => ({
+      business_id: businessId,
       profile_id: userUid,
+      notification_key: notificationKey,
       read_at: new Date().toISOString()
     }));
-
     const { error } = await supabase
-      .from('notification_reads')
-      .upsert(inserts, { onConflict: 'notification_id,profile_id' });
-
+      .from('notification_read_keys')
+      .upsert(inserts, { onConflict: 'business_id,profile_id,notification_key' });
     if (error) throw error;
     return true;
   } catch (err) {
     console.error('markNotificationsAsRead error:', err);
     return false;
+  }
+}
+
+export async function loadNotificationReadIds(userUid: string, businessId: string): Promise<string[]> {
+  if (!userUid || !businessId) return [];
+  try {
+    const { data, error } = await supabase
+      .from('notification_read_keys')
+      .select('notification_key')
+      .eq('profile_id', userUid)
+      .eq('business_id', businessId);
+    if (error) throw error;
+    return (data || []).map(row => row.notification_key);
+  } catch (err) {
+    console.error('loadNotificationReadIds error:', err);
+    return [];
   }
 }
 
@@ -433,5 +449,24 @@ export async function clearProfilePhoto(
   } catch (err: any) {
     console.error('clearProfilePhoto Error:', err);
     return { success: false, error: err?.message || 'Failed to remove profile photo.' };
+  }
+}
+
+
+export async function validateAttendantInvite(
+  inviteCode: string
+): Promise<{ success: boolean; businessId?: string; businessName?: string; expiresAt?: string; error?: string }> {
+  if (!inviteCode?.trim()) return { success: false, error: 'Invite code is required.' };
+  try {
+    const { data, error } = await supabase.rpc('validate_attendant_invite', {
+      p_invite_code: inviteCode.trim()
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return { success: false, error: 'Invalid or expired invite PIN.' };
+    return { success: true, businessId: row.business_id, businessName: row.business_name, expiresAt: row.expires_at };
+  } catch (err: any) {
+    console.error('validateAttendantInvite Error:', err);
+    return { success: false, error: err?.message || 'Unable to validate invite code.' };
   }
 }

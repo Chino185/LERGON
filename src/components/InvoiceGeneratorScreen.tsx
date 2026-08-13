@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Printer, 
-  Plus, 
-  Trash2, 
-  Eye, 
-  Edit3, 
-  RefreshCw, 
-  FileText, 
-  Sparkles, 
-  User, 
-  Calendar, 
-  DollarSign, 
-  CheckCircle2, 
-  ChevronDown, 
+import {
+  Printer,
+  Plus,
+  Trash2,
+  Eye,
+  Edit3,
+  RefreshCw,
+  FileText,
+  Sparkles,
+  User,
+  Calendar,
+  DollarSign,
+  CheckCircle2,
+  ChevronDown,
   FileQuestion,
   HelpCircle,
   Undo2,
@@ -32,6 +32,7 @@ interface InvoiceGeneratorScreenProps {
   adjustments: StockAdjustment[];
   transactions: CreditTransaction[];
   config: BusinessConfig;
+  onPersistInvoice?: (payload: { invoiceNumber: string; billTo: string; lineItems: unknown[]; grandTotal: number }) => Promise<{ success: boolean; error?: string }>;
 }
 
 interface DocRow {
@@ -92,7 +93,8 @@ export default function InvoiceGeneratorScreen({
   creditAccounts = [],
   adjustments = [],
   transactions = [],
-  config
+  config,
+  onPersistInvoice
 }: InvoiceGeneratorScreenProps) {
   // Preset types
   type PresetType = 'invoice_credit' | 'custom';
@@ -105,7 +107,7 @@ export default function InvoiceGeneratorScreen({
   const [companyContact, setCompanyContact] = useState('TEL: 0244406305   EMAIL: kwelyfran@gmail.com');
   const [professionalTag, setProfessionalTag] = useState('PROFESSIONAL PLUMBING AND HARDWARE STORE');
   const [documentTopic, setDocumentTopic] = useState('PROFORMA INVOICE');
-  
+
   const [invoiceNo, setInvoiceNo] = useState('1112135636');
   const [invoiceDate, setInvoiceDate] = useState('JUNE 10,2026');
   const [billTo, setBillTo] = useState('');
@@ -148,7 +150,7 @@ export default function InvoiceGeneratorScreen({
       return () => clearTimeout(timer);
     }
   }, [qtyModalOpen]);
-  
+
   // UI States
   const [viewMode, setViewMode] = useState<'composer' | 'preview'>('composer');
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -213,7 +215,7 @@ export default function InvoiceGeneratorScreen({
           setBillTo(acc.name.toUpperCase());
           setClientAddress(acc.email || 'ACCRA, GHANA');
           setInvoiceDate(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
-          
+
           // Import active sales as rows
           const relativeSales = adjustments.filter(adj => adj.creditAccountId === acc.id && adj.type === 'sale_out');
           if (relativeSales.length > 0) {
@@ -376,7 +378,7 @@ export default function InvoiceGeneratorScreen({
       sku: invItem ? invItem.sku : 'SKU-000'
     };
     setRows(prev => [...prev, newRow]);
-    
+
     // Quick success trigger
     setSuccessAnimation(true);
     setTimeout(() => setSuccessAnimation(false), 800);
@@ -393,7 +395,7 @@ export default function InvoiceGeneratorScreen({
   const handleConfirmAddQty = () => {
     const qty = parseInt(qtyInputValue, 10);
     if (isNaN(qty) || qty <= 0) {
-      return; 
+      return;
     }
 
     if (qtyModalItem) {
@@ -445,7 +447,7 @@ export default function InvoiceGeneratorScreen({
   const handleMoveRow = (index: number, direction: 'up' | 'down') => {
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === rows.length - 1) return;
-    
+
     const nextIdx = direction === 'up' ? index - 1 : index + 1;
     const swapped = [...rows];
     const temp = swapped[index];
@@ -473,20 +475,20 @@ export default function InvoiceGeneratorScreen({
     const list = [...billableItems];
     if (list.length === 0) return [[] as DocRow[]];
     const chunks: DocRow[][] = [];
-    
+
     const firstPageSize = 18;
     const subsequentPageSize = 26;
-    
+
     // First chunk (Page 1)
     chunks.push(list.slice(0, firstPageSize));
-    
+
     // Subsequent chunks (Page 2+)
     let remaining = list.slice(firstPageSize);
     while (remaining.length > 0) {
       chunks.push(remaining.slice(0, subsequentPageSize));
       remaining = remaining.slice(subsequentPageSize);
     }
-    
+
     return chunks;
   }, [billableItems]);
 
@@ -500,7 +502,18 @@ export default function InvoiceGeneratorScreen({
     }
   };
 
-  const handlePreviewAndPrint = () => {
+  const handlePreviewAndPrint = async () => {
+    if (onPersistInvoice) {
+      const result = await onPersistInvoice({
+        invoiceNumber: invoiceNo,
+        billTo: billTo || 'Walk-in Customer',
+        lineItems: rows,
+        grandTotal: invoiceCalculatedTotal
+      });
+      if (!result.success) {
+        console.error('Invoice persistence failed:', result.error);
+      }
+    }
     setViewMode('preview');
     setTimeout(() => {
       try {
@@ -514,9 +527,10 @@ export default function InvoiceGeneratorScreen({
 
   return (
     <div className="flex-1 w-full max-w-none xl:max-w-[1550px] mx-auto px-4 py-6 flex flex-col xl:flex-row gap-6 min-h-0 relative">
-      
+
       {/* Dynamic print-targeted CSS style sheet override injected into DOM */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @media print {
           /* Enforce standard A4 Portrait paper dimensions and page boundaries */
           @page {
@@ -610,7 +624,7 @@ export default function InvoiceGeneratorScreen({
 
       {/* COMPOSER WORKSPACE LAYOUT */}
       <div className={`flex flex-col gap-5 no-print ${viewMode === 'preview' ? 'hidden' : 'w-full max-w-7xl mx-auto'}`}>
-        
+
         {/* Composer Header & Preview Trigger (Crextio & Finnova Aesthetic) */}
         <div className="finnova-card p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -622,7 +636,7 @@ export default function InvoiceGeneratorScreen({
               <span className="text-xs text-slate-500 font-medium">{translate('search warehouse items, adjust quantities, and edit company details', config.languageCode)}</span>
             </div>
           </div>
-          
+
           <button
             type="button"
             onClick={handlePreviewAndPrint}
@@ -635,10 +649,10 @@ export default function InvoiceGeneratorScreen({
 
         {/* Two-Column Split: Controls on Left, Live-Added & Inventory Lists on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
+
           {/* ================= LEFT COLUMN: DETAILS & CUSTOMIZATIONS ================= */}
           <div className="lg:col-span-5 flex flex-col gap-5 no-print">
-            
+
             {/* Format Presets */}
             <div className="finnova-card p-4 sm:p-5 space-y-3.5">
               <div className="flex items-center justify-between mb-1">
@@ -648,7 +662,7 @@ export default function InvoiceGeneratorScreen({
                   </span>
                   <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">{translate('layout format presets', config.languageCode)}</h2>
                 </div>
-                
+
                 <span className="text-[9px] neumorphic-btn text-slate-800 dark:text-white px-2.5 py-1 rounded-full font-extrabold">
                   {translate('pdf-style print', config.languageCode)}
                 </span>
@@ -662,11 +676,10 @@ export default function InvoiceGeneratorScreen({
                 <button
                   type="button"
                   onClick={() => handleLoadPreset('invoice_credit')}
-                  className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${
-                    activePreset === 'invoice_credit' 
-                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10' 
+                  className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'invoice_credit'
+                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
                       : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
-                  }`}
+                    }`}
                 >
                   <div className="flex justify-between items-start w-full">
                     <MaterialIcon name="description" size={16} className={activePreset === 'invoice_credit' ? 'text-sky-600 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400'} />
@@ -678,11 +691,10 @@ export default function InvoiceGeneratorScreen({
                 <button
                   type="button"
                   onClick={() => handleLoadPreset('custom')}
-                  className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${
-                    activePreset === 'custom' 
-                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10' 
+                  className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'custom'
+                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
                       : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
-                  }`}
+                    }`}
                 >
                   <div className="flex justify-between items-start w-full">
                     <MaterialIcon name="edit" size={16} className={activePreset === 'custom' ? 'text-sky-600 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400'} />
@@ -761,12 +773,12 @@ export default function InvoiceGeneratorScreen({
                   >
                     {logoImage ? (
                       <div className="flex flex-col items-center gap-1.5">
-                        <img 
-                          src={logoImage} 
-                          alt="Uploaded logo preview" 
-                          className="object-contain rounded border border-slate-100 bg-slate-50 p-0.5" 
+                        <img
+                          src={logoImage}
+                          alt="Uploaded logo preview"
+                          className="object-contain rounded border border-slate-100 bg-slate-50 p-0.5"
                           style={{ width: `${Math.min(60, logoWidth)}px`, height: `${Math.min(60, logoHeight)}px` }}
-                          referrerPolicy="no-referrer" 
+                          referrerPolicy="no-referrer"
                         />
                         <span className="text-[7.5px] text-slate-900 font-extrabold uppercase font-sans">{translate('image ready &middot; click to change', config.languageCode)}</span>
                       </div>
@@ -890,11 +902,10 @@ export default function InvoiceGeneratorScreen({
                         key={align}
                         type="button"
                         onClick={() => setProfessionalAlign(align)}
-                        className={`py-1.5 px-2 text-[8px] font-black rounded-full uppercase transition cursor-pointer ${
-                          professionalAlign === align
+                        className={`py-1.5 px-2 text-[8px] font-black rounded-full uppercase transition cursor-pointer ${professionalAlign === align
                             ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
                             : 'finnova-card text-slate-600 hover:text-slate-900'
-                        }`}
+                          }`}
                       >
                         {translate(align, config.languageCode)}
                       </button>
@@ -1058,7 +1069,7 @@ export default function InvoiceGeneratorScreen({
 
           {/* ================= RIGHT COLUMN: INTERACTIVE ITEMS & INVENTORY ================= */}
           <div className="lg:col-span-7 flex flex-col gap-5">
-            
+
             {/* STORE WAREHOUSE INVENTORY FAST-ADD WIDGET */}
             <div className="finnova-card p-4 sm:p-5 space-y-3.5">
               <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
@@ -1099,8 +1110,8 @@ export default function InvoiceGeneratorScreen({
               <div className="max-h-60 overflow-y-auto pr-1 [scrollbar-width:thin] space-y-2">
                 {(() => {
                   const query = inventorySearch.trim().toLowerCase();
-                  const filtered = inventory.filter(item => 
-                    item.name.toLowerCase().includes(query) || 
+                  const filtered = inventory.filter(item =>
+                    item.name.toLowerCase().includes(query) ||
                     item.sku.toLowerCase().includes(query) ||
                     (item.category || '').toLowerCase().includes(query)
                   );
@@ -1124,7 +1135,7 @@ export default function InvoiceGeneratorScreen({
                     const totalQtyAdded = addedRowsOfItem.reduce((acc, curr) => acc + (curr.qty || 0), 0);
 
                     return (
-                      <div 
+                      <div
                         key={item.id}
                         className="p-3 neumorphic-inset rounded-2xl flex items-center justify-between gap-3 text-[10.5px]"
                       >
@@ -1218,8 +1229,8 @@ export default function InvoiceGeneratorScreen({
                   </div>
                 ) : (
                   rows.map((row, index) => (
-                    <div 
-                      key={row.id} 
+                    <div
+                      key={row.id}
                       className="finnova-card p-4 space-y-3 relative group transition text-[10px] border border-slate-200/80 dark:border-slate-800"
                     >
                       {/* Row meta/header actions */}
@@ -1231,17 +1242,17 @@ export default function InvoiceGeneratorScreen({
                           <span className="text-[8.5px] neumorphic-btn px-2.5 py-0.5 rounded-full text-slate-900 dark:text-white font-extrabold font-jakarta uppercase tracking-wider border border-slate-300 dark:border-slate-700">
                             {row.sku ? `SKU: ${row.sku}` : translate('custom', config.languageCode)}
                           </span>
-                          
+
                           {/* Subtotal calculation */}
                           <span className="text-[10.5px] text-slate-950 dark:text-white font-extrabold font-jakarta ml-1">
-                            {translate('subtotal', config.languageCode)}: {selectedCurrency}{((row.qty || 0) * (row.rate || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            {translate('subtotal', config.languageCode)}: {selectedCurrency}{((row.qty || 0) * (row.rate || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
                           {/* Row reorder buttons */}
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => handleMoveRow(index, 'up')}
                             disabled={index === 0}
                             className="w-8 h-8 flex items-center justify-center neumorphic-circle disabled:opacity-30 text-slate-950 dark:text-white hover:text-black dark:hover:text-white font-extrabold cursor-pointer transition active:scale-95 border border-slate-300 dark:border-slate-700"
@@ -1249,8 +1260,8 @@ export default function InvoiceGeneratorScreen({
                           >
                             ↑
                           </button>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => handleMoveRow(index, 'down')}
                             disabled={index === rows.length - 1}
                             className="w-8 h-8 flex items-center justify-center neumorphic-circle disabled:opacity-30 text-slate-950 dark:text-white hover:text-black dark:hover:text-white font-extrabold cursor-pointer transition active:scale-95 border border-slate-300 dark:border-slate-700"
@@ -1329,7 +1340,7 @@ export default function InvoiceGeneratorScreen({
                     {translate('grand total balance added', config.languageCode)}:
                   </span>
                   <span className="font-mono text-sm font-black text-slate-900 tracking-wider">
-                    {selectedCurrency}{invoiceCalculatedTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    {selectedCurrency}{invoiceCalculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
@@ -1343,7 +1354,7 @@ export default function InvoiceGeneratorScreen({
                   {translate('press below to build and verify the exact proforma layout format representation.', config.languageCode)}
                 </span>
               </div>
-              
+
               <button
                 type="button"
                 onClick={handlePreviewAndPrint}
@@ -1362,7 +1373,7 @@ export default function InvoiceGeneratorScreen({
 
       {/* RIGHT: A4 Printable Worksheet/Invoice Live Desk Layout Preview */}
       <div className={`flex-1 flex flex-col gap-5 overflow-hidden ${viewMode === 'composer' ? 'hidden' : 'w-full'}`}>
-        
+
         {/* Render Live Top Bar Actions (Crextio & Finnova Aesthetic) */}
         <div className="finnova-card p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 no-print">
           <div className="flex items-center gap-3.5">
@@ -1391,24 +1402,23 @@ export default function InvoiceGeneratorScreen({
         </div>
 
         {/* The Digital Page Desktop canvas board */}
-        <div className={`flex-1 overflow-auto px-2 py-6 finnova-card rounded-3xl flex flex-col items-center gap-6 [scrollbar-width:thin] ${
-          isPreviewMode ? 'p-12 bg-slate-300' : ''
-        }`}>
-          
+        <div className={`flex-1 overflow-auto px-2 py-6 finnova-card rounded-3xl flex flex-col items-center gap-6 [scrollbar-width:thin] ${isPreviewMode ? 'p-12 bg-slate-300' : ''
+          }`}>
+
           {itemsPages.map((pageItems, pageIndex) => {
             const isFirstPage = pageIndex === 0;
             const isLastPage = pageIndex === itemsPages.length - 1;
 
             return (
-              <div 
+              <div
                 key={`page-${pageIndex}`}
-                style={{ 
+                style={{
                   zoom: previewZoom,
                   maxWidth: `${sheetWidthMm}mm`
                 }}
                 className="printable-sheet bg-white text-black w-full min-h-[297mm] p-10 sm:p-14 shadow-xl border border-slate-300 relative flex flex-col select-all font-sans text-[12px] leading-relaxed transition-all duration-300 space-y-4 page-break"
               >
-                
+
                 {/* Top reference strip */}
                 <div className="absolute top-2 left-0 right-0 flex justify-between items-center px-10 sm:px-14 opacity-20 select-none no-print text-[7.5px] font-mono uppercase tracking-widest text-slate-500">
                   <span>{translate('jollidun proforma invoice station', config.languageCode)}</span>
@@ -1419,16 +1429,16 @@ export default function InvoiceGeneratorScreen({
                 {isFirstPage && (
                   <div className="flex items-start gap-4 justify-between border-b-[5px] border-black pb-3 select-text">
                     {/* Left Column: Logo */}
-                    <div 
+                    <div
                       className="flex items-center justify-center p-0.5 bg-white shrink-0 overflow-hidden"
                       style={{ width: `${logoWidth}px`, height: `${logoHeight}px` }}
                     >
                       {logoImage ? (
-                        <img 
-                          src={logoImage} 
-                          alt={translate('company logo', config.languageCode)} 
-                          className="w-full h-full object-contain" 
-                          referrerPolicy="no-referrer" 
+                        <img
+                          src={logoImage}
+                          alt={translate('company logo', config.languageCode)}
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
                         />
                       ) : (
                         // Standard Google MaterialIcon store badge fallback
@@ -1446,7 +1456,7 @@ export default function InvoiceGeneratorScreen({
                       <h1 className="text-xl sm:text-2xl font-extrabold tracking-wider text-black uppercase" style={{ fontFamily: 'Arial, sans-serif' }}>
                         {companyName}
                       </h1>
-                      
+
                       {/* Black solid bar with white text */}
                       <div className="bg-black text-white px-2 sm:px-4 py-1 w-full text-[10px] sm:text-[11px] font-black uppercase text-center my-1 tracking-wider">
                         {companySubHeader}
@@ -1465,8 +1475,8 @@ export default function InvoiceGeneratorScreen({
 
                 {/* Professional Subheading line */}
                 {isFirstPage && (
-                  <div 
-                    style={{ 
+                  <div
+                    style={{
                       paddingTop: `${professionalPaddingY}px`,
                       paddingBottom: `${professionalPaddingY}px`,
                       width: `${professionalWidthPct}%`,
@@ -1475,8 +1485,8 @@ export default function InvoiceGeneratorScreen({
                     }}
                     className=""
                   >
-                    <h2 
-                      style={{ 
+                    <h2
+                      style={{
                         fontSize: `${professionalFontSize}px`,
                         textAlign: professionalAlign,
                       }}
@@ -1613,7 +1623,7 @@ export default function InvoiceGeneratorScreen({
                       <div key={row.id} className="text-xs font-bold text-black uppercase">
                         <div>{idx + 1}. {row.title}</div>
                         {row.blankSpacingLines && row.blankSpacingLines > 0 ? (
-                           <div className="space-y-2 pt-1">
+                          <div className="space-y-2 pt-1">
                             {Array.from({ length: row.blankSpacingLines }).map((_, lIdx) => (
                               <div key={lIdx} className="h-0 border-b border-dashed border-gray-400 w-full" />
                             ))}
@@ -1633,13 +1643,13 @@ export default function InvoiceGeneratorScreen({
             );
           })}
         </div>
-        
+
       </div>
 
       {/* POPUP QUANTITY PROMPT DIALOG overlay */}
       <AnimatePresence>
         {qtyModalOpen && (
-          <div 
+          <div
             onClick={() => setQtyModalOpen(false)}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print cursor-pointer"
           >
@@ -1720,11 +1730,10 @@ export default function InvoiceGeneratorScreen({
                         key={presetVal}
                         type="button"
                         onClick={() => setQtyInputValue(String(presetVal))}
-                        className={`py-2 rounded-xl text-xs font-extrabold transition cursor-pointer text-center font-jakarta ${
-                          isSelected
+                        className={`py-2 rounded-xl text-xs font-extrabold transition cursor-pointer text-center font-jakarta ${isSelected
                             ? 'neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white border border-slate-700/60 shadow-md scale-105'
                             : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
-                        }`}
+                          }`}
                       >
                         {presetVal}
                       </button>

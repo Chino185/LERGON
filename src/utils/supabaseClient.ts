@@ -1,12 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || '';
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
+const configuredSupabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || '';
+const configuredSupabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('[Supabase Client Notice] VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables are missing.');
+export const isSupabaseConfigured = Boolean(configuredSupabaseUrl && configuredSupabaseAnonKey);
+
+if (!isSupabaseConfigured) {
+  console.warn('[Supabase Client Notice] VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables are missing. Backend operations will remain unavailable until configured.');
 }
 
+// Supabase's constructor throws on an empty URL/key, which previously prevented
+// React from mounting at all. A valid, non-routable placeholder keeps the UI
+// bootable and lets each service return its normal request error until deploy
+// configuration is supplied.
+const supabaseUrl = configuredSupabaseUrl || 'https://missing-project.supabase.co';
+const supabaseAnonKey = configuredSupabaseAnonKey || 'missing-supabase-anon-key';
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
