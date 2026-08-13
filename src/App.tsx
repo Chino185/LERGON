@@ -99,7 +99,8 @@ import {
   updateBusinessCurrency,
   subscribeToBusinessCurrency,
   updateBusinessCountry,
-  subscribeToBusinessCountry
+  subscribeToBusinessCountry,
+  updateUserPhone
 } from './utils/authServices';
 
 import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems } from './utils/inventoryServices';
@@ -997,6 +998,17 @@ export default function App() {
               document.documentElement.setAttribute('data-theme', 'light');
             }
           }
+
+          // Pull the user's own contact number back from the backend (the
+          // source of truth) into local config, so it shows correctly on
+          // this device/session even if it was last set somewhere else.
+          if (typeof profileData.phone === 'string') {
+            setConfig(prev => (
+              roleStr === 'admin'
+                ? { ...prev, adminPhone: profileData.phone }
+                : { ...prev, attendantPhone: profileData.phone }
+            ));
+          }
         }
 
         // Subscribe to Realtime profile changes
@@ -1033,6 +1045,16 @@ export default function App() {
                     document.documentElement.classList.remove('dark');
                     document.documentElement.setAttribute('data-theme', 'light');
                   }
+                }
+
+                // Keep the locally-shown contact number in sync with the
+                // backend if it changes elsewhere (e.g. another device).
+                if (typeof data.phone === 'string') {
+                  setConfig(prev => (
+                    roleStr === 'admin'
+                      ? { ...prev, adminPhone: data.phone }
+                      : { ...prev, attendantPhone: data.phone }
+                  ));
                 }
               }
             }
@@ -2002,6 +2024,22 @@ export default function App() {
             }
           });
       }
+    }
+
+    // 2b. Push the current user's own contact number to Supabase (profiles
+    //     table). This is a personal field, not org-wide, so it applies to
+    //     both Admin and Attendant -- previously it only ever lived in
+    //     localStorage, which is why it never showed up in the backend and
+    //     could silently reset (e.g. new device, cleared browser data).
+    const ownPhone = currentUserRole === 2 ? newConfig.adminPhone : newConfig.attendantPhone;
+    const prevOwnPhone = currentUserRole === 2 ? config.adminPhone : config.attendantPhone;
+    if (ownPhone !== prevOwnPhone && currentUserUid) {
+      updateUserPhone(currentUserUid, ownPhone || '')
+        .then((res) => {
+          if (!res.success) {
+            console.error('Failed to sync contact number to backend:', res.error);
+          }
+        });
     }
 
     // 3. Update current active state

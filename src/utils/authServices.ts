@@ -470,6 +470,34 @@ export function subscribeToBusinessCountry(
 }
 
 /**
+ * Persists the current user's own contact phone number on their profiles
+ * row. Unlike currency/country (org-wide, Admin-only), this is a personal
+ * field -- both Admin and Attendant can update their own number, mirroring
+ * the RLS policy which already only allows a user to update their own row.
+ */
+export async function updateUserPhone(
+  userUid: string,
+  phone: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!userUid) {
+    return { success: false, error: 'User ID is required.' };
+  }
+
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ phone })
+      .eq('id', userUid);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateUserPhone Error:', err);
+    return { success: false, error: err?.message || 'Failed to update contact number.' };
+  }
+}
+
+/**
  * Clear a user's profile photo in the profiles table. Each user owns only
  * their own profile_photo_url row (enforced by the "Users can update own
  * profile" RLS policy), so this can only ever clear the caller's own
