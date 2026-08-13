@@ -52,6 +52,7 @@ interface InventoryScreenProps {
   adjustments: StockAdjustment[];
   config: BusinessConfig;
   businessId: string;
+  userUid: string;
   onAddItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => Promise<{ success: boolean; error?: string }> | any;
   onUpdateItem: (id: string, updates: Partial<InventoryItem>) => Promise<{ success: boolean; error?: string }> | any;
   onDeleteItem: (id: string) => void;
@@ -296,6 +297,7 @@ export default function InventoryScreen({
   adjustments = [],
   config,
   businessId,
+  userUid,
   onAddItem,
   onUpdateItem,
   onDeleteItem,
@@ -318,10 +320,9 @@ export default function InventoryScreen({
     }
   }, [inventoryTabOverride, onClearInventoryTabOverride]);
 
-  // Business ID now comes directly from App.tsx (sourced from the
-  // authenticated user's Supabase profile) instead of being guessed
+  // Business ID and User ID now come directly from App.tsx (sourced
+  // from the authenticated Supabase session) instead of being guessed
   // from the config object.
-  const userUid = (config as any)?.owner_admin_uid || (config as any)?.adminUid || 'current_user';
 
   // Real-time Firestore Stream States
   const [realtimeInventory, setRealtimeInventory] = useState<InventoryItem[] | null>(null);
@@ -805,8 +806,8 @@ export default function InventoryScreen({
           type="button"
           onClick={() => setInventoryTab('active_stock')}
           className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${inventoryTab === 'active_stock'
-              ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
         >
           {translate('active store stock', config.languageCode)}
@@ -815,8 +816,8 @@ export default function InventoryScreen({
           type="button"
           onClick={() => setInventoryTab('damaged_audit')}
           className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${inventoryTab === 'damaged_audit'
-              ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
         >
           <span>{translate('damaged auditing log', config.languageCode)}</span>
@@ -831,8 +832,8 @@ export default function InventoryScreen({
             type="button"
             onClick={() => setInventoryTab('restock_validations')}
             className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${inventoryTab === 'restock_validations'
-                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
           >
             <span>Restock Validations</span>
@@ -909,8 +910,8 @@ export default function InventoryScreen({
                                 setCategoryDropdownOpen(false);
                               }}
                               className={`w-full text-left text-xs px-3.5 py-2.5 rounded-xl font-extrabold transition flex items-center justify-between cursor-pointer ${isSelected
-                                  ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
-                                  : 'text-slate-800 hover:bg-slate-200/70 hover:text-black'
+                                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
+                                : 'text-slate-800 hover:bg-slate-200/70 hover:text-black'
                                 }`}
                             >
                               <span>{label} ({translate('category', config.languageCode)})</span>
@@ -941,8 +942,8 @@ export default function InventoryScreen({
                     type="button"
                     onClick={() => setStockStatus(tab)}
                     className={`text-xs px-3.5 py-1.5 rounded-full font-extrabold transition cursor-pointer ${stockStatus === tab
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                        : 'neumorphic-btn text-slate-800 hover:text-black'
+                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
+                      : 'neumorphic-btn text-slate-800 hover:text-black'
                       }`}
                   >
                     {tab === 'All'
@@ -1105,10 +1106,10 @@ export default function InventoryScreen({
                         </p>
                       </div>
                       <span className={`text-[9px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide shrink-0 border ${isZero
-                          ? 'bg-rose-50 text-rose-800 border-rose-200'
-                          : isOver
-                            ? 'bg-amber-50 text-amber-800 border-amber-200'
-                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        ? 'bg-rose-50 text-rose-800 border-rose-200'
+                        : isOver
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                         }`}>
                         {isZero ? translate('out of stock', config.languageCode) : isOver ? translate('low stock', config.languageCode) : translate('in stock', config.languageCode)}
                       </span>
@@ -1294,8 +1295,8 @@ export default function InventoryScreen({
                                   setDateDropdownOpen(false);
                                 }}
                                 className={`w-full text-left text-xs px-3.5 py-2.5 rounded-xl font-extrabold transition flex items-center justify-between cursor-pointer ${isSelected
-                                    ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
-                                    : 'text-slate-800 hover:bg-slate-200/70 hover:text-black'
+                                  ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
+                                  : 'text-slate-800 hover:bg-slate-200/70 hover:text-black'
                                   }`}
                               >
                                 <span>{opt.label}</span>
@@ -1662,8 +1663,8 @@ export default function InventoryScreen({
                               setIsCategoryDropdownOpen(false);
                             }}
                             className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${itemCategory === opt.value
-                                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 to-blue-600 text-white font-black shadow-inner'
-                                : 'hover:bg-white/60 dark:hover:bg-slate-800/60 text-slate-800 dark:text-slate-200'
+                              ? 'neumorphic-inset bg-gradient-to-r from-sky-500 to-blue-600 text-white font-black shadow-inner'
+                              : 'hover:bg-white/60 dark:hover:bg-slate-800/60 text-slate-800 dark:text-slate-200'
                               }`}
                           >
                             <span>{opt.label}</span>
@@ -1848,8 +1849,8 @@ export default function InventoryScreen({
                     type="button"
                     onClick={() => setAdjustType('purchase_in')}
                     className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'purchase_in'
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                        : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
+                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
+                      : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
                       }`}
                   >
                     <ArrowDownCircle size={14} className={adjustType === 'purchase_in' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('stock procurement (+ in)', config.languageCode)}
@@ -1858,8 +1859,8 @@ export default function InventoryScreen({
                     type="button"
                     onClick={() => setAdjustType('sale_out')}
                     className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'sale_out'
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                        : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
+                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
+                      : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
                       }`}
                   >
                     <ArrowUpCircle size={14} className={adjustType === 'sale_out' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('product outflow (- out)', config.languageCode)}
@@ -1869,8 +1870,8 @@ export default function InventoryScreen({
                       type="button"
                       onClick={() => setAdjustType('damaged')}
                       className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'damaged'
-                          ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                          : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
+                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
+                        : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
                         }`}
                     >
                       {translate('stock damaged (- out)', config.languageCode)}
@@ -1881,8 +1882,8 @@ export default function InventoryScreen({
                       type="button"
                       onClick={() => setAdjustType('returned')}
                       className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'returned'
-                          ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                          : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
+                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
+                        : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
                         }`}
                     >
                       <RotateCcw size={14} className={adjustType === 'returned' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('client return (+ in)', config.languageCode)}

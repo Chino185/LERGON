@@ -3265,6 +3265,7 @@ export default function App() {
                 adjustments={adjustments}
                 config={config}
                 businessId={currentOrgId}
+                userUid={currentUserUid}
                 onAddItem={handleAddItem}
                 onUpdateItem={handleUpdateItem}
                 onDeleteItem={handleDeleteItem}
