@@ -95,7 +95,9 @@ import {
   joinAttendantWithInviteCode,
   subscribeToActivityLogs,
   logActivity,
-  markNotificationsAsRead
+  markNotificationsAsRead,
+  updateBusinessCurrency,
+  subscribeToBusinessCurrency
 } from './utils/authServices';
 
 import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems } from './utils/inventoryServices';
@@ -1098,11 +1100,24 @@ export default function App() {
       setAdjustments(logs || []);
     });
 
+    // 5. Real-time Business Currency Listener — keeps every device (Admin
+    // and Attendant) in sync the instant the Admin changes the business
+    // currency, instead of waiting on next login/refresh.
+    const unsubCurrency = subscribeToBusinessCurrency(currentOrgId, ({ currencyCode, currencySymbol }) => {
+      setConfig(prev => {
+        if (prev.currency === currencyCode && prev.currencySymbol === currencySymbol) {
+          return prev;
+        }
+        return { ...prev, currency: currencyCode, currencySymbol: currencySymbol };
+      });
+    });
+
     return () => {
       unsubInventory();
       unsubCredits();
       unsubSales();
       unsubActivity();
+      unsubCurrency();
     };
   }, [isLoggedIn, currentOrgId]);
 
@@ -1938,8 +1953,24 @@ export default function App() {
     saveLocalState(userPrefKey, userPrefs);
 
     // 2. If Admin (role 2), also save organization-wide business settings
+    //    locally, and push the currency to Supabase so every device and
+    //    every teammate sees the same base currency in real time instead
+    //    of it being stuck in this browser's local storage.
     if (currentUserRole === 2) {
       saveLocalState(getOrgStorageKey(CONFIG_KEY, currentOrgId), newConfig);
+
+      const currencyChanged =
+        newConfig.currency !== config.currency ||
+        newConfig.currencySymbol !== config.currencySymbol;
+
+      if (currencyChanged && currentOrgId) {
+        updateBusinessCurrency(currentOrgId, currentUserRole, newConfig.currency, newConfig.currencySymbol)
+          .then((res) => {
+            if (!res.success) {
+              console.error('Failed to sync currency to backend:', res.error);
+            }
+          });
+      }
     }
 
     // 3. Update current active state

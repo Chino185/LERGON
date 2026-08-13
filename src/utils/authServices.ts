@@ -302,3 +302,86 @@ export async function logActivity(
     return false;
   }
 }
+
+/**
+ * Persist the business's base currency to Supabase so it's shared
+ * across all devices/sessions for the organization, not just the
+ * browser that changed it. Only Admins (role 2) may update it, since
+ * this is an org-wide setting that all stored USD amounts are
+ * converted from.
+ */
+export async function updateBusinessCurrency(
+  businessId: string,
+  userRole: number | string | undefined,
+  currencyCode: string,
+  currencySymbol: string
+): Promise<{ success: boolean; error?: string }> {
+  const isAdmin = userRole === 2 || userRole === 'admin';
+  if (!isAdmin) {
+    return { success: false, error: 'Unauthorized: Only Administrators can change the business currency.' };
+  }
+
+  if (!businessId) {
+    return { success: false, error: 'Business ID is required.' };
+  }
+
+  try {
+    const { error } = await supabase
+      .from('businesses')
+      .update({
+        base_currency_code: currencyCode,
+        base_currency_symbol: currencySymbol
+      })
+      .eq('id', businessId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateBusinessCurrency Error:', err);
+    return { success: false, error: err?.message || 'Failed to update business currency.' };
+  }
+}
+
+/**
+ * Subscribe to Realtime changes on the business's base currency so that
+ * every logged-in device (Admin or Attendant) picks up a currency change
+ * immediately, instead of only on next login/refresh. Fires once
+ * immediately with the current value, then again on every future update.
+ */
+export function subscribeToBusinessCurrency(
+  businessId: string,
+  onUpdate: (currency: { currencyCode: string; currencySymbol: string }) => void
+): () => void {
+  if (!businessId) {
+    return () => { };
+  }
+
+  const fetchCurrency = () => {
+    supabase
+      .from('businesses')
+      .select('base_currency_code, base_currency_symbol')
+      .eq('id', businessId)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        onUpdate({
+          currencyCode: data.base_currency_code,
+          currencySymbol: data.base_currency_symbol
+        });
+      });
+  };
+
+  fetchCurrency();
+
+  const channel = getSafeChannel(`business_currency_${businessId}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'businesses', filter: `id=eq.${businessId}` },
+      () => fetchCurrency()
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
