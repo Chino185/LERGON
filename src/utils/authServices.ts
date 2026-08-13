@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase, getSafeChannel } from './supabaseClient';
 import { LergonUser, ActivityLog } from '../types';
 
 export { supabase };
@@ -246,8 +246,7 @@ export function subscribeToActivityLogs(
     });
 
   // Subscribe to Realtime inserts
-  const channel = supabase
-    .channel(`activity_logs_${businessId}`)
+  const channel = getSafeChannel(`activity_logs_${businessId}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'activity_logs', filter: `business_id=eq.${businessId}` },

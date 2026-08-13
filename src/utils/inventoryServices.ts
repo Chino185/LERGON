@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase, getSafeChannel } from './supabaseClient';
 import { InventoryItem, PendingRestock } from '../types';
 import { sanitizeTextInput } from './securityValidation';
 
@@ -25,7 +25,7 @@ export function subscribeToInventoryItems(
 ): () => void {
   if (!businessId) {
     onUpdate([]);
-    return () => {};
+    return () => { };
   }
 
   const fetchItems = () => {
@@ -62,8 +62,7 @@ export function subscribeToInventoryItems(
 
   fetchItems();
 
-  const channel = supabase
-    .channel(`inventory_${businessId}`)
+  const channel = getSafeChannel(`inventory_${businessId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'inventory_items', filter: `business_id=eq.${businessId}` },
@@ -281,7 +280,7 @@ export function subscribeToDamageReports(
 ): () => void {
   if (!businessId) {
     onUpdate([]);
-    return () => {};
+    return () => { };
   }
 
   const fetchReports = () => {
@@ -314,8 +313,7 @@ export function subscribeToDamageReports(
 
   fetchReports();
 
-  const channel = supabase
-    .channel(`damage_${businessId}`)
+  const channel = getSafeChannel(`damage_${businessId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'damage_reports', filter: `business_id=eq.${businessId}` },
@@ -479,7 +477,7 @@ export function subscribeToRestockRequests(
 ): () => void {
   if (!businessId) {
     onUpdate([]);
-    return () => {};
+    return () => { };
   }
 
   const fetchRequests = () => {
@@ -514,8 +512,7 @@ export function subscribeToRestockRequests(
 
   fetchRequests();
 
-  const channel = supabase
-    .channel(`restocks_${businessId}`)
+  const channel = getSafeChannel(`restocks_${businessId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'restock_requests', filter: `business_id=eq.${businessId}` },

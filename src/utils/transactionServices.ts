@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase, getSafeChannel } from './supabaseClient';
 import { CreditTransaction } from '../types';
 
 export function subscribeToTransactions(
@@ -8,7 +8,7 @@ export function subscribeToTransactions(
 ): () => void {
   if (!businessId) {
     onUpdate([]);
-    return () => {};
+    return () => { };
   }
 
   const fetchTxns = () => {
@@ -41,8 +41,7 @@ export function subscribeToTransactions(
 
   fetchTxns();
 
-  const channel = supabase
-    .channel(`txns_${businessId}`)
+  const channel = getSafeChannel(`txns_${businessId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'transactions', filter: `business_id=eq.${businessId}` },

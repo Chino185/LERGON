@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase, getSafeChannel } from './supabaseClient';
 import { CreditAccount } from '../types';
 import { sanitizeTextInput } from './securityValidation';
 
@@ -9,7 +9,7 @@ export function subscribeToCreditProfiles(
 ): () => void {
   if (!businessId) {
     onUpdate([]);
-    return () => {};
+    return () => { };
   }
 
   const fetchAccounts = () => {
@@ -45,8 +45,7 @@ export function subscribeToCreditProfiles(
 
   fetchAccounts();
 
-  const channel = supabase
-    .channel(`credit_${businessId}`)
+  const channel = getSafeChannel(`credit_${businessId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'credit_profiles', filter: `business_id=eq.${businessId}` },
