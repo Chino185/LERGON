@@ -3,11 +3,11 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
-import { 
-  Lock, 
+import {
+  Lock,
   Zap,
-  User, 
-  Building2, 
+  User,
+  Building2,
   KeyRound,
   Shield,
   Plus,
@@ -49,30 +49,30 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { 
-  InventoryItem, 
-  StockAdjustment, 
-  CreditAccount, 
-  CreditTransaction, 
+import {
+  InventoryItem,
+  StockAdjustment,
+  CreditAccount,
+  CreditTransaction,
   BusinessConfig,
   Organization,
   UserRole,
   PendingRestock
 } from './types';
-import { 
-  INITIAL_BUSINESS_CONFIG, 
-  INITIAL_INVENTORY, 
-  INITIAL_ADJUSTMENTS, 
-  INITIAL_CREDIT_ACCOUNTS, 
+import {
+  INITIAL_BUSINESS_CONFIG,
+  INITIAL_INVENTORY,
+  INITIAL_ADJUSTMENTS,
+  INITIAL_CREDIT_ACCOUNTS,
   INITIAL_CREDIT_TRANSACTIONS,
   getLocalState,
-  saveLocalState 
+  saveLocalState
 } from './data';
-import { 
-  validateEmail, 
-  validateUsername, 
-  validatePassword, 
-  validateBusinessName, 
+import {
+  validateEmail,
+  validateUsername,
+  validatePassword,
+  validateBusinessName,
   sanitizeInput,
   evaluatePasswordStrength,
   validateInviteCodeFormat,
@@ -86,8 +86,8 @@ import {
 import PasswordValidationChecklist from './components/PasswordValidationChecklist';
 import EmailValidationChecklist from './components/EmailValidationChecklist';
 import { supabase } from './utils/supabaseClient';
-import { 
-  registerUser, 
+import {
+  registerUser,
   loginUser,
   logoutUser,
   sendVerificationEmail,
@@ -384,7 +384,7 @@ export default function App() {
   };
 
   const getOrgStorageKey = (baseKey: string, orgId: string) => {
-    if (orgId === 'default') return baseKey; 
+    if (orgId === 'default') return baseKey;
     return `${baseKey}_org_${orgId}`;
   };
 
@@ -465,7 +465,7 @@ export default function App() {
     }
 
     // 3. Instant Multi-tenant organization & role resolution
-    let resolvedOrg = organizations.find(o => 
+    let resolvedOrg = organizations.find(o =>
       (o.adminEmail && o.adminEmail.toLowerCase() === cleanEmail) ||
       (o.attendantEmail && o.attendantEmail.toLowerCase() === cleanEmail)
     );
@@ -509,13 +509,13 @@ export default function App() {
     setEmailOtpSuccess('');
     setSuccess(null);
     setActiveView('signin');
-    setActiveScreen('dashboard'); 
+    setActiveScreen('dashboard');
     await logoutUser();
   };
 
   // --- Core States ---
   const [config, setConfig] = useState<BusinessConfig>(() => loadEffectiveConfig('', null));
-  
+
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
   const [creditAccounts, setCreditAccounts] = useState<CreditAccount[]>([]);
@@ -537,12 +537,12 @@ export default function App() {
   // --- Auto-generate and Dispatch WhatsApp Shortages Message ---
   useEffect(() => {
     const lowStockItems = inventory.filter(item => item.quantity <= item.reorderPoint);
-    
+
     // If some items in notifiedShortageIds are NO LONGER in lowStockItems, remove them from notifiedShortageIds
     // so they can be triggered again if they fall low in the future (restocked then went low again)
     const activeShortageIds = lowStockItems.map(item => item.id);
     const staleNotifiedIds = notifiedShortageIds.filter(id => !activeShortageIds.includes(id));
-    
+
     if (staleNotifiedIds.length > 0) {
       const filtered = notifiedShortageIds.filter(id => activeShortageIds.includes(id));
       setNotifiedShortageIds(filtered);
@@ -569,18 +569,18 @@ export default function App() {
       hour: '2-digit',
       minute: '2-digit'
     });
-    
+
     let report = `⚠️ *URGENT INVENTORY SHORTAGE DETECTED* ⚠️\n`;
     report += `*Store:* ${config.businessName}\n`;
     report += `*Date:* ${dateStr}\n\n`;
     report += `The following items have fallen low or out of stock:\n\n`;
-    
+
     unnotifiedItems.forEach((item, index) => {
       report += `${index + 1}. *${item.name}*\n`;
       report += `   • SKU: ${item.sku || 'N/A'}\n`;
       report += `   • Stock: *${item.quantity} ${item.unit || 'units'}* (Reorder Point: ${item.reorderPoint})\n\n`;
     });
-    
+
     report += `Please coordinate immediate restocking.\n`;
     report += `Report auto-dispatched from Velo IC terminal.`;
 
@@ -747,14 +747,6 @@ export default function App() {
     setOrganizations(updated);
 
     // Initially configure default storage settings
-    const defaultOrgConfig: BusinessConfig = {
-      ...INITIAL_BUSINESS_CONFIG,
-      businessName: cleanName,
-      ownerName: 'Administrator',
-      email: cleanEmail
-    };
-    saveLocalState(getOrgStorageKey(CONFIG_KEY, newOrg.id), defaultOrgConfig);
-
     // Register auth user in Supabase Auth
     const startTime = performance.now();
     console.log('[Admin Signup] Step 1: Attempting Auth registration for:', cleanEmail);
@@ -852,7 +844,7 @@ export default function App() {
     }
     const cleanEmail = emailCheck.cleanEmail;
 
-    const isAlreadyRegistered = organizations.some(o => 
+    const isAlreadyRegistered = organizations.some(o =>
       (o.adminEmail && o.adminEmail.trim().toLowerCase() === cleanEmail) ||
       (o.attendantEmail && o.attendantEmail.trim().toLowerCase() === cleanEmail)
     );
@@ -875,8 +867,8 @@ export default function App() {
 
     // Register attendant auth user in Supabase Auth
     console.log('[Attendant Signup] Attempting registration for:', cleanEmail, 'Business Name:', validatedJoinOrg.name);
-    const authRes = await registerUser(cleanEmail, cleanPass, { 
-      role: 'attendant', 
+    const authRes = await registerUser(cleanEmail, cleanPass, {
+      role: 'attendant',
       name: validatedJoinOrg.name
     });
 
@@ -1137,9 +1129,9 @@ export default function App() {
   // --- Auto-restore active forgot password session on load/mount ---
   useEffect(() => {
     if (!isLoggedIn) {
-      const activeResetOrg = organizations.find(org => 
-        org.attendantResetRequested && 
-        org.attendantResetTimestamp && 
+      const activeResetOrg = organizations.find(org =>
+        org.attendantResetRequested &&
+        org.attendantResetTimestamp &&
         (Date.now() - org.attendantResetTimestamp < 5 * 60 * 1000)
       );
       if (activeResetOrg) {
@@ -1280,8 +1272,8 @@ export default function App() {
       const waitRemainingSec = Math.ceil((300 * 1000 - elapsed) / 1000);
       const waitMinutes = Math.floor(waitRemainingSec / 60);
       const waitSeconds = waitRemainingSec % 60;
-      const waitMsg = waitMinutes > 0 
-        ? `${waitMinutes}m ${waitSeconds}s` 
+      const waitMsg = waitMinutes > 0
+        ? `${waitMinutes}m ${waitSeconds}s`
         : `${waitSeconds}s`;
       setVerificationError(`Please wait ${waitMsg} before requesting another PIN.`);
       return;
@@ -1349,7 +1341,7 @@ export default function App() {
       notes: rawNotes,
       lastUpdated: new Date().toISOString()
     };
-    
+
     setInventory(prev => [freshItem, ...prev.filter(i => i.id !== freshItem.id)]);
     return { success: true };
   };
@@ -1387,9 +1379,9 @@ export default function App() {
 
 
   const handleLogAdjustment = (
-    itemId: string, 
-    qtyChanged: number, 
-    type: StockAdjustment['type'], 
+    itemId: string,
+    qtyChanged: number,
+    type: StockAdjustment['type'],
     notes: string,
     creditAccountId?: string,
     performedBy?: string
@@ -1580,7 +1572,7 @@ export default function App() {
       const adjType = adj.type;
       const unitPriceOrCost = adjType === 'sale_out' ? (item?.unitPrice || 0) : (item?.unitCost || 0);
       const creditAmountDiff = (Math.abs(adj.qtyChanged) - Math.abs(correctedQty)) * unitPriceOrCost;
-      
+
       setCreditAccounts(prevAccs => prevAccs.map(acc => {
         if (acc.id === adj.creditAccountId) {
           const nextTotal = Math.max(0, acc.totalAmount - creditAmountDiff);
@@ -1699,7 +1691,7 @@ export default function App() {
             resolvedBy: currentUserRole === 2 ? 'Admin' : 'Attendant',
             correctionNotes,
             notes: `${tx.notes ? tx.notes + ' ' : ''}[Corrected from ${tx.amount} to ${correctedAmount}: ${correctionNotes}]`,
-            ...( (tx.type === 'charge' || tx.type === 'borrow') ? { remainingAmount: Math.max(0, (tx.remainingAmount ?? tx.amount) + difference) } : {} )
+            ...((tx.type === 'charge' || tx.type === 'borrow') ? { remainingAmount: Math.max(0, (tx.remainingAmount ?? tx.amount) + difference) } : {})
           };
         }
         return tx;
@@ -1807,9 +1799,9 @@ export default function App() {
   };
 
   const handleAddTransaction = (
-    accountId: string, 
-    amount: number, 
-    type: CreditTransaction['type'], 
+    accountId: string,
+    amount: number,
+    type: CreditTransaction['type'],
     notes: string,
     paymentMethod?: 'Cash' | 'Mobile Money' | 'Bank',
     transactionProof?: { name: string; dataUrl: string; type: string },
@@ -1832,13 +1824,13 @@ export default function App() {
       transactionProof,
       relatedCreditTxnId,
       performedBy: actor,
-      ...( (type === 'charge' || type === 'borrow') ? { remainingAmount: amount } : {} )
+      ...((type === 'charge' || type === 'borrow') ? { remainingAmount: amount } : {})
     };
 
     setCreditAccounts(prev => prev.map(acc => {
       if (acc.id === accountId) {
         newTxn.accountName = acc.name; // Fill reference safely
-        
+
         let nextRemaining = acc.remainingAmount;
         let nextPaymentDate = acc.paymentDate;
         let nextTotalAmount = acc.totalAmount;
@@ -1876,7 +1868,7 @@ export default function App() {
       let updatedPrev = [...prev];
       if (type === 'pay') {
         let paymentToAllocate = amount;
-        
+
         if (relatedCreditTxnId) {
           // Explicit targeting of a specific session credit
           updatedPrev = updatedPrev.map(t => {
@@ -1926,9 +1918,9 @@ export default function App() {
     if (!acc || acc.remainingAmount === 0) return;
 
     handleAddTransaction(
-      accountId, 
-      acc.remainingAmount, 
-      'pay', 
+      accountId,
+      acc.remainingAmount,
+      'pay',
       'Complete settlement allocation clearance.'
     );
   };
@@ -1966,7 +1958,7 @@ export default function App() {
     localStorage.removeItem(getOrgStorageKey(CREDIT_ACCOUNTS_KEY, currentOrgId));
     localStorage.removeItem(getOrgStorageKey(TRANSACTIONS_KEY, currentOrgId));
     localStorage.removeItem(getOrgStorageKey(PENDING_RESTOCKS_KEY, currentOrgId));
-    
+
     setConfig(INITIAL_BUSINESS_CONFIG);
     setInventory(INITIAL_INVENTORY);
     setAdjustments(INITIAL_ADJUSTMENTS);
@@ -1993,7 +1985,7 @@ export default function App() {
 
   const handleWipeStorage = () => {
     localStorage.clear();
-    
+
     const wipedConfig: BusinessConfig = {
       businessName: 'My Enterprise',
       ownerName: '',
@@ -2056,7 +2048,7 @@ export default function App() {
 
     // Try finding by ID first
     let account = creditAccounts.find(acc => acc.id === creditAccountIdOrName);
-    
+
     // If not found by ID, try case-insensitive name match to avoid duplicates
     if (!account) {
       const cleanName = creditAccountIdOrName.trim();
@@ -2126,9 +2118,9 @@ export default function App() {
 
           {/* Top Navigation Bar with Inspiration Notch */}
           <header className="fixed top-0 left-0 right-0 z-50 neu-flat rounded-none border-b border-white/90 dark:border-slate-800/80 px-3 sm:px-6 lg:px-12 py-2.5 sm:py-3 transition-all shadow-xl backdrop-blur-md">
-            
+
             {/* Center Notch Container with Logo (visible on large screens) */}
-            <div 
+            <div
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="hidden lg:flex absolute left-1/2 -translate-x-1/2 -top-0.5 neu-flat border border-white/90 dark:border-slate-700/80 px-6 sm:px-8 py-1.5 sm:py-2 rounded-b-2xl shadow-xl items-center justify-center cursor-pointer z-50 hover:scale-105 transition-all"
             >
@@ -2141,7 +2133,7 @@ export default function App() {
               {/* Left Nav Links - smoothly scrollable on compact screens */}
               <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar whitespace-nowrap py-0.5">
                 {/* Compact Logo for small/minimized windows */}
-                <div 
+                <div
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                   className="lg:hidden flex items-center gap-1.5 pr-2.5 border-r border-slate-300 dark:border-[#0052D4]/30 mr-1 cursor-pointer shrink-0"
                 >
@@ -2159,8 +2151,8 @@ export default function App() {
                 <a href="#solutions" className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
                   Solutions
                 </a>
-                <a 
-                  href="#faq" 
+                <a
+                  href="#faq"
                   className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0"
                 >
                   FAQ
@@ -2179,14 +2171,14 @@ export default function App() {
                   {isLandingDark ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-sky-400" />}
                 </button>
 
-                <button 
-                  onClick={() => { setActiveView('signin'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }} 
+                <button
+                  onClick={() => { setActiveView('signin'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
                   className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button transition-all cursor-pointer"
                 >
                   Login
                 </button>
-                <button 
-                  onClick={() => { setActiveView('register'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }} 
+                <button
+                  onClick={() => { setActiveView('register'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
                   className="neu-button active-tab text-white font-extrabold text-xs sm:text-sm px-4 sm:px-6 py-1.5 sm:py-2 rounded-full shadow-lg transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Register
@@ -2197,10 +2189,10 @@ export default function App() {
 
           {/* Main Landing Sections Overlay Container */}
           <main className="relative z-10 w-full flex-1">
-             {/* --- SECTION 1: HERO (Main Headline & Hook) --- */}
+            {/* --- SECTION 1: HERO (Main Headline & Hook) --- */}
             <section id="hero" className="relative min-h-[88vh] flex flex-col items-center justify-center text-center px-4 sm:px-6 pt-24 sm:pt-28 pb-16 overflow-hidden">
               <div className="max-w-4xl mx-auto space-y-6 flex flex-col items-center relative z-10">
-                
+
                 {/* Main Headline (h1, parallax-fast) */}
                 <h1 className="h1 parallax-fast font-quantum font-black text-4xl sm:text-6xl md:text-7xl lg:text-8xl tracking-tight uppercase text-transparent bg-clip-text bg-gradient-to-r from-[#0052D4] via-[#65C7F7] to-[#9CECFB] dark:from-[#9CECFB] dark:via-[#65C7F7] dark:to-[#0052D4] leading-tight pt-2 drop-shadow-[0_0_35px_rgba(0,82,212,0.35)]">
                   Run the Business We've Got the Numbers
@@ -2214,7 +2206,7 @@ export default function App() {
                 {/* Primary Action Buttons */}
                 <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
                   {/* Primary CTA (neu-button active-tab) */}
-                  <button 
+                  <button
                     onClick={() => { setActiveView('register'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
                     className="neu-button active-tab px-8 sm:px-10 py-4 sm:py-4.5 rounded-full inline-flex items-center gap-3.5 shadow-2xl font-quantum font-black uppercase tracking-[0.15em] text-base sm:text-lg group cursor-pointer"
                   >
@@ -2223,7 +2215,7 @@ export default function App() {
                   </button>
 
                   {/* Secondary CTA (neu-button) */}
-                  <button 
+                  <button
                     onClick={() => {
                       const el = document.getElementById('live-metrics');
                       if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -2522,7 +2514,7 @@ export default function App() {
                 </p>
                 {/* CTA Button (neu-button active-tab) */}
                 <div className="pt-2">
-                  <button 
+                  <button
                     onClick={() => { setActiveView('register'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
                     className="neu-button active-tab px-10 py-4.5 rounded-full inline-flex items-center gap-3.5 shadow-2xl font-quantum font-black uppercase tracking-[0.15em] text-lg sm:text-xl group cursor-pointer"
                   >
@@ -2576,11 +2568,11 @@ export default function App() {
                     a: "Yes — LERGON supports role-based access, so staff can be given specific permissions, like recording sales, without full access to sensitive data such as profit margins or the credit ledger"
                   }
                 ].map((faq, idx) => (
-                  <div 
+                  <div
                     key={idx}
                     className="neu-flat rounded-2xl overflow-hidden transition-all border border-white/90 dark:border-slate-800/80"
                   >
-                    <button 
+                    <button
                       onClick={() => setActiveFaqIndex(activeFaqIndex === idx ? null : idx)}
                       className="w-full p-5 sm:p-6 text-left flex items-center justify-between gap-4 font-heading font-extrabold text-base sm:text-lg text-slate-900 dark:text-white hover:text-[#0052D4] dark:hover:text-[#9CECFB] transition-colors cursor-pointer"
                     >
@@ -2603,7 +2595,7 @@ export default function App() {
             {/* --- SECTION 6: FOOTER --- */}
             <footer id="footer" className="neu-flat py-8 px-6 lg:px-12 text-slate-800 dark:text-slate-200 font-sans text-xs sm:text-sm rounded-t-3xl border-t border-white/90 dark:border-slate-800/80">
               <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-                
+
                 {/* Logo & Tagline */}
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-gradient-to-tr from-[#0052D4] to-[#9CECFB] dark:from-[#9CECFB] dark:to-[#0052D4] rounded-lg flex items-center justify-center text-white dark:text-[#0A0E1A] font-black text-sm shadow-md">
@@ -2639,9 +2631,9 @@ export default function App() {
           {showAuthModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
               <div className="w-full max-w-[430px] neumorphic-card border border-white/80 dark:border-slate-700/80 rounded-[2rem] p-7 sm:p-8 relative overflow-hidden bg-white dark:bg-[#15171a] shadow-xl">
-                
+
                 {/* Close Button */}
-                <button 
+                <button
                   onClick={() => {
                     setShowAuthModal(false);
                     setPendingVerifyEmail('');
@@ -2662,18 +2654,18 @@ export default function App() {
                 {activeView !== 'verify_email' && (
                   <div className="text-left mb-6 relative z-10 pr-8">
                     <h2 className="text-3xl font-quantum font-black text-slate-900 dark:text-white mb-1 tracking-tight">
-                      {activeView === 'forgot' ? 'Reset Passcode' : 
-                       activeView === 'register' ? 'Register Account' : 
-                       activeView === 'join' ? 'Join a Business' :
-                       activeView === 'attendant_set_password' ? 'Set Your Password' :
-                       'Login'}
+                      {activeView === 'forgot' ? 'Reset Passcode' :
+                        activeView === 'register' ? 'Register Account' :
+                          activeView === 'join' ? 'Join a Business' :
+                            activeView === 'attendant_set_password' ? 'Set Your Password' :
+                              'Login'}
                     </h2>
                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans font-medium">
-                      {activeView === 'forgot' ? 'Enter details to recover operator passcode' : 
-                       activeView === 'register' ? 'Set up your business profile in under a minute' : 
-                       activeView === 'join' ? 'Enter the code your admin shared with you' :
-                       activeView === 'attendant_set_password' ? `You're joining ${validatedJoinOrg?.name || 'the shop'}` :
-                       'Welcome back please login to your account'}
+                      {activeView === 'forgot' ? 'Enter details to recover operator passcode' :
+                        activeView === 'register' ? 'Set up your business profile in under a minute' :
+                          activeView === 'join' ? 'Enter the code your admin shared with you' :
+                            activeView === 'attendant_set_password' ? `You're joining ${validatedJoinOrg?.name || 'the shop'}` :
+                              'Welcome back please login to your account'}
                     </p>
                   </div>
                 )}
@@ -2694,19 +2686,19 @@ export default function App() {
 
                 {/* --- 1. SIGN IN --- */}
                 {activeView === 'signin' && (
-                  <form 
+                  <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       handleLoginSubmit(loginEmail, passcode);
-                    }} 
+                    }}
                     className="relative z-10 space-y-4"
                   >
                     <div className="relative">
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Email Address
                       </label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         required
                         placeholder="you@example.com"
                         value={loginEmail}
@@ -2725,8 +2717,8 @@ export default function App() {
                     <EmailValidationChecklist email={loginEmail} isFocused={isLoginEmailFocused} />
 
                     <div className="relative">
-                      <input 
-                        type={showPassword ? "text" : "password"} 
+                      <input
+                        type={showPassword ? "text" : "password"}
                         placeholder="Password"
                         value={passcode}
                         onChange={(e) => {
@@ -2735,8 +2727,8 @@ export default function App() {
                         }}
                         className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                       />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-600 dark:text-sky-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                       >
@@ -2752,19 +2744,19 @@ export default function App() {
                     )}
 
                     <div className="flex items-center justify-between pt-1 pb-1">
-                      <label 
+                      <label
                         onClick={() => setRememberMe(!rememberMe)}
                         className="flex items-center gap-2.5 cursor-pointer text-sm text-slate-700 dark:text-slate-200 select-none font-medium"
                       >
-                        <div 
+                        <div
                           className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all neumorphic-btn ${rememberMe ? 'bg-sky-600 border-sky-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-700'}`}
                         >
                           {rememberMe && <Check size={14} strokeWidth={3} />}
                         </div>
                         <span className="font-medium text-sm">Remember me</span>
                       </label>
-                      
-                      <button 
+
+                      <button
                         type="button"
                         onClick={() => {
                           setActiveView('forgot');
@@ -2782,7 +2774,7 @@ export default function App() {
                     </div>
 
                     {/* Neumorphic 3D Login Button without heavy glow */}
-                    <button 
+                    <button
                       type="submit"
                       className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-2 border border-white/30 dark:border-slate-700/60 shadow-md"
                     >
@@ -2792,7 +2784,7 @@ export default function App() {
                     <div className="flex flex-col gap-1.5 pt-2 text-center text-sm text-slate-700 dark:text-slate-300 font-medium">
                       <p>
                         Don't have an account?{' '}
-                        <button 
+                        <button
                           type="button"
                           onClick={() => { setActiveView('register'); setLoginError(''); setForgotError(''); setSuccess(null); }}
                           className="text-sky-600 dark:text-sky-400 font-bold hover:underline transition-colors cursor-pointer"
@@ -2802,7 +2794,7 @@ export default function App() {
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         Joining a business?{' '}
-                        <button 
+                        <button
                           type="button"
                           onClick={() => { setActiveView('join'); setLoginError(''); setJoinError(''); setInviteCodeInput(''); setSuccess(null); }}
                           className="text-sky-600 dark:text-sky-400 font-bold hover:underline transition-colors cursor-pointer"
@@ -2816,7 +2808,7 @@ export default function App() {
 
                 {/* --- 2. ADMIN REGISTRATION --- */}
                 {activeView === 'register' && (
-                  <form 
+                  <form
                     onSubmit={async (e) => {
                       e.preventDefault();
                       setRegisterError('');
@@ -2852,15 +2844,15 @@ export default function App() {
                         console.log('[Admin Signup Form] Unlocking submit button.');
                         setIsRegLoading(false);
                       }
-                    }} 
+                    }}
                     className="relative z-10 space-y-4"
                   >
                     <div className="relative">
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Email Address
                       </label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         required
                         placeholder="you@example.com"
                         value={newOrgAdminEmail}
@@ -2879,8 +2871,8 @@ export default function App() {
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Business Name
                       </label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="Business Name"
                         value={newOrgName}
                         onChange={(e) => setNewOrgName(e.target.value)}
@@ -2893,8 +2885,8 @@ export default function App() {
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Password
                       </label>
-                      <input 
-                        type={showPassword ? "text" : "password"} 
+                      <input
+                        type={showPassword ? "text" : "password"}
                         placeholder="Password"
                         value={newOrgAdminPass}
                         onFocus={() => setIsRegPassFocused(true)}
@@ -2902,8 +2894,8 @@ export default function App() {
                         onChange={(e) => setNewOrgAdminPass(e.target.value)}
                         className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                       />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                       >
@@ -2914,7 +2906,7 @@ export default function App() {
                     {/* Real-time Password Strength Checklist (Shown on focus / typing) */}
                     <PasswordValidationChecklist password={newOrgAdminPass} isFocused={isRegPassFocused} />
 
-                    <button 
+                    <button
                       type="submit"
                       disabled={isRegLoading}
                       className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-3 border border-white/30 dark:border-slate-700/60 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
@@ -2934,7 +2926,7 @@ export default function App() {
 
                     <p className="text-center text-sm text-slate-700 dark:text-slate-300 pt-2 font-medium">
                       Already have an account?{' '}
-                      <button 
+                      <button
                         type="button"
                         onClick={() => { setActiveView('signin'); setLoginError(''); setForgotError(''); setSuccess(null); }}
                         className="text-sky-600 dark:text-sky-400 font-bold hover:underline transition-colors cursor-pointer"
@@ -2952,7 +2944,7 @@ export default function App() {
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Invite Code
                       </label>
-                      <input 
+                      <input
                         type="text"
                         inputMode="numeric"
                         placeholder="Enter Invite Code"
@@ -2966,7 +2958,7 @@ export default function App() {
                       <KeyRound className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
                     </div>
 
-                    <button 
+                    <button
                       type="submit"
                       className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-3 border border-white/30 dark:border-slate-700/60 shadow-md"
                     >
@@ -2975,7 +2967,7 @@ export default function App() {
 
                     <p className="text-center text-sm text-slate-700 dark:text-slate-300 pt-2 font-medium">
                       Already have an account?{' '}
-                      <button 
+                      <button
                         type="button"
                         onClick={() => { setActiveView('signin'); setLoginError(''); setJoinError(''); setSuccess(null); }}
                         className="text-sky-600 dark:text-sky-400 font-bold hover:underline transition-colors cursor-pointer"
@@ -2993,8 +2985,8 @@ export default function App() {
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Email Address
                       </label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         required
                         placeholder="you@example.com"
                         value={attendantEmail}
@@ -3016,8 +3008,8 @@ export default function App() {
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Password
                       </label>
-                      <input 
-                        type={showAttendantPassword ? "text" : "password"} 
+                      <input
+                        type={showAttendantPassword ? "text" : "password"}
                         placeholder="Enter Password"
                         value={attendantPassword}
                         onFocus={() => setIsAttendantPassFocused(true)}
@@ -3028,8 +3020,8 @@ export default function App() {
                         }}
                         className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                       />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setShowAttendantPassword(!showAttendantPassword)}
                         className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                       >
@@ -3044,8 +3036,8 @@ export default function App() {
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Confirm Password
                       </label>
-                      <input 
-                        type={showAttendantConfirmPassword ? "text" : "password"} 
+                      <input
+                        type={showAttendantConfirmPassword ? "text" : "password"}
                         placeholder="Confirm Password"
                         value={attendantConfirmPassword}
                         onChange={(e) => {
@@ -3054,8 +3046,8 @@ export default function App() {
                         }}
                         className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                       />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setShowAttendantConfirmPassword(!showAttendantConfirmPassword)}
                         className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                       >
@@ -3063,7 +3055,7 @@ export default function App() {
                       </button>
                     </div>
 
-                    <button 
+                    <button
                       type="submit"
                       className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-3 border border-white/30 dark:border-slate-700/60 shadow-md"
                     >
@@ -3090,7 +3082,7 @@ export default function App() {
 
                     {/* Neumorphic Action Buttons */}
                     <div className="space-y-3 pt-1">
-                      <button 
+                      <button
                         type="button"
                         onClick={() => {
                           if (pendingVerifyEmail) {
@@ -3114,11 +3106,10 @@ export default function App() {
                         type="button"
                         disabled={isResendOtpDisabled}
                         onClick={handleResendEmailOtp}
-                        className={`w-full py-3.5 px-4 rounded-2xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 border ${
-                          isResendOtpDisabled
+                        className={`w-full py-3.5 px-4 rounded-2xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 border ${isResendOtpDisabled
                             ? 'bg-slate-100/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
                             : 'bg-slate-100 dark:bg-slate-900 border-white/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 shadow-[4px_4px_10px_rgba(0,0,0,0.06),-4px_-4px_10px_rgba(255,255,255,0.9)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.4),-4px_-4px_10px_rgba(30,41,59,0.3)] hover:shadow-md active:shadow-inner cursor-pointer'
-                        }`}
+                          }`}
                       >
                         <RefreshCw size={16} className={isResendOtpDisabled ? "" : "text-sky-500"} />
                         <span>{isResendOtpDisabled ? `Resend Verification Email (${resendOtpCountdown}s)` : 'Resend Verification Email'}</span>
@@ -3131,7 +3122,7 @@ export default function App() {
                 {activeView === 'forgot' && (
                   <form onSubmit={handleForgotSubmit} className="relative z-10 space-y-4">
                     <div className="relative">
-                      <select 
+                      <select
                         value={forgotOrgId}
                         onChange={(e) => {
                           setForgotOrgId(e.target.value);
@@ -3145,10 +3136,10 @@ export default function App() {
                         ))}
                       </select>
                     </div>
-                    
+
                     <div className="relative">
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="Attendant Username (e.g. Samuel Zar)"
                         value={forgotUsername}
                         onChange={(e) => {
@@ -3161,14 +3152,14 @@ export default function App() {
                     </div>
 
                     <div className="flex gap-3 pt-2">
-                      <button 
+                      <button
                         type="button"
                         onClick={() => { setActiveView('signin'); setLoginError(''); setForgotError(''); setSuccess(null); }}
                         className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
                       >
                         Back
                       </button>
-                      <button 
+                      <button
                         type="submit"
                         className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md"
                       >
@@ -3389,7 +3380,7 @@ export default function App() {
 
       {isLoggedIn && currentUserRole === 5 && activeOrg?.isTempPassword && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/85 p-4">
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="w-full max-w-md neumorphic-card rounded-2xl p-6 text-left border border-slate-200/80 dark:border-slate-800/80 bg-slate-100/90 dark:bg-slate-900/90 text-slate-900 dark:text-white shadow-2xl"
@@ -3459,7 +3450,7 @@ export default function App() {
                   return o;
                 });
                 setOrganizations(updated);
-                
+
                 // Set temporary success message
                 setSuccess('Passcode changed successfully! Enjoy full system access.');
                 setTimeout(() => setSuccess(null), 4000);

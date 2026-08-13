@@ -32,14 +32,15 @@ export async function resetPasswordForEmail(email: string): Promise<{ success: b
 }
 
 export async function registerUser(
-  email: string, 
-  password: string, 
+  email: string,
+  password: string,
   metadata?: { name?: string; role?: 'admin' | 'attendant'; businessName?: string }
 ): Promise<{ success: boolean; user?: any; session?: any; error?: string }> {
   try {
     const cleanEmail = email.trim().toLowerCase();
     const role = metadata?.role || 'admin';
     const displayUsername = metadata?.name || cleanEmail.split('@')[0];
+    const businessName = metadata?.businessName || `${displayUsername}'s Shop`;
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: cleanEmail,
@@ -47,7 +48,8 @@ export async function registerUser(
       options: {
         data: {
           display_username: displayUsername,
-          role: role
+          role: role,
+          business_name: businessName
         }
       }
     });
@@ -59,31 +61,9 @@ export async function registerUser(
       return { success: false, error: 'User registration failed.' };
     }
 
-    let businessId: string | null = null;
-
-    // If owner admin, create Business row
-    if (role === 'admin') {
-      const bizName = metadata?.businessName || `${displayUsername}'s Shop`;
-      const { data: bizData, error: bizError } = await supabase
-        .from('businesses')
-        .insert({
-          trade_name: bizName,
-          owner_admin_id: user.id
-        })
-        .select('id')
-        .single();
-
-      if (bizError) {
-        console.warn('Business creation warning:', bizError);
-      } else if (bizData) {
-        businessId = bizData.id;
-        // Update user's profile with business_id
-        await supabase
-          .from('profiles')
-          .update({ business_id: businessId, role: 'admin' })
-          .eq('id', user.id);
-      }
-    }
+    // Business + profile creation now happens atomically inside the
+    // handle_new_user() Postgres trigger — no separate client-side
+    // business insert or profile update needed here anymore.
 
     return { success: true, user: authData.user, session: authData.session };
   } catch (err: any) {
@@ -93,7 +73,7 @@ export async function registerUser(
 }
 
 export async function loginUser(
-  email: string, 
+  email: string,
   password: string
 ): Promise<{ success: boolean; user?: any; session?: any; error?: string }> {
   try {
@@ -129,7 +109,7 @@ export async function logoutUser(): Promise<void> {
 }
 
 export async function updateUserPassword(
-  currentPassword: string, 
+  currentPassword: string,
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -243,7 +223,7 @@ export function subscribeToActivityLogs(
 ): () => void {
   if (!businessId) {
     onUpdate([]);
-    return () => {};
+    return () => { };
   }
 
   // Fetch initial logs
