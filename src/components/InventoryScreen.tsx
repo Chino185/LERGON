@@ -38,7 +38,6 @@ import {
   subscribeToInventoryItems,
   subscribeToDamageReports,
   subscribeToRestockRequests,
-  saveInventoryItem,
   reportDamagedStockTransaction,
   verifyRestockRequestTransaction,
   DamageReport
@@ -548,16 +547,23 @@ export default function InventoryScreen({
         notes: sanitizeTextInput(itemNotes, 1000)
       };
 
-      const result = await saveInventoryItem(
-        businessId,
-        userUid,
-        userRole,
-        itemPayload,
-        editingItemId
-      );
+      // Route through the onAddItem/onUpdateItem props (owned by App.tsx)
+      // instead of calling saveInventoryItem directly. Those handlers
+      // already perform an optimistic local state update immediately
+      // after a successful save, so the new/edited item appears in the
+      // UI right away instead of waiting on the realtime subscription
+      // to round-trip.
+      const result = editingItemId
+        ? await onUpdateItem(editingItemId, itemPayload as any)
+        : await onAddItem(itemPayload as any);
 
-      if (!result.success) {
-        setItemSaveError(result.error || 'Failed to save product to Cloud Firestore.');
+      // onAddItem returns {success: false, error} on failure.
+      // onUpdateItem currently returns a plain `false` on failure instead —
+      // handle both shapes so a failed update isn't silently treated as success.
+      const failed = result === false || (result && result.success === false);
+      if (failed) {
+        const errMsg = (result && typeof result === 'object' && result.error) || 'Failed to save product.';
+        setItemSaveError(errMsg);
         return;
       }
 
