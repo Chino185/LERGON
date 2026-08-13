@@ -1,0 +1,6 @@
+{
+  "name": "RICHARD",
+  "description": "Multi-page responsive inventory ledger and credit outstanding tracker supporting stock tracking, aging reports, repayment diaries and communication templates for PC and mobile devices.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

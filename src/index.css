@@ -1,0 +1,1167 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Geist+Mono:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+@import "tailwindcss";
+
+:root {
+  --accent-blue: #0052D4;
+}
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Poppins", "Plus Jakarta Sans", sans-serif;
+  --font-display: "Poppins", "Plus Jakarta Sans", sans-serif;
+  --font-poppins: "Poppins", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  --font-jakarta: "Plus Jakarta Sans", sans-serif;
+  --font-quantum: "Poppins", "Plus Jakarta Sans", sans-serif;
+  --font-mono: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Neumorphic Utility Alias Classes */
+.neu-flat {
+  background: rgba(240, 244, 252, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 10px 10px 26px rgba(160, 175, 200, 0.42), -10px -10px 26px rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 1.5rem;
+}
+
+.dark .neu-flat, [data-theme="dark"] .neu-flat {
+  background: rgba(14, 22, 38, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 10px 10px 28px rgba(0, 0, 0, 0.65), -8px -8px 22px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.neu-inset {
+  background: rgba(225, 233, 246, 0.75);
+  box-shadow: inset 4px 4px 9px rgba(160, 175, 200, 0.45), inset -4px -4px 9px rgba(255, 255, 255, 0.9);
+  border-radius: 9999px;
+}
+
+.dark .neu-inset, [data-theme="dark"] .neu-inset {
+  background: rgba(9, 14, 25, 0.75);
+  box-shadow: inset 4px 4px 10px rgba(0, 0, 0, 0.7), inset -4px -4px 10px rgba(255, 255, 255, 0.03);
+}
+
+.neu-button {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 5px 5px 12px rgba(166, 180, 200, 0.3), -5px -5px 12px rgba(255, 255, 255, 0.9);
+  transition: all 0.25s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neu-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 7px 7px 16px rgba(166, 180, 200, 0.4), -7px -7px 16px rgba(255, 255, 255, 1);
+}
+
+.dark .neu-button, [data-theme="dark"] .neu-button {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  box-shadow: 6px 6px 16px rgba(0, 0, 0, 0.5), -5px -5px 14px rgba(255, 255, 255, 0.04);
+}
+
+.dark .neu-button:hover, [data-theme="dark"] .neu-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 8px 8px 20px rgba(0, 0, 0, 0.7), -6px -6px 16px rgba(255, 255, 255, 0.06);
+}
+
+.active-tab {
+  background: linear-gradient(135deg, #0052D4 0%, #4364F7 50%, #65C7F7 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 25px rgba(0, 82, 212, 0.4) !important;
+  border: none !important;
+}
+
+.push-out {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
+  will-change: transform;
+}
+
+.push-out:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 14px 14px 35px rgba(160, 175, 200, 0.55), -14px -14px 35px rgba(255, 255, 255, 0.95);
+}
+
+.dark .push-out:hover, [data-theme="dark"] .push-out:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 14px 14px 40px rgba(0, 0, 0, 0.8), -10px -10px 30px rgba(255, 255, 255, 0.06);
+}
+
+.parallax-fast, .parallax-slow {
+  will-change: transform;
+}
+
+body, input, select, textarea, button {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- FIX CHROME AUTOFILL & WEBKIT YELLOW HIGHLIGHT BUG --- */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background-color: rgba(56, 189, 248, 0.25);
+  color: inherit;
+}
+
+mark {
+  background-color: transparent;
+  color: inherit;
+}
+
+/* Chrome / Safari / Edge Autofill Yellow Background Override */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:active {
+  -webkit-text-fill-color: currentColor !important;
+  -webkit-box-shadow: 0 0 0px 1000px #ebf0f7 inset !important;
+  box-shadow: 0 0 0px 1000px #ebf0f7 inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover, 
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active,
+.dark textarea:-webkit-autofill,
+.dark textarea:-webkit-autofill:hover,
+.dark textarea:-webkit-autofill:focus,
+.dark textarea:-webkit-autofill:active,
+.dark select:-webkit-autofill,
+.dark select:-webkit-autofill:hover,
+.dark select:-webkit-autofill:focus,
+.dark select:-webkit-autofill:active,
+[data-theme="dark"] input:-webkit-autofill,
+[data-theme="dark"] textarea:-webkit-autofill,
+[data-theme="dark"] select:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px #202225 inset !important;
+  box-shadow: 0 0 0px 1000px #202225 inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+/* --- COMPREHENSIVE GOOGLE FONTS TYPOGRAPHY HIERARCHY --- */
+h1, h2, h3, h4, h5, h6,
+.font-heading,
+.font-display,
+.poppins-title,
+.font-poppins {
+  font-family: "Poppins", "Plus Jakarta Sans", sans-serif;
+  letter-spacing: -0.015em;
+}
+
+.font-inter,
+.inter-text {
+  font-family: "Inter", "Plus Jakarta Sans", sans-serif;
+}
+
+.font-jakarta,
+.jakarta-text {
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono) !important;
+  letter-spacing: -0.01em;
+}
+
+/* --- GOOGLE FONTS MATERIAL SYMBOLS ICONS --- */
+.material-symbols-outlined, .material-symbols-rounded {
+  font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', sans-serif;
+  font-weight: normal;
+  font-style: normal;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  overflow-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}
+
+.material-symbols-filled {
+  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 30s linear infinite;
+}
+
+/* Glowing Enterprise SaaS Text & Button Utilities */
+.quantum-text-glow {
+  text-shadow: 0 0 20px rgba(156, 236, 251, 0.7), 0 0 45px rgba(0, 82, 212, 0.5), 0 0 80px rgba(0, 82, 212, 0.3);
+}
+
+.quantum-btn-glow {
+  box-shadow: 0 0 25px rgba(0, 82, 212, 0.55), 0 0 55px rgba(156, 236, 251, 0.35);
+}
+
+.quantum-btn-glow:hover {
+  box-shadow: 0 0 35px rgba(0, 82, 212, 0.85), 0 0 75px rgba(156, 236, 251, 0.55);
+}
+
+.quantum-glass-card {
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, transform 0.3s ease;
+}
+
+.quantum-glass-card:hover {
+  background-color: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* --- CREXTIO & FINNOVA NEUMORPHIC UI DESIGN SYSTEM --- */
+.crextio-canvas, body {
+  background-color: #ebf0f7;
+}
+
+/* Comprehensive 3D Neumorphic Card System */
+.finnova-card,
+.app-card,
+.neumorphic-card {
+  background-color: #ebf0f7;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 5px 5px 12px #d1d8e5, -5px -5px 12px #ffffff;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.finnova-card:hover,
+.app-card:hover,
+.neumorphic-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 7px 7px 16px #c4cde0, -7px -7px 16px #ffffff;
+}
+
+.finnova-dark-card {
+  background-color: #131924;
+  border-radius: 1.75rem;
+  border: 1px solid #1e2738;
+  color: #ffffff;
+  box-shadow: 5px 5px 14px #080b10, -5px -5px 14px #1e2738;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.finnova-dark-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 7px 7px 18px #080b10, -7px -7px 18px #222d40;
+}
+
+.finnova-indigo-detail {
+  background: linear-gradient(135deg, #3730a3 0%, #1e1b4b 100%);
+  border-radius: 1.5rem;
+  color: #ffffff;
+  box-shadow: 6px 6px 16px rgba(55, 48, 163, 0.25), -5px -5px 12px #ffffff;
+}
+
+/* Comprehensive Neumorphic Internal Form Controls (Inputs, Textareas) */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+input[type="tel"],
+input[type="search"],
+textarea {
+  background-color: #ebf0f7;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: inset 2px 2px 5px #d1d8e5, inset -2px -2px 5px #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  border-radius: 0.875rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="date"]:focus,
+input[type="tel"]:focus,
+input[type="search"]:focus,
+textarea:focus {
+  box-shadow: inset 2.5px 2.5px 6px #d1d8e5, inset -2.5px -2.5px 6px #ffffff, 0 0 0 2px rgba(15, 23, 42, 0.1);
+  outline: none;
+}
+
+/* Consolidated Neumorphic Dropdown & Select System */
+select {
+  background-color: #ebf0f7;
+  color: #0f172a;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 1rem;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  box-shadow: inset 2px 2px 5px #cbd3e1, inset -2px -2px 5px #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 0.875rem;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%230284c7'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1.1rem 1.1rem;
+  padding-right: 2.75rem;
+  transition: all 0.2s ease;
+}
+
+.relative select,
+select[style*="paddingLeft"],
+select[style*="padding-left"],
+select.pl-10,
+select.pl-11 {
+  padding-left: 2.85rem !important;
+}
+
+select:hover {
+  box-shadow: 4px 4px 10px #cbd3e1, -4px -4px 10px #ffffff;
+}
+
+select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3), inset 2px 2px 5px #cbd3e1, inset -2px -2px 5px #ffffff;
+}
+
+select option {
+  background-color: #ebf0f7;
+  color: #0f172a;
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+}
+
+select option:hover,
+select option:focus,
+select option:active,
+select option:checked {
+  background-color: #3b82f6;
+  color: #ffffff;
+}
+
+/* Comprehensive Neumorphic Inset Sub-Containers */
+.pill-nav-track,
+.neumorphic-inset {
+  background-color: #ebf0f7;
+  border-radius: 1rem;
+  box-shadow: inset 2.5px 2.5px 6px #d1d8e5, inset -2.5px -2.5px 6px #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease-in-out;
+}
+
+.neumorphic-btn,
+.neumorphic-btn-dark {
+  background-color: #ebf0f7;
+  color: #0f172a;
+  border-radius: 9999px;
+  box-shadow: 3px 3px 8px #d1d8e5, -3px -3px 8px #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  font-weight: 800;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.neumorphic-btn:hover,
+.neumorphic-btn-dark:hover {
+  background-color: #ebf0f7;
+  color: #000000;
+  box-shadow: 6px 6px 14px #c4cde0, -6px -6px 14px #ffffff;
+  transform: translateY(-1px);
+}
+
+.neumorphic-btn:active,
+.neumorphic-btn-dark:active {
+  box-shadow: inset 3px 3px 7px #cbd3e1, inset -3px -3px 7px #ffffff;
+  transform: translateY(0.5px);
+}
+
+.neumorphic-btn-danger {
+  background-color: #ebf0f7;
+  color: #0f172a;
+  border-radius: 9999px;
+  box-shadow: 4px 4px 10px #cbd3e1, -4px -4px 10px #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.neumorphic-btn-danger:hover {
+  background-color: #ebf0f7;
+  color: #000000;
+  box-shadow: 6px 6px 14px #c4cde0, -6px -6px 14px #ffffff;
+  transform: translateY(-1px);
+}
+
+.neumorphic-btn-danger:active {
+  box-shadow: inset 3px 3px 7px #cbd3e1, inset -3px -3px 7px #ffffff;
+  transform: translateY(0.5px);
+}
+
+.neumorphic-circle,
+.neumorphic-circle-danger {
+  background-color: #ebf0f7;
+  color: #334155;
+  border-radius: 9999px;
+  box-shadow: 4px 4px 10px #cbd3e1, -4px -4px 10px #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.neumorphic-circle:hover,
+.neumorphic-circle-danger:hover {
+  background-color: #ebf0f7;
+  color: #0f172a;
+  box-shadow: 6px 6px 14px #c4cde0, -6px -6px 14px #ffffff;
+  transform: scale(1.05);
+}
+
+.neumorphic-circle:active,
+.neumorphic-circle-danger:active {
+  box-shadow: inset 3px 3px 7px #cbd3e1, inset -3px -3px 7px #ffffff;
+  transform: scale(0.95);
+}
+
+/* --- NEUMORPHIC RANGE SLIDER SYSTEM --- */
+.neumorphic-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  background-color: #ebf0f7;
+  box-shadow: inset 3px 3px 6px #cbd3e1, inset -3px -3px 6px #ffffff;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.neumorphic-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #ebf0f7;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 3px 3px 7px #cbd3e1, -3px -3px 7px #ffffff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.neumorphic-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 4px 4px 9px #c4cde0, -4px -4px 9px #ffffff;
+}
+
+.neumorphic-range::-webkit-slider-thumb:active {
+  box-shadow: inset 2px 2px 5px #cbd3e1, inset -2px -2px 5px #ffffff;
+}
+
+.neumorphic-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #ebf0f7;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 3px 3px 7px #cbd3e1, -3px -3px 7px #ffffff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.neumorphic-range::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 4px 4px 9px #c4cde0, -4px -4px 9px #ffffff;
+}
+
+.neumorphic-range::-moz-range-thumb:active {
+  box-shadow: inset 2px 2px 5px #cbd3e1, inset -2px -2px 5px #ffffff;
+}
+
+/* Dark Mode Neumorphic Range */
+.dark .neumorphic-range, [data-theme="dark"] .neumorphic-range {
+  background-color: #1a1c1e;
+  box-shadow: inset 3px 3px 6px #121315, inset -3px -3px 6px #282a2e;
+}
+
+.dark .neumorphic-range::-webkit-slider-thumb, [data-theme="dark"] .neumorphic-range::-webkit-slider-thumb {
+  background-color: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 3px 3px 7px #151618, -3px -3px 7px #383b42;
+}
+
+.dark .neumorphic-range::-webkit-slider-thumb:hover, [data-theme="dark"] .neumorphic-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 4px 4px 9px #121315, -4px -4px 9px #3e4149;
+}
+
+.dark .neumorphic-range::-moz-range-thumb, [data-theme="dark"] .neumorphic-range::-moz-range-thumb {
+  background-color: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 3px 3px 7px #151618, -3px -3px 7px #383b42;
+}
+
+.dark .neumorphic-range::-moz-range-thumb:hover, [data-theme="dark"] .neumorphic-range::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 4px 4px 9px #121315, -4px -4px 9px #3e4149;
+}
+
+/* --- NEUMORPHIC CHECKBOX SYSTEM --- */
+.neumorphic-checkbox {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background-color: #ebf0f7;
+  box-shadow: inset 2.5px 2.5px 5px #cbd3e1, inset -2.5px -2.5px 5px #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neumorphic-checkbox:hover {
+  box-shadow: 3px 3px 7px #c4cde0, -3px -3px 7px #ffffff;
+}
+
+.neumorphic-checkbox:checked {
+  background-color: #ebf0f7;
+  box-shadow: 3px 3px 7px #cbd3e1, -3px -3px 7px #ffffff;
+  border-color: #0052D4;
+}
+
+.neumorphic-checkbox::after {
+  content: '';
+  width: 6px;
+  height: 10px;
+  border-style: solid;
+  border-color: #0052D4;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  margin-top: -2px;
+}
+
+.neumorphic-checkbox:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+
+/* Dark Mode Neumorphic Checkbox */
+.dark .neumorphic-checkbox, [data-theme="dark"] .neumorphic-checkbox {
+  background-color: #0f172a;
+  box-shadow: inset 2.5px 2.5px 5px #080b10, inset -2.5px -2.5px 5px #1e293b;
+  border-color: #1e293b;
+}
+
+.dark .neumorphic-checkbox:checked, [data-theme="dark"] .neumorphic-checkbox:checked {
+  background-color: #1e293b;
+  box-shadow: 3px 3px 7px #080b10, -3px -3px 7px #334155;
+  border-color: #334155;
+}
+
+.dark .neumorphic-checkbox::after, [data-theme="dark"] .neumorphic-checkbox::after {
+  border-color: #38bdf8;
+}
+
+/* --- DARK MODE 3D NEUMORPHIC SYSTEM --- */
+.dark, [data-theme="dark"] {
+  color-scheme: dark;
+}
+
+.dark body, [data-theme="dark"] body,
+.dark .crextio-canvas, [data-theme="dark"] .crextio-canvas {
+  background-color: #242629;
+  color: #ffffff;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+/* 3D Dark Neumorphic Raised Cards & Main Panels */
+.dark .app-card, [data-theme="dark"] .app-card,
+.dark .finnova-card, [data-theme="dark"] .finnova-card,
+.dark .finnova-dark-card, [data-theme="dark"] .finnova-dark-card,
+.dark .neumorphic-card, [data-theme="dark"] .neumorphic-card {
+  background-color: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+  box-shadow: 6px 6px 14px #18191c, -6px -6px 14px #383b42;
+}
+
+.dark .finnova-card:hover, [data-theme="dark"] .finnova-card:hover,
+.dark .app-card:hover, [data-theme="dark"] .app-card:hover,
+.dark .neumorphic-card:hover, [data-theme="dark"] .neumorphic-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 8px 8px 18px #151618, -8px -8px 18px #3c3f47;
+}
+
+/* 3D Dark Neumorphic Headers */
+.dark header, [data-theme="dark"] header {
+  background-color: #2b2d31;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  box-shadow: 6px 6px 14px #18191c, -6px -6px 14px #383b42;
+}
+
+/* 3D Dark Neumorphic Raised Buttons & Controls */
+.dark .neumorphic-btn, [data-theme="dark"] .neumorphic-btn,
+.dark .neumorphic-btn-dark, [data-theme="dark"] .neumorphic-btn-dark,
+.dark .neumorphic-btn-danger, [data-theme="dark"] .neumorphic-btn-danger,
+.dark .neumorphic-circle, [data-theme="dark"] .neumorphic-circle,
+.dark .neumorphic-circle-danger, [data-theme="dark"] .neumorphic-circle-danger {
+  background-color: #2b2d31;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 4px 4px 10px #18191c, -4px -4px 10px #383b42;
+}
+
+.dark .neumorphic-btn:hover, [data-theme="dark"] .neumorphic-btn:hover,
+.dark .neumorphic-btn-dark:hover, [data-theme="dark"] .neumorphic-btn-dark:hover,
+.dark .neumorphic-btn-danger:hover, [data-theme="dark"] .neumorphic-btn-danger:hover,
+.dark .neumorphic-circle:hover, [data-theme="dark"] .neumorphic-circle:hover,
+.dark .neumorphic-circle-danger:hover, [data-theme="dark"] .neumorphic-circle-danger:hover {
+  background-color: #2f3136;
+  color: #ffffff;
+  box-shadow: 6px 6px 14px #151618, -6px -6px 14px #3c3f47;
+}
+
+.dark .neumorphic-btn:active, [data-theme="dark"] .neumorphic-btn:active,
+.dark .neumorphic-btn-dark:active, [data-theme="dark"] .neumorphic-btn-dark:active,
+.dark .neumorphic-btn-danger:active, [data-theme="dark"] .neumorphic-btn-danger:active,
+.dark .neumorphic-circle:active, [data-theme="dark"] .neumorphic-circle:active,
+.dark .neumorphic-circle-danger:active, [data-theme="dark"] .neumorphic-circle-danger:active {
+  box-shadow: inset 3px 3px 6px #18191c, inset -3px -3px 6px #383b42;
+}
+
+/* 3D Dark Neumorphic Insets & Form Controls */
+.dark .neumorphic-inset, [data-theme="dark"] .neumorphic-inset,
+.dark .pill-nav-track, [data-theme="dark"] .pill-nav-track,
+.dark input[type="text"], .dark input[type="number"], .dark input[type="email"],
+.dark input[type="password"], .dark input[type="date"], .dark input[type="tel"],
+.dark input[type="search"], .dark select, .dark textarea,
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea {
+  background-color: #202225;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 3.5px 3.5px 7px #17181a, inset -3.5px -3.5px 7px #323439;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.dark select, [data-theme="dark"] select {
+  background-color: #202225;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2338bdf8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 3.5px 3.5px 7px #17181a, inset -3.5px -3.5px 7px #323439;
+}
+
+.dark option, [data-theme="dark"] option {
+  background-color: #1e2124;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
+.dark input:focus, .dark select:focus, .dark textarea:focus,
+[data-theme="dark"] input:focus, [data-theme="dark"] select:focus, [data-theme="dark"] textarea:focus {
+  box-shadow: inset 4px 4px 8px #151618, inset -4px -4px 8px #35373d, 0 0 0 2px rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+/* --- 3D NEUMORPHIC TABLE COLUMN HEADER BAR SYSTEM & CENTERING --- */
+table th, 
+table td,
+.neumorphic-table-header th {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+table th > span,
+table th > div,
+table td > span:not(.font-mono),
+table td > div {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.neumorphic-table-header {
+  background: linear-gradient(145deg, #e2e8f0, #f1f5f9);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: inset 2px 2px 4px #cbd5e1, inset -2px -2px 4px #ffffff, 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.neumorphic-table-header th {
+  background: transparent;
+  color: #0f172a;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.68rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.9);
+  border-right: 1px solid rgba(203, 211, 225, 0.5);
+  text-align: center !important;
+}
+
+/* Overriding colored status pills and badges with Neumorphic styling */
+.pill-badge,
+span[class*="bg-emerald-"],
+span[class*="bg-blue-"],
+span[class*="bg-indigo-"],
+span[class*="bg-purple-"],
+span[class*="bg-amber-"],
+span[class*="bg-rose-"],
+span[class*="bg-red-"] {
+  background-color: #ebf0f7 !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 2px 2px 5px #cbd3e1, -2px -2px 5px #ffffff !important;
+}
+
+.dark span[class*="bg-emerald-"],
+.dark span[class*="bg-blue-"],
+.dark span[class*="bg-indigo-"],
+.dark span[class*="bg-purple-"],
+.dark span[class*="bg-amber-"],
+.dark span[class*="bg-rose-"],
+.dark span[class*="bg-red-"],
+[data-theme="dark"] span[class*="bg-emerald-"],
+[data-theme="dark"] span[class*="bg-blue-"],
+[data-theme="dark"] span[class*="bg-indigo-"],
+[data-theme="dark"] span[class*="bg-purple-"],
+[data-theme="dark"] span[class*="bg-amber-"],
+[data-theme="dark"] span[class*="bg-rose-"],
+[data-theme="dark"] span[class*="bg-red-"] {
+  background-color: #202225 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 2px 2px 4px #151618, inset -2px -2px 4px #323439 !important;
+}
+
+.dark span[class*="text-emerald-"],
+.dark span[class*="text-blue-"],
+.dark span[class*="text-indigo-"],
+.dark span[class*="text-amber-"],
+.dark span[class*="text-rose-"],
+[data-theme="dark"] span[class*="text-emerald-"],
+[data-theme="dark"] span[class*="text-blue-"],
+[data-theme="dark"] span[class*="text-indigo-"] {
+  color: #ffffff !important;
+}
+
+.neumorphic-table-header th:last-child {
+  border-right: none;
+}
+
+/* Dark Mode 3D Neumorphic Table Header Bar */
+.dark .neumorphic-table-header, [data-theme="dark"] .neumorphic-table-header {
+  background: linear-gradient(145deg, #1e2023, #282a2e);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 2.5px 2.5px 6px #151618, inset -2.5px -2.5px 6px #34373d, 0 4px 10px rgba(0,0,0,0.5);
+}
+
+.dark .neumorphic-table-header th, [data-theme="dark"] .neumorphic-table-header th {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dark .neumorphic-table-header th:last-child, [data-theme="dark"] .neumorphic-table-header th:last-child {
+  border-right: none;
+}
+
+/* Translucent Glassmorphism Modal Backdrops ONLY */
+.dark div.fixed[class*="inset-0"][class*="bg-"],
+[data-theme="dark"] div.fixed[class*="inset-0"][class*="bg-"],
+.dark div.fixed.inset-0[class*="bg-"],
+[data-theme="dark"] div.fixed.inset-0[class*="bg-"] {
+  background-color: rgba(15, 23, 42, 0.45);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* Ensure text-blue-600 turns into high contrast bright sky-blue in dark mode */
+.dark .text-blue-600, [data-theme="dark"] .text-blue-600 {
+  color: #38bdf8;
+}
+
+/* Ensure absolute image/card overlays never get blurred */
+.dark .absolute[class*="inset-0"],
+[data-theme="dark"] .absolute[class*="inset-0"] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Force Dark Neumorphic recessed style for sub-containers and table rows (EXCEPT printable sheets) */
+.dark [class*="bg-slate-50"]:not(.printable-sheet):not(.printable-sheet *), [data-theme="dark"] [class*="bg-slate-50"]:not(.printable-sheet):not(.printable-sheet *),
+.dark [class*="bg-slate-100"]:not(.printable-sheet):not(.printable-sheet *), [data-theme="dark"] [class*="bg-slate-100"]:not(.printable-sheet):not(.printable-sheet *),
+.dark [class*="bg-gray-50"]:not(.printable-sheet):not(.printable-sheet *), [data-theme="dark"] [class*="bg-gray-50"]:not(.printable-sheet):not(.printable-sheet *),
+.dark [class*="bg-gray-100"]:not(.printable-sheet):not(.printable-sheet *), [data-theme="dark"] [class*="bg-gray-100"]:not(.printable-sheet):not(.printable-sheet *),
+.dark [class*="bg-[#ebf0f7]"]:not(.printable-sheet):not(.printable-sheet *), [data-theme="dark"] [class*="bg-[#ebf0f7]"]:not(.printable-sheet):not(.printable-sheet *) {
+  background-color: #202225;
+  border-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   PRISTINE INVOICE PAPER SHEET STYLING
+   ========================================================================== */
+.printable-sheet,
+.dark .printable-sheet,
+[data-theme="dark"] .printable-sheet {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #cbd5e1 !important;
+}
+
+.printable-sheet .bg-black,
+.printable-sheet tr.bg-black,
+.printable-sheet th.bg-black,
+.printable-sheet thead,
+.printable-sheet thead tr,
+.printable-sheet thead th,
+.dark .printable-sheet .bg-black,
+.dark .printable-sheet tr.bg-black,
+.dark .printable-sheet th.bg-black,
+.dark .printable-sheet thead,
+.dark .printable-sheet thead tr,
+.dark .printable-sheet thead th,
+[data-theme="dark"] .printable-sheet .bg-black,
+[data-theme="dark"] .printable-sheet thead th {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-color: #000000 !important;
+}
+
+.printable-sheet .bg-black *,
+.printable-sheet tr.bg-black *,
+.printable-sheet th.bg-black *,
+.printable-sheet thead *,
+.dark .printable-sheet .bg-black *,
+.dark .printable-sheet tr.bg-black *,
+.dark .printable-sheet th.bg-black *,
+.dark .printable-sheet thead *,
+[data-theme="dark"] .printable-sheet .bg-black *,
+[data-theme="dark"] .printable-sheet thead * {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.dark .printable-sheet .bg-white,
+[data-theme="dark"] .printable-sheet .bg-white,
+.printable-sheet .bg-white {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.printable-sheet td,
+.printable-sheet h1,
+.printable-sheet h2,
+.printable-sheet div:not(.bg-black):not(.bg-black *),
+.printable-sheet span:not(.bg-black *),
+.dark .printable-sheet td,
+.dark .printable-sheet h1,
+.dark .printable-sheet h2,
+.dark .printable-sheet div:not(.bg-black):not(.bg-black *),
+.dark .printable-sheet span:not(.bg-black *),
+[data-theme="dark"] .printable-sheet td {
+  color: #000000 !important;
+  border-color: #000000 !important;
+}
+
+/* High-Contrast Text in Dark Mode (EXCEPT printable sheets) */
+.dark h1:not(.printable-sheet *), .dark h2:not(.printable-sheet *), .dark h3:not(.printable-sheet *),
+.dark h4:not(.printable-sheet *), .dark h5:not(.printable-sheet *), .dark h6:not(.printable-sheet *),
+.dark .text-black:not(.printable-sheet *), .dark .text-slate-950:not(.printable-sheet *), .dark .text-slate-900:not(.printable-sheet *),
+.dark .text-slate-800:not(.printable-sheet *), .dark .text-slate-700:not(.printable-sheet *), .dark .text-gray-900:not(.printable-sheet *),
+.dark .text-gray-800:not(.printable-sheet *), .dark .text-gray-700:not(.printable-sheet *),
+[data-theme="dark"] h1:not(.printable-sheet *), [data-theme="dark"] h2:not(.printable-sheet *), [data-theme="dark"] h3:not(.printable-sheet *),
+[data-theme="dark"] h4:not(.printable-sheet *), [data-theme="dark"] h5:not(.printable-sheet *), [data-theme="dark"] h6:not(.printable-sheet *),
+[data-theme="dark"] .text-black:not(.printable-sheet *), [data-theme="dark"] .text-slate-950:not(.printable-sheet *),
+[data-theme="dark"] .text-slate-900:not(.printable-sheet *), [data-theme="dark"] .text-slate-800:not(.printable-sheet *),
+[data-theme="dark"] .text-slate-700:not(.printable-sheet *), [data-theme="dark"] .text-gray-900:not(.printable-sheet *),
+[data-theme="dark"] .text-gray-800:not(.printable-sheet *), [data-theme="dark"] .text-gray-700:not(.printable-sheet *) {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Sub-text / Captions in Dark Mode (EXCEPT printable sheets) */
+.dark .text-slate-600:not(.printable-sheet *), .dark .text-slate-500:not(.printable-sheet *), .dark .text-slate-400:not(.printable-sheet *),
+.dark .text-gray-600:not(.printable-sheet *), .dark .text-gray-500:not(.printable-sheet *), .dark .text-gray-400:not(.printable-sheet *),
+[data-theme="dark"] .text-slate-600:not(.printable-sheet *), [data-theme="dark"] .text-slate-500:not(.printable-sheet *),
+[data-theme="dark"] .text-slate-400:not(.printable-sheet *), [data-theme="dark"] .text-gray-600:not(.printable-sheet *),
+[data-theme="dark"] .text-gray-500:not(.printable-sheet *), [data-theme="dark"] .text-gray-400:not(.printable-sheet *) {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+/* Borders in Dark Mode (EXCEPT printable sheets) */
+.dark [class*="border-slate-"]:not(.printable-sheet *), [data-theme="dark"] [class*="border-slate-"]:not(.printable-sheet *),
+.dark [class*="border-gray-"]:not(.printable-sheet *), [data-theme="dark"] [class*="border-gray-"]:not(.printable-sheet *),
+.dark [class*="border-white"]:not(.printable-sheet *), [data-theme="dark"] [class*="border-white"]:not(.printable-sheet *) {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Icons & Symbols in Dark Mode (EXCEPT printable sheets) */
+.dark svg:not(.keep-color):not(.printable-sheet *), [data-theme="dark"] svg:not(.keep-color):not(.printable-sheet *),
+.dark .material-symbols-outlined:not(.printable-sheet *), [data-theme="dark"] .material-symbols-outlined:not(.printable-sheet *),
+.dark .material-symbols-rounded, [data-theme="dark"] .material-symbols-rounded {
+  color: #ffffff;
+}
+
+.pill-badge {
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   GLOBAL PRINT RULES: EVEN IN DARK MODE, PRINT ALWAYS FOLLOWS LIGHT MODE LAYOUT
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0 !important;
+  }
+
+  /* Force print color adjustment so browsers render solid black background fills */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-scheme: light !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Completely suppress top navigation header, floating launchers, modals, sidebars */
+  header,
+  nav,
+  footer,
+  aside,
+  .no-print,
+  [class*="no-print"],
+  [id*="floating-siri"],
+  [id*="sidebar"],
+  #floating-siri-launcher {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    position: static !important;
+  }
+
+  /* Force root layout & body into pristine light mode white background */
+  html,
+  body,
+  #root,
+  main,
+  [class*="max-w-"],
+  [class*="flex-1"],
+  .dark,
+  .dark body,
+  .dark #root,
+  .dark main,
+  [data-theme="dark"],
+  [data-theme="dark"] body {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Solid Black Banners, Badges & Table Headers MUST retain solid black fill & crisp white text (Image 1 Exact Match) */
+  .bg-black,
+  .bg-slate-900,
+  tr.bg-black,
+  th.bg-black,
+  thead.bg-black,
+  .printable-sheet .bg-black,
+  .printable-sheet .bg-slate-900,
+  .printable-sheet tr.bg-black,
+  .printable-sheet th.bg-black,
+  .printable-sheet thead,
+  .printable-sheet thead tr,
+  .printable-sheet thead th,
+  .dark .bg-black,
+  .dark .bg-slate-900,
+  .dark .printable-sheet .bg-black,
+  .dark .printable-sheet .bg-slate-900,
+  .dark .printable-sheet tr.bg-black,
+  .dark .printable-sheet th.bg-black,
+  .dark .printable-sheet thead,
+  .dark .printable-sheet thead tr,
+  .dark .printable-sheet thead th,
+  [data-theme="dark"] .printable-sheet .bg-black,
+  [data-theme="dark"] .printable-sheet thead th {
+    background: #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* All Text Elements Inside Solid Black Banners MUST Be Solid Bold White (#ffffff) */
+  .bg-black *,
+  .bg-slate-900 *,
+  tr.bg-black *,
+  th.bg-black *,
+  thead.bg-black *,
+  .printable-sheet .bg-black *,
+  .printable-sheet .bg-slate-900 *,
+  .printable-sheet tr.bg-black *,
+  .printable-sheet th.bg-black *,
+  .printable-sheet thead *,
+  .dark .bg-black *,
+  .dark .bg-slate-900 *,
+  .dark .printable-sheet .bg-black *,
+  .dark .printable-sheet .bg-slate-900 *,
+  .dark .printable-sheet tr.bg-black *,
+  .dark .printable-sheet th.bg-black *,
+  .dark .printable-sheet thead *,
+  [data-theme="dark"] .printable-sheet .bg-black * {
+    color: #ffffff !important;
+    opacity: 1 !important;
+  }
+
+  /* Body text outside black banners MUST be solid black (#000000) */
+  h1:not(.bg-black *):not(.bg-slate-900 *),
+  h2:not(.bg-black *):not(.bg-slate-900 *),
+  h3:not(.bg-black *):not(.bg-slate-900 *),
+  h4:not(.bg-black *):not(.bg-slate-900 *),
+  h5:not(.bg-black *):not(.bg-slate-900 *),
+  h6:not(.bg-black *):not(.bg-slate-900 *),
+  p:not(.bg-black *):not(.bg-slate-900 *),
+  span:not(.bg-black *):not(.bg-slate-900 *),
+  label:not(.bg-black *):not(.bg-slate-900 *),
+  td:not(.bg-black *):not(.bg-slate-900 *),
+  th:not(.bg-black *):not(.bg-slate-900 *),
+  div:not(.bg-black):not(.bg-black *):not(.bg-slate-900):not(.bg-slate-900 *),
+  .dark h1:not(.bg-black *):not(.bg-slate-900 *),
+  .dark h2:not(.bg-black *):not(.bg-slate-900 *),
+  .dark h3:not(.bg-black *):not(.bg-slate-900 *),
+  .dark h4:not(.bg-black *):not(.bg-slate-900 *),
+  .dark p:not(.bg-black *):not(.bg-slate-900 *),
+  .dark span:not(.bg-black *):not(.bg-slate-900 *),
+  .dark label:not(.bg-black *):not(.bg-slate-900 *),
+  .dark td:not(.bg-black *):not(.bg-slate-900 *),
+  .dark th:not(.bg-black *):not(.bg-slate-900 *),
+  .dark div:not(.bg-black):not(.bg-black *):not(.bg-slate-900):not(.bg-slate-900 *),
+  [data-theme="dark"] h1:not(.bg-black *):not(.bg-slate-900 *),
+  [data-theme="dark"] p:not(.bg-black *):not(.bg-slate-900 *),
+  [data-theme="dark"] span:not(.bg-black *):not(.bg-slate-900 *),
+  [data-theme="dark"] td:not(.bg-black *):not(.bg-slate-900 *),
+  [data-theme="dark"] th:not(.bg-black *):not(.bg-slate-900 *) {
+    color: #000000 !important;
+  }
+
+  /* Printable Sheet borders match Image 1 crisp black lines */
+  .printable-sheet table,
+  .printable-sheet tr,
+  .printable-sheet td,
+  .printable-sheet th,
+  .dark .printable-sheet table,
+  .dark .printable-sheet tr,
+  .dark .printable-sheet td,
+  .dark .printable-sheet th {
+    border-color: #000000 !important;
+  }
+
+  /* Individual table rows never split across pages */
+  .printable-sheet tr,
+  .printable-sheet table tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Payment Footer Unbreakable Container (Grand Total Box + Bank Details Block) */
+  .invoice-payment-footer-container {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    display: block !important;
+    width: 100% !important;
+    position: relative !important;
+    margin-top: 0.5rem !important;
+  }
+
+  /* Printable Sheet container dimensions & padding optimization for A4 print */
+  .printable-sheet {
+    display: block !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+    padding: 8mm 12mm !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    visibility: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .printable-sheet * {
+    visibility: visible !important;
+  }
+
+  .printable-sheet:first-of-type {
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    margin-top: 0 !important;
+  }
+}

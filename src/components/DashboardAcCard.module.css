@@ -1,0 +1,192 @@
+.card {
+  background-color: #ffffff;
+  border: 1px solid #eef2f5;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+  padding: 20px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mainTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5a6a85;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: #7c8ba1;
+  margin: 0;
+}
+
+.powerSwitch {
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.powerSwitchActive {
+  background-color: #007bff;
+  color: #ffffff;
+}
+
+.powerSwitchInactive {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.gaugeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  margin: 10px 0 20px 0;
+}
+
+.gaugeSvg {
+  width: 200px;
+  height: 120px;
+  overflow: visible;
+}
+
+.gaugeArcActive {
+  stroke: #007bff;
+  transition: stroke 0.3s ease;
+}
+
+.gaugeArcDisabled {
+  stroke: #e2e8f0;
+  transition: stroke 0.3s ease;
+}
+
+.pinContainer {
+  position: absolute;
+  top: 110px;
+  left: 100px;
+  width: 0;
+  height: 0;
+  transition: transform 0.3s ease;
+}
+
+.pinLine {
+  position: absolute;
+  bottom: 0;
+  left: -1.5px;
+  width: 3px;
+  height: 70px;
+  transform-origin: bottom center;
+  border-radius: 2px;
+}
+
+.pinLineActive {
+  background-color: #007bff;
+}
+
+.pinLineDisabled {
+  background-color: #cbd5e1;
+}
+
+.pinHead {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 6px;
+  height: 6px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.pinHeadActive {
+  border: 2px solid #007bff;
+}
+
+.pinHeadDisabled {
+  border: 2px solid #cbd5e1;
+}
+
+.readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.tempValue {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.1;
+}
+
+.tempValueDisabled {
+  color: #94a3b8;
+}
+
+.metaLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.footerControls {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.controlBtn {
+  flex: 1;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #334155;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.controlBtn:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.controlBtn:active:not(:disabled) {
+  background-color: #e2e8f0;
+}
+
+.controlBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
