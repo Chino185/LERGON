@@ -1054,6 +1054,7 @@ export default function App() {
             const prefKey = getUserPrefStorageKey(profileData.business_id || '', roleStr === 'admin' ? 2 : 5);
             const existingPrefs = getLocalState<Record<string, unknown>>(prefKey, {});
             saveLocalState(prefKey, { ...existingPrefs, themeMode: backendTheme });
+            localStorage.setItem('theme', backendTheme);
             setConfig(prev => ({ ...prev, themeMode: backendTheme }));
           }
 
@@ -1949,6 +1950,10 @@ export default function App() {
             console.error('Failed to sync contact number to backend:', res.error);
           }
         });
+    }
+
+    if (newConfig.themeMode === 'light' || newConfig.themeMode === 'dark') {
+      localStorage.setItem('theme', newConfig.themeMode);
     }
 
     if (currentUserUid && (newConfig.themeMode === 'light' || newConfig.themeMode === 'dark') && newConfig.themeMode !== config.themeMode) {

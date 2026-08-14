@@ -439,8 +439,8 @@ export default function Navigation({
   const isDarkMode = themeMode ? themeMode === 'dark' : localDarkMode;
 
   useEffect(() => {
-    if (themeMode) return;
-    if (localDarkMode) {
+    const effectiveDarkMode = themeMode ? themeMode === 'dark' : localDarkMode;
+    if (effectiveDarkMode) {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
       localStorage.setItem('theme', 'dark');

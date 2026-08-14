@@ -200,20 +200,66 @@ export async function saveInventoryItem(
     }
 
     if (existingItemId) {
+      const { data: existingRow, error: existingError } = await supabase
+        .from('inventory_items')
+        .select('quantity_in_hand')
+        .eq('id', existingItemId)
+        .eq('business_id', businessId)
+        .single();
+      if (existingError) throw existingError;
+
+      const previousQuantity = Number(existingRow.quantity_in_hand) || 0;
+      const requestedQuantity = Number(payload.quantity) || 0;
+      itemPayload.quantity_in_hand = previousQuantity;
+
       const { error } = await supabase
         .from('inventory_items')
         .update(itemPayload)
         .eq('id', existingItemId)
         .eq('business_id', businessId);
       if (error) throw error;
+
+      const quantityDelta = requestedQuantity - previousQuantity;
+      if (quantityDelta !== 0) {
+        const { error: adjustmentError } = await supabase.rpc('record_stock_adjustment', {
+          p_business_id: businessId,
+          p_item_id: existingItemId,
+          p_qty_changed: quantityDelta,
+          p_adjustment_type: 'audit_adjustment',
+          p_notes: 'Inventory item quantity edited from the Inventory page.',
+          p_credit_account_id: null,
+          p_performed_by: userUid,
+          p_source: 'manual'
+        });
+        if (adjustmentError) throw adjustmentError;
+      }
       return { success: true, itemId: existingItemId };
     } else {
+      const requestedQuantity = Number(payload.quantity) || 0;
+      itemPayload.quantity_in_hand = 0;
       const { data, error } = await supabase
         .from('inventory_items')
         .insert(itemPayload)
         .select('id')
         .single();
       if (error) throw error;
+
+      if (requestedQuantity > 0) {
+        const { error: adjustmentError } = await supabase.rpc('record_stock_adjustment', {
+          p_business_id: businessId,
+          p_item_id: data.id,
+          p_qty_changed: requestedQuantity,
+          p_adjustment_type: 'purchase_in',
+          p_notes: 'Initial stock captured when the inventory item was created.',
+          p_credit_account_id: null,
+          p_performed_by: userUid,
+          p_source: 'manual'
+        });
+        if (adjustmentError) {
+          await supabase.from('inventory_items').delete().eq('id', data.id).eq('business_id', businessId);
+          throw adjustmentError;
+        }
+      }
       return { success: true, itemId: data.id };
     }
   } catch (err: any) {

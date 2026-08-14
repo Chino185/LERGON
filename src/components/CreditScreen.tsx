@@ -1634,6 +1634,11 @@ export default function CreditScreen({
                                 Unpaid Record Balance: {formatMoney(txn.remainingAmount !== undefined ? txn.remainingAmount : txn.amount)}
                               </span>
                             )}
+                            {txn.type === 'pay' && txn.remainingAmount !== undefined && (
+                              <span className={`block font-bold mt-0.5 ${txn.remainingAmount === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                Balance Left After Payment: {formatMoney(txn.remainingAmount)}
+                              </span>
+                            )}
                           </p>
                         </div>
                         <strong className={`font-mono font-bold text-xs shrink-0 ${txn.type === 'pay' ? 'text-emerald-600' : 'text-slate-800'}`}>

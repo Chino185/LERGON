@@ -11,36 +11,80 @@ export function subscribeToTransactions(
     return () => { };
   }
 
-  const fetchTxns = () => {
-    supabase
-      .from('transactions')
-      .select('*')
-      .eq('business_id', businessId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) {
-          if (onError) onError(error);
-          return;
-        }
-        if (data) {
-          const list: CreditTransaction[] = data.map(d => ({
-            id: d.id,
-            creditAccountId: (d.items && d.items[0]?.credit_id) || '',
-            accountName: (d.items && d.items[0]?.account_name) || '',
-            type: d.type === 'repayment' || d.type === 'supplier_payment' ? 'pay' : 'charge',
-            amount: Number(d.total_amount) || 0,
-            date: d.created_at ? d.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-            notes: (d.items && d.items[0]?.notes) || `${String(d.type || 'transaction').toUpperCase()} transaction`,
-            paymentMethod: (d.payment_method as any) || 'Cash',
-            remainingAmount: d.items && d.items[0]?.remaining_amount !== undefined ? Number(d.items[0].remaining_amount) : undefined,
-            relatedCreditTxnId: d.items && d.items[0]?.related_credit_txn_id ? d.items[0].related_credit_txn_id : undefined,
-            performedBy: d.performed_by || 'User',
-            transactionType: d.type || undefined,
-            lineItems: Array.isArray(d.items) ? d.items : []
-          }));
-          onUpdate(list);
-        }
-      });
+  const fetchTxns = async () => {
+    const [{ data, error }, { data: accountRows }] = await Promise.all([
+      supabase
+        .from('transactions')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('credit_profiles')
+        .select('id, remaining_balance')
+        .eq('business_id', businessId)
+    ]);
+
+    if (error) {
+      if (onError) onError(error);
+      return;
+    }
+    if (!data) return;
+
+    const currentBalances = new Map<string, number>((accountRows || []).map(row => [row.id, Number(row.remaining_balance) || 0]));
+    const list: CreditTransaction[] = data.map(d => ({
+      id: d.id,
+      creditAccountId: (d.items && d.items[0]?.credit_id) || '',
+      accountName: (d.items && d.items[0]?.account_name) || '',
+      type: d.type === 'repayment' || d.type === 'supplier_payment' ? 'pay' : 'charge',
+      amount: Number(d.total_amount) || 0,
+      date: d.created_at || new Date().toISOString(),
+      notes: (d.items && d.items[0]?.notes) || `${String(d.type || 'transaction').toUpperCase()} transaction`,
+      paymentMethod: (d.payment_method as any) || 'Cash',
+      remainingAmount: d.items && d.items[0]?.remaining_amount !== undefined ? Number(d.items[0].remaining_amount) : undefined,
+      relatedCreditTxnId: d.items && d.items[0]?.related_credit_txn_id ? d.items[0].related_credit_txn_id : undefined,
+      performedBy: d.performed_by || 'User',
+      transactionType: d.type || undefined,
+      lineItems: Array.isArray(d.items) ? d.items : []
+    }));
+
+    // Backfill balance snapshots for legacy rows whose JSON items did not yet
+    // contain remaining_amount. Start from the current backend balance and
+    // replay the account ledger chronologically.
+    const chargesByAccount = new Map<string, number>();
+    const paymentsByAccount = new Map<string, number>();
+    list.forEach(tx => {
+      if (!tx.creditAccountId) return;
+      if (tx.transactionType === 'repayment' || tx.transactionType === 'supplier_payment') {
+        paymentsByAccount.set(tx.creditAccountId, (paymentsByAccount.get(tx.creditAccountId) || 0) + tx.amount);
+      } else if (tx.transactionType === 'credit' || tx.transactionType === 'supplier_credit') {
+        chargesByAccount.set(tx.creditAccountId, (chargesByAccount.get(tx.creditAccountId) || 0) + tx.amount);
+      }
+    });
+
+    const startingBalances = new Map<string, number>();
+    currentBalances.forEach((current, accountId) => {
+      startingBalances.set(
+        accountId,
+        Math.max(0, current - (chargesByAccount.get(accountId) || 0) + (paymentsByAccount.get(accountId) || 0))
+      );
+    });
+
+    const runningBalances = new Map(startingBalances);
+    [...list].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(tx => {
+      if (!tx.creditAccountId) return;
+      const current = runningBalances.get(tx.creditAccountId) || 0;
+      const next = tx.transactionType === 'repayment' || tx.transactionType === 'supplier_payment'
+        ? Math.max(0, current - tx.amount)
+        : (tx.transactionType === 'credit' || tx.transactionType === 'supplier_credit')
+          ? current + tx.amount
+          : current;
+      runningBalances.set(tx.creditAccountId, next);
+      if (tx.remainingAmount === undefined && (tx.transactionType === 'repayment' || tx.transactionType === 'supplier_payment')) {
+        tx.remainingAmount = next;
+      }
+    });
+
+    onUpdate(list);
   };
 
   fetchTxns();

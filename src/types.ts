@@ -330,6 +330,3 @@ export interface TenantReport {
   total_sales: number;
   created_at: string;
 }
-
-
-

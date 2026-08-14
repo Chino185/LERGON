@@ -1,18 +1,18 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Calendar, 
-  User, 
-  FileDown, 
-  Clock, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  AlertTriangle, 
-  RotateCcw, 
+import {
+  Search,
+  Filter,
+  Calendar,
+  User,
+  FileDown,
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
+  AlertTriangle,
+  RotateCcw,
   CheckCircle,
-  Shield, 
-  Eye, 
+  Shield,
+  Eye,
   X,
   Printer,
   ChevronRight,
@@ -55,7 +55,7 @@ export default function ActivityLogScreen({
     adjustments.forEach(adj => {
       const item = inventory.find(i => i.id === adj.itemId);
       const isPositive = adj.qtyChanged > 0;
-      
+
       let activityType = 'audit';
       let title = 'Audit Stock Adjustment';
       let badgeColor = 'bg-slate-100 text-slate-800 border-slate-200';
@@ -114,50 +114,54 @@ export default function ActivityLogScreen({
       });
     });
 
-    // Process accounts receivables/payables transactions
-    transactions.forEach(txn => {
-      const account = creditAccounts.find(c => c.id === txn.creditAccountId);
-      
-      let activityType = 'credit_charge';
-      let title = `Credit Charged: ${txn.accountName || 'Unknown'}`;
-      let badgeColor = 'neumorphic-card bg-slate-100/80 text-slate-900 border-slate-200/80 font-extrabold shadow-2xs';
-      let icon = <MaterialIcon name="credit_card" size={14} className="text-slate-800" />;
+    // Process accounts receivables/payables transactions. A credit or
+    // supplier-credit row without an account ID is malformed legacy data and
+    // must not appear as an "Unknown" credit charge in the operator ledger.
+    transactions
+      .filter(txn => !['credit', 'supplier_credit'].includes(txn.transactionType || '') || Boolean(txn.creditAccountId))
+      .forEach(txn => {
+        const account = creditAccounts.find(c => c.id === txn.creditAccountId);
 
-      if (txn.type === 'pay') {
-        activityType = 'credit_payment';
-        title = `Cleared Repayment: ${txn.accountName || 'Unknown'}`;
-        badgeColor = 'neumorphic-card bg-slate-100/80 text-slate-900 border-slate-200/80 font-extrabold shadow-2xs';
-        icon = <MaterialIcon name="check_circle" size={14} className="text-slate-800" />;
-      } else if (txn.type === 'borrow') {
-        activityType = 'credit_borrow';
-        title = `Debted Balance: ${txn.accountName || 'Unknown'}`;
-        badgeColor = 'neumorphic-card bg-slate-100/80 text-slate-900 border-slate-200/80 font-extrabold shadow-2xs';
-        icon = <MaterialIcon name="settings_backup_restore" size={14} className="text-slate-800" />;
-      }
+        let activityType = 'credit_charge';
+        let title = `Credit Charged: ${txn.accountName || 'Unknown'}`;
+        let badgeColor = 'neumorphic-card bg-slate-100/80 text-slate-900 border-slate-200/80 font-extrabold shadow-2xs';
+        let icon = <MaterialIcon name="credit_card" size={14} className="text-slate-800" />;
 
-      list.push({
-        id: `credit-${txn.id}`,
-        rawId: txn.id,
-        date: txn.date,
-        performedBy: txn.performedBy || 'System / Initial Seed',
-        category: 'credit',
-        type: activityType,
-        title,
-        badgeColor,
-        icon,
-        quantity: null,
-        amount: txn.amount,
-        notes: txn.notes || 'No notes entered.',
-        meta: {
-          accountName: txn.accountName,
-          accountPhone: account?.phone || 'N/A',
-          accountType: account?.type || 'Unknown Type',
-          paymentMethod: txn.paymentMethod || 'N/A',
-          transactionProof: txn.transactionProof || null,
-          remainingAmount: txn.remainingAmount
+        if (txn.type === 'pay') {
+          activityType = 'credit_payment';
+          title = `Cleared Repayment: ${txn.accountName || 'Unknown'}`;
+          badgeColor = 'neumorphic-card bg-slate-100/80 text-slate-900 border-slate-200/80 font-extrabold shadow-2xs';
+          icon = <MaterialIcon name="check_circle" size={14} className="text-slate-800" />;
+        } else if (txn.type === 'borrow') {
+          activityType = 'credit_borrow';
+          title = `Debted Balance: ${txn.accountName || 'Unknown'}`;
+          badgeColor = 'neumorphic-card bg-slate-100/80 text-slate-900 border-slate-200/80 font-extrabold shadow-2xs';
+          icon = <MaterialIcon name="settings_backup_restore" size={14} className="text-slate-800" />;
         }
+
+        list.push({
+          id: `credit-${txn.id}`,
+          rawId: txn.id,
+          date: txn.date,
+          performedBy: txn.performedBy || 'System / Initial Seed',
+          category: 'credit',
+          type: activityType,
+          title,
+          badgeColor,
+          icon,
+          quantity: null,
+          amount: txn.amount,
+          notes: txn.notes || 'No notes entered.',
+          meta: {
+            accountName: txn.accountName,
+            accountPhone: account?.phone || 'N/A',
+            accountType: account?.type || 'Unknown Type',
+            paymentMethod: txn.paymentMethod || 'N/A',
+            transactionProof: txn.transactionProof || null,
+            remainingAmount: txn.remainingAmount
+          }
+        });
       });
-    });
 
     // Sort complete chronological log with newest first
     return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -203,7 +207,7 @@ export default function ActivityLogScreen({
         const matchesNotes = act.notes.toLowerCase().includes(cleanQuery);
         const matchesPerformer = act.performedBy.toLowerCase().includes(cleanQuery);
         const matchesSku = act.meta.sku ? act.meta.sku.toLowerCase().includes(cleanQuery) : false;
-        
+
         if (!matchesTitle && !matchesNotes && !matchesPerformer && !matchesSku) {
           return false;
         }
@@ -263,8 +267,8 @@ export default function ActivityLogScreen({
     const headers = ['Activity Logs', 'Type', 'Date', 'Performed By', 'Quantity', 'Associated Value', 'Notes', 'Linked Reference'];
     const rows = filteredActivities.map(act => {
       const notesClean = act.notes.replace(/\n/g, ' ');
-      const reference = act.category === 'stock' 
-        ? `SKU: ${act.meta.sku || 'N/A'}` 
+      const reference = act.category === 'stock'
+        ? `SKU: ${act.meta.sku || 'N/A'}`
         : `Account: ${act.meta.accountName || 'N/A'}`;
 
       return [
@@ -310,10 +314,10 @@ export default function ActivityLogScreen({
   // Helper: Group items with date by month
   const groupItemsByMonth = <T extends { date: string }>(items: T[]): { monthLabel: string; items: T[] }[] => {
     const groups: { [key: string]: T[] } = {};
-    
+
     // Sort items newest first before grouping
     const sortedItems = [...items].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
+
     sortedItems.forEach(item => {
       const label = getMonthYearLabel(item.date);
       if (!groups[label]) {
@@ -321,7 +325,7 @@ export default function ActivityLogScreen({
       }
       groups[label].push(item);
     });
-    
+
     return Object.entries(groups).map(([monthLabel, groupItems]) => ({
       monthLabel,
       items: groupItems
@@ -439,7 +443,7 @@ export default function ActivityLogScreen({
           }
         }
       `}</style>
-      
+
       {/* HEADER SECTION (Crextio & Finnova Aesthetic) */}
       <div className="finnova-card p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
         <div>
@@ -468,7 +472,7 @@ export default function ActivityLogScreen({
             <FileDown size={14} />
             <span>Export Excel</span>
           </button>
-          
+
           <button
             type="button"
             onClick={() => window.print()}
@@ -482,7 +486,7 @@ export default function ActivityLogScreen({
 
       {/* FILTERS & METRICS BENTO GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
+
         {/* Filter Widget panel */}
         <div className="lg:col-span-1 finnova-card p-5 sm:p-6 space-y-4 no-print">
           <h2 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-3">
@@ -574,7 +578,7 @@ export default function ActivityLogScreen({
 
         {/* Dynamic Activity List */}
         <div className="lg:col-span-3 space-y-4">
-          
+
           {/* Metrics summary widgets */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
             <div className="finnova-card p-4">
@@ -664,8 +668,8 @@ export default function ActivityLogScreen({
                           const formattedTime = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
                           return (
-                            <tr 
-                              key={act.id} 
+                            <tr
+                              key={act.id}
                               className="hover:bg-slate-50/80 transition duration-150 cursor-pointer"
                               onClick={() => setSelectedActivity(act)}
                             >
@@ -675,14 +679,14 @@ export default function ActivityLogScreen({
                               </td>
                               <td className="py-3 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
                                 {(() => {
-                                  const isAttendantUser = act.performedBy.toLowerCase().includes('attendant') || 
-                                                          act.performedBy.toLowerCase().includes('samuel') || 
-                                                          act.performedBy.toLowerCase().includes('zar') || 
-                                                          (!act.performedBy.toLowerCase().includes('admin') && !act.performedBy.toLowerCase().includes('system'));
+                                  const isAttendantUser = act.performedBy.toLowerCase().includes('attendant') ||
+                                    act.performedBy.toLowerCase().includes('samuel') ||
+                                    act.performedBy.toLowerCase().includes('zar') ||
+                                    (!act.performedBy.toLowerCase().includes('admin') && !act.performedBy.toLowerCase().includes('system'));
                                   return (
-                                     <span className="inline-block py-0.5 px-2.5 text-[9px] font-extrabold rounded-full neumorphic-btn text-slate-900 border border-white/80 select-none">
-                                       {isAttendantUser ? 'Attendant' : 'Admin'}
-                                     </span>
+                                    <span className="inline-block py-0.5 px-2.5 text-[9px] font-extrabold rounded-full neumorphic-btn text-slate-900 border border-white/80 select-none">
+                                      {isAttendantUser ? 'Attendant' : 'Admin'}
+                                    </span>
                                   );
                                 })()}
                               </td>
@@ -725,7 +729,7 @@ export default function ActivityLogScreen({
       <AnimatePresence>
         {selectedActivity && (
           <div className="z-50 fixed inset-0 flex items-center justify-center p-4">
-            
+
             {/* Overlay background */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -743,7 +747,7 @@ export default function ActivityLogScreen({
               transition={{ type: 'spring', damping: 20, stiffness: 300 }}
               className="relative w-full max-w-md bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-white/80 dark:border-slate-800 overflow-hidden neumorphic-card"
             >
-              
+
               {/* Modal Header */}
               <div className="bg-slate-100/90 dark:bg-[#0f172a] px-5 py-4 text-slate-900 dark:text-white flex items-center justify-between select-none border-b border-slate-200/80 dark:border-slate-800">
                 <div className="flex items-center gap-2">
@@ -764,7 +768,7 @@ export default function ActivityLogScreen({
 
               {/* Modal Body Info Block */}
               <div className="p-5 space-y-4">
-                
+
                 {/* Title and Badge */}
                 <div className="flex justify-between items-start border-b border-gray-100 pb-3">
                   <div>
@@ -837,9 +841,8 @@ export default function ActivityLogScreen({
                       </div>
                       <div className="flex justify-between text-gray-600">
                         <span>Ledger Category:</span>
-                        <span className={`px-1 rounded uppercase font-semibold text-[9px] ${
-                          selectedActivity.meta.accountType === 'receivable' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
-                        }`}>
+                        <span className={`px-1 rounded uppercase font-semibold text-[9px] ${selectedActivity.meta.accountType === 'receivable' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                          }`}>
                           {selectedActivity.meta.accountType === 'receivable' ? 'Receivable (Customer)' : 'Payable (Supplier)'}
                         </span>
                       </div>
