@@ -34,7 +34,9 @@ export function subscribeToTransactions(
             paymentMethod: (d.payment_method as any) || 'Cash',
             remainingAmount: d.items && d.items[0]?.remaining_amount !== undefined ? Number(d.items[0].remaining_amount) : undefined,
             relatedCreditTxnId: d.items && d.items[0]?.related_credit_txn_id ? d.items[0].related_credit_txn_id : undefined,
-            performedBy: d.performed_by || 'User'
+            performedBy: d.performed_by || 'User',
+            transactionType: d.type || undefined,
+            lineItems: Array.isArray(d.items) ? d.items : []
           }));
           onUpdate(list);
         }

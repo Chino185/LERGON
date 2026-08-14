@@ -279,42 +279,68 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
   };
 
   // --- Calculations for KPIs ---
+  // Inventory page total value is retail value at the current quantity. It is
+  // the value of stock physically in hand, not the cumulative value originally
+  // introduced into the business.
   const totalCostValue = inventory.reduce((acc, item) => acc + (item.quantity * item.unitCost), 0);
-  const totalRetailValueCalculated = inventory.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
-  const totalRetailValue = (config.totalRetailValueOverride !== undefined && config.totalRetailValueOverride !== null)
-    ? config.totalRetailValueOverride
-    : totalRetailValueCalculated;
+  const stockInHandRetailValue = inventory.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+  const totalRetailValue = stockInHandRetailValue;
 
-  const potentialProfit = totalRetailValue - totalCostValue;
-
-  // Receivables (Asset on Credit)
+  // Receivables (Asset on Credit) is the currently outstanding customer debt.
+  // It is intentionally separate from historical credit-sale value: repayment
+  // changes receivables, but it does not put sold stock back into inventory.
   const receivablesTotalCalculated = creditAccounts
     .filter(a => a.type === 'receivable' && a.status !== 'settled')
     .reduce((acc, a) => acc + a.remainingAmount, 0);
-  const receivablesTotal = (config.receivablesTotalOverride !== undefined && config.receivablesTotalOverride !== null)
-    ? config.receivablesTotalOverride
-    : receivablesTotalCalculated;
+  const receivablesTotal = receivablesTotalCalculated;
 
-  // Unadjusted total sales value across all sale movements
-  const totalSalesValue = adjustments
-    .filter(adj => adj.type === 'sale_out')
-    .reduce((acc, adj) => {
-      const item = inventory.find(i => i.id === adj.itemId);
-      const price = item ? item.unitPrice : 0;
-      return acc + (Math.abs(adj.qtyChanged) * price);
-    }, 0);
+  // Use sale-time values stored in transactions. Falling back to typed stock
+  // adjustments keeps older records visible until their transaction snapshots
+  // are available, while avoiding the old error of pricing historical sales at
+  // today's inventory price and subtracting current receivables from revenue.
+  const saleTotals = useMemo(() => {
+    const persistedTotals = transactions.reduce((totals, tx) => {
+      const txType = tx.transactionType;
+      const lines = Array.isArray(tx.lineItems) ? tx.lineItems : [];
+      const saleLines = lines.filter(line => line.item_id && line.quantity && line.unit_price !== undefined);
+      if (saleLines.length === 0) return totals;
 
-  // Pure direct Cash Sales: total sales value minus outstanding credit to prevent duplication/double-counting
-  const cashSalesValueCalculated = Math.max(0, totalSalesValue - receivablesTotalCalculated);
-  const cashSalesValue = (config.cashSalesValueOverride !== undefined && config.cashSalesValueOverride !== null)
-    ? config.cashSalesValueOverride
-    : cashSalesValueCalculated;
+      const amount = saleLines.reduce((sum, line) => {
+        const quantity = Math.abs(Number(line.quantity) || 0);
+        const unitPrice = Number(line.unit_price) || 0;
+        return sum + quantity * unitPrice;
+      }, 0);
 
-  // Total Inventory Value in Hand (retail value of physical stock currently remaining in stock)
-  const totalInventoryValueCalculated = totalRetailValue;
-  const totalInventoryValue = (config.totalInventoryValueOverride !== undefined && config.totalInventoryValueOverride !== null)
-    ? config.totalInventoryValueOverride
-    : totalInventoryValueCalculated;
+      if (txType === 'sell') totals.cash += amount;
+      if (txType === 'credit') totals.credit += amount;
+      return totals;
+    }, { cash: 0, credit: 0 });
+
+    if (persistedTotals.cash > 0 || persistedTotals.credit > 0) {
+      return persistedTotals;
+    }
+
+    return adjustments
+      .filter(adj => adj.type === 'sale_out')
+      .reduce((totals, adj) => {
+        const item = inventory.find(i => i.id === adj.itemId);
+        const value = Math.abs(adj.qtyChanged) * (item?.unitPrice || 0);
+        const note = (adj.notes || '').toLowerCase();
+        const isCredit = Boolean(adj.creditAccountId) || /credit|credited|crediting|sold on credit|on credit|debt|receivable|billed|pay later|unpaid|terms/.test(note);
+        if (isCredit) totals.credit += value;
+        else totals.cash += value;
+        return totals;
+      }, { cash: 0, credit: 0 });
+  }, [transactions, adjustments, inventory, creditAccounts]);
+
+  const cashSalesValue = saleTotals.cash;
+  const creditSalesValue = saleTotals.credit;
+
+  // Cumulative inventory value equals physical stock in hand plus the retail
+  // value of all cash and customer-credit sales that removed stock.
+  const totalInventoryValue = stockInHandRetailValue + cashSalesValue + creditSalesValue;
+  const stockInHandValue = Math.max(0, totalInventoryValue - (cashSalesValue + creditSalesValue));
+  const potentialProfit = totalRetailValue - totalCostValue;
 
   // Helpers to identify credit sale status and calculate realized profits
   const getLinkedAccount = (adj: StockAdjustment) => {
@@ -866,7 +892,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
             </div>
           </div>
           <div className="mt-1.5">
-            <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">{formatMoney(totalRetailValue)}</h3>
+            <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">{formatMoney(stockInHandValue)}</h3>
             <div className="mt-1 flex items-center justify-between">
               <span className="font-extrabold text-slate-900 font-jakarta text-[9px]">
                 {inventory.length} Active Items
@@ -1081,7 +1107,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                       </div>
                       <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Asset Sum</span>
                       <span className="text-xs font-black text-slate-900 dark:text-white font-mono tracking-tight">
-                        {formatMoney(totalRetailValue)}
+                        {formatMoney(stockInHandValue)}
                       </span>
                     </div>
                   </div>

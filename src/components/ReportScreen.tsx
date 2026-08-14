@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
-import { 
-  TrendingUp, 
+import {
+  TrendingUp,
   TrendingDown,
-  BarChart4, 
-  Calendar, 
+  BarChart4,
+  Calendar,
   CalendarDays,
   Zap,
   CreditCard,
   PackageX,
   Building2,
   PieChart as PieChartIcon,
-  Download, 
-  Copy, 
-  Check, 
-  PackageCheck, 
-  DollarSign, 
+  Download,
+  Copy,
+  Check,
+  PackageCheck,
+  DollarSign,
   AlertTriangle,
   FileSpreadsheet,
   Layers,
@@ -34,16 +34,16 @@ import {
 import MaterialIcon from './MaterialIcon';
 import NeumorphicSelect, { NeumorphicSelectOption } from './NeumorphicSelect';
 import { downloadCSV, formatCSVDate, formatCSVCurrency, formatCSVNumber } from '../utils/csvExporter';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Legend, 
-  LineChart, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  LineChart,
   Line,
   Cell,
   PieChart,
@@ -159,15 +159,33 @@ export default function ReportScreen({
   };
 
   // --- 2. Sales and Realized Profit Calculations ---
-  const grossSalesTotal = useMemo(() => {
+  const saleTotals = useMemo(() => {
+    const persistedTotals = transactions.reduce((totals, tx) => {
+      const lines = Array.isArray(tx.lineItems) ? tx.lineItems : [];
+      const saleLines = lines.filter(line => line.item_id && line.quantity && line.unit_price !== undefined);
+      if (saleLines.length === 0) return totals;
+      const amount = saleLines.reduce((sum, line) => sum + Math.abs(Number(line.quantity) || 0) * (Number(line.unit_price) || 0), 0);
+      if (tx.transactionType === 'sell') totals.cash += amount;
+      if (tx.transactionType === 'credit') totals.credit += amount;
+      return totals;
+    }, { cash: 0, credit: 0 });
+
+    if (persistedTotals.cash > 0 || persistedTotals.credit > 0) return persistedTotals;
+
     return adjustments
       .filter(adj => adj.type === 'sale_out')
-      .reduce((acc, adj) => {
+      .reduce((totals, adj) => {
         const item = inventory.find(i => i.id === adj.itemId);
-        const price = item ? item.unitPrice : 0;
-        return acc + (Math.abs(adj.qtyChanged) * price);
-      }, 0);
-  }, [adjustments, inventory]);
+        const value = Math.abs(adj.qtyChanged) * (item?.unitPrice || 0);
+        const note = (adj.notes || '').toLowerCase();
+        const isCredit = Boolean(adj.creditAccountId) || /credit|credited|crediting|sold on credit|on credit|debt|receivable|billed|pay later|unpaid|terms/.test(note);
+        if (isCredit) totals.credit += value;
+        else totals.cash += value;
+        return totals;
+      }, { cash: 0, credit: 0 });
+  }, [transactions, adjustments, inventory]);
+
+  const grossSalesTotal = saleTotals.cash + saleTotals.credit;
 
   const totalReceivablesValue = useMemo(() => {
     return creditAccounts
@@ -175,9 +193,7 @@ export default function ReportScreen({
       .reduce((acc, a) => acc + a.remainingAmount, 0);
   }, [creditAccounts]);
 
-  const cashSalesReceived = useMemo(() => {
-    return Math.max(0, grossSalesTotal - totalReceivablesValue);
-  }, [grossSalesTotal, totalReceivablesValue]);
+  const cashSalesReceived = saleTotals.cash;
 
   const grossProfitPossible = useMemo(() => {
     return adjustments
@@ -197,7 +213,7 @@ export default function ReportScreen({
         if (item) {
           const margin = item.unitPrice - item.unitCost;
           const totalProfitPossible = Math.abs(adj.qtyChanged) * margin;
-          
+
           if (isCreditAdjustment(adj)) {
             const account = getLinkedAccount(adj);
             if (account) {
@@ -245,7 +261,7 @@ export default function ReportScreen({
   // --- 5. Products Velocity & Movement Calculations ---
   const productSalesMap = useMemo(() => {
     const map: Record<string, { id: string; name: string; sku: string; category: string; qtySold: number; revenue: number; margin: number; salesCount: number }> = {};
-    
+
     adjustments
       .filter(adj => adj.type === 'sale_out')
       .forEach(adj => {
@@ -255,7 +271,7 @@ export default function ReportScreen({
         const cost = item ? item.unitCost : 0;
         const revenue = qty * price;
         const margin = price - cost;
-        
+
         const itemId = adj.itemId;
         if (!map[itemId]) {
           map[itemId] = {
@@ -274,7 +290,7 @@ export default function ReportScreen({
         map[itemId].margin += (margin * qty);
         map[itemId].salesCount += 1;
       });
-      return map;
+    return map;
   }, [adjustments, inventory]);
 
   const productMovementList = useMemo(() => {
@@ -309,8 +325,8 @@ export default function ReportScreen({
         lastUpdated: item.lastUpdated
       };
     })
-    .sort((a, b) => a.qtySold - b.qtySold)
-    .slice(0, 5);
+      .sort((a, b) => a.qtySold - b.qtySold)
+      .slice(0, 5);
   }, [inventory, productSalesMap]);
 
   // --- 6. Credit & Debts Groups ---
@@ -423,14 +439,14 @@ export default function ReportScreen({
   }, [defaultSelectedMonth, selectedMonth]);
 
   const activeMonthData = monthlyDataMap[selectedMonth || defaultSelectedMonth];
-  const weeklyChartData = activeMonthData 
+  const weeklyChartData = activeMonthData
     ? Object.values(activeMonthData.weeklyData) as Array<{ weekKey: string; revenue: number; profit: number }>
     : [
-        { weekKey: 'Week 1', revenue: 0, profit: 0 },
-        { weekKey: 'Week 2', revenue: 0, profit: 0 },
-        { weekKey: 'Week 3', revenue: 0, profit: 0 },
-        { weekKey: 'Week 4', revenue: 0, profit: 0 }
-      ];
+      { weekKey: 'Week 1', revenue: 0, profit: 0 },
+      { weekKey: 'Week 2', revenue: 0, profit: 0 },
+      { weekKey: 'Week 3', revenue: 0, profit: 0 },
+      { weekKey: 'Week 4', revenue: 0, profit: 0 }
+    ];
 
   // --- 8. Exports Formats ---
   const handleExportCSV = () => {
@@ -518,7 +534,7 @@ export default function ReportScreen({
 
   return (
     <div id="report-screen" className="space-y-6">
-      
+
       {/* Top Header Row (Crextio & Finnova Aesthetic) */}
       <div className="finnova-card p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -532,7 +548,7 @@ export default function ReportScreen({
               : "Realized profits, weekly velocities, moving product assets, and credit collection ratios."}
           </p>
         </div>
-        
+
         {/* Dynamic Exports Panels */}
         <div className="flex items-center gap-2.5">
           <button
@@ -559,11 +575,10 @@ export default function ReportScreen({
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${
-              activeTab === tab.id 
-                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs' 
+            className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${activeTab === tab.id
+                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
+              }`}
           >
             {tab.icon}
             <span>{tab.label}</span>
@@ -574,7 +589,7 @@ export default function ReportScreen({
       {/* Active Tab Content with Fades */}
       <div className="min-h-[500px]">
         <AnimatePresence mode="wait">
-          
+
           {/* ==========================================================
               TAB 1: FINANCIAL OVERVIEW SUMMARY
               ========================================================== */}
@@ -588,7 +603,7 @@ export default function ReportScreen({
             >
               {/* Gross Stats Bento Layout */}
               <div className={`grid grid-cols-1 ${userRole === 2 ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2'} gap-5`}>
-                
+
                 {/* Sale Performance Cards */}
                 <div className="finnova-card p-5 transition duration-300">
                   <div className="flex items-center justify-between">
@@ -646,16 +661,16 @@ export default function ReportScreen({
 
               {/* Middle Breakdown Rows */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
+
                 {/* Quick Snapshot List */}
                 <div className="finnova-card p-5 sm:p-6 space-y-4 lg:col-span-2">
                   <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5 border-b border-slate-200/50 pb-3">
                     <MaterialIcon name="bolt" size={20} className="text-slate-900" />
                     <span>Business Audit Balance Schedule</span>
                   </h3>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
-                    
+
                     <div className="space-y-2">
                       <div className="p-3.5 neumorphic-inset rounded-xl flex justify-between items-center">
                         <div>
@@ -664,7 +679,7 @@ export default function ReportScreen({
                         </div>
                         <strong className="text-slate-900 font-jakarta font-extrabold">{formatMoney(cashSalesReceived)}</strong>
                       </div>
-                      
+
                       <div className="p-3.5 neumorphic-inset rounded-xl flex justify-between items-center">
                         <div>
                           <span className="font-extrabold block text-slate-900">Uncollected Customer Receivables</span>
@@ -674,7 +689,7 @@ export default function ReportScreen({
                       </div>
                     </div>
 
-                     <div className="space-y-2">
+                    <div className="space-y-2">
                       {userRole === 2 && (
                         <div className="p-3.5 neumorphic-inset rounded-xl flex justify-between items-center">
                           <div>
@@ -684,7 +699,7 @@ export default function ReportScreen({
                           <strong className="text-slate-900 font-jakarta font-extrabold">{formatMoney(suppliersIOweList.reduce((acc, a) => acc + a.remainingAmount, 0))}</strong>
                         </div>
                       )}
-                      
+
                       <div className="p-3.5 neumorphic-inset rounded-xl flex justify-between items-center">
                         <div>
                           <span className="font-extrabold block text-slate-900">Aggregate Stock Damages</span>
@@ -703,7 +718,7 @@ export default function ReportScreen({
                     <h4 className="text-sm font-bold text-slate-900 mb-1">Financial Inflow Share</h4>
                     <p className="text-[11px] text-slate-500">Revenue composition ratios (Paid Cash vs. Outstanding Credit)</p>
                   </div>
-                  
+
                   <div className="h-44 my-2 flex items-center justify-center">
                     {grossSalesTotal > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -764,7 +779,7 @@ export default function ReportScreen({
               exit={{ opacity: 0, y: -12 }}
               className="space-y-6"
             >
-              
+
               {/* Monthly List Breakdown Trend chart */}
               <div className="finnova-card p-5 sm:p-6">
                 <div className="flex justify-between items-center border-b border-slate-200/50 pb-3.5 mb-4">
@@ -786,12 +801,12 @@ export default function ReportScreen({
                       >
                         <defs>
                           <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15}/>
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0}/>
+                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
                           </linearGradient>
                           <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.0}/>
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -821,7 +836,7 @@ export default function ReportScreen({
                     </h3>
                     <p className="text-xs text-slate-500 font-medium">Approximates weekly profit metrics within the selected monthly schedule interval.</p>
                   </div>
-                  
+
                   {/* Selector drop-down */}
                   {monthlyList.length > 0 && (
                     <div className="flex items-center gap-1.5 min-w-[170px]">
@@ -837,7 +852,7 @@ export default function ReportScreen({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  
+
                   {/* Weekly Chart */}
                   <div className="h-56 lg:col-span-2">
                     <ResponsiveContainer width="100%" height="100%">
@@ -899,16 +914,16 @@ export default function ReportScreen({
               exit={{ opacity: 0, y: -12 }}
               className="space-y-6"
             >
-              
+
               {/* Product cards indicators */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                
+
                 {/* Top Product Sold Card */}
                 {topProductSold ? (
                   <div className="finnova-card p-5 transition duration-300">
                     <span className="text-[10px] uppercase font-bold text-slate-700 tracking-wider block">Top Product Sold (By Volume)</span>
                     <strong className="text-lg font-bold text-slate-900 block mt-1 leading-snug">{topProductSold.name}</strong>
-                    
+
                     <div className="grid grid-cols-3 gap-3 border-t border-slate-200/50 mt-4 pt-3.5 text-xs text-slate-600">
                       <div>
                         <span>SKU / Category:</span>
@@ -953,7 +968,7 @@ export default function ReportScreen({
 
               {/* Fast Moving vs. Slow Moving items */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
+
                 {/* Fast Moving list */}
                 <div className="finnova-card p-5 space-y-4">
                   <div>
@@ -1039,10 +1054,10 @@ export default function ReportScreen({
               exit={{ opacity: 0, y: -12 }}
               className="space-y-6"
             >
-              
+
               {/* Highlight Cards */}
               <div className={`grid grid-cols-1 ${userRole === 2 ? 'md:grid-cols-2' : ''} gap-5`}>
-                
+
                 {/* Debtor Customers Sum */}
                 <div className="finnova-card p-5 flex justify-between items-center">
                   <div>
@@ -1075,7 +1090,7 @@ export default function ReportScreen({
 
               {/* Detailed Lists */}
               <div className={`grid grid-cols-1 ${userRole === 2 ? 'lg:grid-cols-2' : ''} gap-6`}>
-                
+
                 {/* Debtor Outstanding customers */}
                 <div className="finnova-card p-5 space-y-4">
                   <div>
@@ -1104,7 +1119,7 @@ export default function ReportScreen({
                               </strong>
                             </span>
                           </div>
-                          
+
                           <div className="text-right shrink-0">
                             <strong className="block text-slate-900 font-jakarta font-extrabold">{formatMoney(a.remainingAmount)}</strong>
                             <span className="text-[10px] text-slate-500 block font-jakarta">Original: {formatMoney(a.totalAmount)}</span>
@@ -1146,7 +1161,7 @@ export default function ReportScreen({
                                 {isOverdue ? 'LATE LIABILITY' : `Liability due in ${daysDiff} days`}
                               </span>
                             </div>
-                            
+
                             <div className="text-right shrink-0">
                               <strong className="block text-slate-900 font-jakarta font-bold">{formatMoney(s.remainingAmount)}</strong>
                               <span className="text-[10px] text-slate-500 block font-jakarta">Original: {formatMoney(s.totalAmount)}</span>
@@ -1169,7 +1184,7 @@ export default function ReportScreen({
               {topPurchaserItem && (
                 <div className="finnova-card p-5 sm:p-6 space-y-3">
                   <h4 className="text-xs uppercase font-extrabold text-slate-800 tracking-widest flex items-center gap-1.5"><MaterialIcon name="auto_awesome" size={16} className="text-slate-900" /><span>Peak Purchaser Customer Demographics</span></h4>
-                  
+
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1 text-xs">
                     <div>
                       <span className="text-base font-extrabold text-slate-900">{topPurchaserItem.name}</span>
@@ -1212,10 +1227,10 @@ export default function ReportScreen({
               exit={{ opacity: 0, y: -12 }}
               className="space-y-6"
             >
-              
+
               {/* Damaged stats bento */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                
+
                 {/* Damaged units count card */}
                 <div className="finnova-card p-5 flex flex-col justify-between">
                   <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Units Rendered Damaged</span>

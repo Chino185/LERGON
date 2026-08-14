@@ -73,6 +73,8 @@ export interface CreditTransaction {
   remainingAmount?: number; // Outstanding balance of this specific credit record
   relatedCreditTxnId?: string; // Links payment directly to credit record ID
   performedBy?: string;
+  transactionType?: string;
+  lineItems?: Array<Record<string, unknown>>;
   isFlagged?: boolean;
   flagComment?: string;
   flaggedBy?: string;
