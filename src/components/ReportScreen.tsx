@@ -163,14 +163,23 @@ export default function ReportScreen({
     const persistedTotals = transactions.reduce((totals, tx) => {
       const lines = Array.isArray(tx.lineItems) ? tx.lineItems : [];
       const saleLines = lines.filter(line => line.item_id && line.quantity && line.unit_price !== undefined);
+      if (tx.transactionType === 'repayment') {
+        const account = creditAccounts.find(acc => acc.id === tx.creditAccountId);
+        if (account?.type === 'receivable') {
+          totals.paidCredit += Number(tx.amount) || 0;
+          totals.hasPersistedMovement = true;
+        }
+        return totals;
+      }
       if (saleLines.length === 0) return totals;
       const amount = saleLines.reduce((sum, line) => sum + Math.abs(Number(line.quantity) || 0) * (Number(line.unit_price) || 0), 0);
       if (tx.transactionType === 'sell') totals.cash += amount;
       if (tx.transactionType === 'credit') totals.credit += amount;
+      totals.hasPersistedMovement = true;
       return totals;
-    }, { cash: 0, credit: 0 });
+    }, { cash: 0, credit: 0, paidCredit: 0, hasPersistedMovement: false });
 
-    if (persistedTotals.cash > 0 || persistedTotals.credit > 0) return persistedTotals;
+    if (persistedTotals.hasPersistedMovement) return persistedTotals;
 
     return adjustments
       .filter(adj => adj.type === 'sale_out')
@@ -182,10 +191,11 @@ export default function ReportScreen({
         if (isCredit) totals.credit += value;
         else totals.cash += value;
         return totals;
-      }, { cash: 0, credit: 0 });
-  }, [transactions, adjustments, inventory]);
+      }, { cash: 0, credit: 0, paidCredit: 0, hasPersistedMovement: false });
+  }, [transactions, adjustments, inventory, creditAccounts]);
 
   const grossSalesTotal = saleTotals.cash + saleTotals.credit;
+  const valueSold = saleTotals.cash + saleTotals.paidCredit;
 
   const totalReceivablesValue = useMemo(() => {
     return creditAccounts
@@ -193,7 +203,7 @@ export default function ReportScreen({
       .reduce((acc, a) => acc + a.remainingAmount, 0);
   }, [creditAccounts]);
 
-  const cashSalesReceived = saleTotals.cash;
+  const cashSalesReceived = valueSold;
 
   const grossProfitPossible = useMemo(() => {
     return adjustments
@@ -453,7 +463,7 @@ export default function ReportScreen({
     const headers = ['Report Category', 'Metric Name', 'Calculated Value', 'Notes / Context'];
     const rows: (string | number)[][] = [
       ['Sales Overview', 'Total Gross Sales', formatCSVCurrency(grossSalesTotal, config.currencySymbol), 'All customer sales logged'],
-      ['Sales Overview', 'Direct Cash Received', formatCSVCurrency(cashSalesReceived, config.currencySymbol), 'Actual cash collected from fully paid cash or credit payments'],
+      ['Sales Overview', 'Value Sold (Cash + Paid Credit)', formatCSVCurrency(cashSalesReceived, config.currencySymbol), 'Cash sales plus customer-credit repayments collected'],
       ['Sales Overview', 'Uncollected Credit Sales', formatCSVCurrency(totalReceivablesValue, config.currencySymbol), 'Debts owed to us by customer targets'],
       ['Profit Audit', 'Realized Cash Profit', formatCSVCurrency(realizedProfitTotal, config.currencySymbol), 'Actual profits collected in cash'],
       ['Profit Audit', 'Gross Profit Potential', formatCSVCurrency(grossProfitPossible, config.currencySymbol), 'Markup profits potential'],
@@ -725,7 +735,7 @@ export default function ReportScreen({
                         <PieChart>
                           <Pie
                             data={[
-                              { name: 'Direct Cash Received', value: cashSalesReceived, fill: '#3b82f6' },
+                              { name: 'Value Sold (Cash + Paid Credit)', value: cashSalesReceived, fill: '#3b82f6' },
                               { name: 'Owed Customer Credit', value: totalReceivablesValue, fill: '#64748b' }
                             ]}
                             cx="50%"

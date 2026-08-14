@@ -100,7 +100,8 @@ import {
   loadNotificationReadIds,
   updateBusinessCurrency,
   subscribeToBusinessCurrency,
-  updateUserPhone
+  updateUserPhone,
+  updateUserTheme
 } from './utils/authServices';
 
 import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems, subscribeToStockAdjustments, submitRestockRequest, verifyRestockRequestTransaction, recordStockAdjustmentTransaction, subscribeToRestockRequests, createAttendantInvite } from './utils/inventoryServices';
@@ -688,6 +689,10 @@ export default function App() {
   const activeUserPhoto = currentUserRole === 5
     ? (activeOrg?.attendantPhoto || '')
     : (activeOrg?.adminPhoto || config.profilePhoto || '');
+  const activeActorLabel = `${activeUserName} (${currentUserRole === 2 ? 'Administrator' : 'Attendant'})`;
+  const labelCurrentActor = (actor?: string) => actor === currentUserUid
+    ? activeActorLabel
+    : (actor || 'System');
 
   const handleRegisterOrganization = async (email: string, name: string, adminPass: string) => {
     setRegisterError('');
@@ -1045,6 +1050,11 @@ export default function App() {
               document.documentElement.classList.remove('dark');
               document.documentElement.setAttribute('data-theme', 'light');
             }
+            const backendTheme = profileData.theme_preference === 'dark' ? 'dark' : 'light';
+            const prefKey = getUserPrefStorageKey(profileData.business_id || '', roleStr === 'admin' ? 2 : 5);
+            const existingPrefs = getLocalState<Record<string, unknown>>(prefKey, {});
+            saveLocalState(prefKey, { ...existingPrefs, themeMode: backendTheme });
+            setConfig(prev => ({ ...prev, themeMode: backendTheme }));
           }
 
           // Pull the user's own contact number back from the backend (the
@@ -1093,6 +1103,11 @@ export default function App() {
                     document.documentElement.classList.remove('dark');
                     document.documentElement.setAttribute('data-theme', 'light');
                   }
+                  const backendTheme = data.theme_preference === 'dark' ? 'dark' : 'light';
+                  const prefKey = getUserPrefStorageKey(data.business_id || '', roleStr === 'admin' ? 2 : 5);
+                  const existingPrefs = getLocalState<Record<string, unknown>>(prefKey, {});
+                  saveLocalState(prefKey, { ...existingPrefs, themeMode: backendTheme });
+                  setConfig(prev => ({ ...prev, themeMode: backendTheme }));
                 }
 
                 // Keep the locally-shown contact number in sync with the
@@ -1173,12 +1188,18 @@ export default function App() {
 
     // 3. Real-time Sales Transactions Listener
     const unsubSales = subscribeToTransactions(currentOrgId, (txns) => {
-      setTransactions(txns || []);
+      setTransactions((txns || []).map(tx => ({
+        ...tx,
+        performedBy: labelCurrentActor(tx.performedBy)
+      })));
     });
 
     // 4. Real-time typed stock-adjustment ledger listener
     const unsubAdjustments = subscribeToStockAdjustments(currentOrgId, (items) => {
-      setAdjustments(items || []);
+      setAdjustments((items || []).map(adj => ({
+        ...adj,
+        performedBy: labelCurrentActor(adj.performedBy)
+      })));
     });
 
     // 5. Real-time pending restock requests listener
@@ -1211,7 +1232,7 @@ export default function App() {
       unsubRestocks();
       unsubCurrency();
     };
-  }, [isLoggedIn, currentOrgId]);
+  }, [isLoggedIn, currentOrgId, currentUserUid, currentUserRole, activeUserName]);
 
   // Fast active session verification against Supabase Auth
   useEffect(() => {
@@ -1479,9 +1500,14 @@ export default function App() {
   };
 
   const handleDeleteItem = async (id: string) => {
-    setInventory(prev => prev.filter(item => item.id !== id));
-    setAdjustments(prev => prev.filter(adj => adj.itemId !== id));
-    await deleteInventoryItem(currentOrgId, id);
+    const deleted = await deleteInventoryItem(currentOrgId, id);
+    if (!deleted) {
+      alert('The inventory item could not be deleted from the backend.');
+      return false;
+    }
+    // Realtime inventory and stock-adjustment subscriptions remove the item
+    // and any cascaded records from every page without a refresh.
+    return true;
   };
 
 
@@ -1923,6 +1949,12 @@ export default function App() {
             console.error('Failed to sync contact number to backend:', res.error);
           }
         });
+    }
+
+    if (currentUserUid && (newConfig.themeMode === 'light' || newConfig.themeMode === 'dark') && newConfig.themeMode !== config.themeMode) {
+      updateUserTheme(currentUserUid, newConfig.themeMode).then((res) => {
+        if (!res.success) console.error('Failed to sync theme preference to backend:', res.error);
+      });
     }
 
     // 3. Update current active state
@@ -3143,6 +3175,8 @@ export default function App() {
             pendingRestocks={pendingRestocks}
             onNavigateToInventoryTab={(tab) => setInventoryTabOverride(tab)}
             readNotificationIds={readNotificationIds}
+            themeMode={config.themeMode}
+            onThemeChange={(theme) => handleUpdateConfig({ ...config, themeMode: theme })}
             onMarkAsRead={(ids) => {
               setReadNotificationIds(prev => Array.from(new Set([...prev, ...ids])));
               markNotificationsAsRead(currentUserUid, ids, currentOrgId);

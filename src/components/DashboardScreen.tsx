@@ -303,6 +303,14 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
       const txType = tx.transactionType;
       const lines = Array.isArray(tx.lineItems) ? tx.lineItems : [];
       const saleLines = lines.filter(line => line.item_id && line.quantity && line.unit_price !== undefined);
+      if (txType === 'repayment') {
+        const account = creditAccounts.find(acc => acc.id === tx.creditAccountId);
+        if (account?.type === 'receivable') {
+          totals.paidCredit += Number(tx.amount) || 0;
+          totals.hasPersistedMovement = true;
+        }
+        return totals;
+      }
       if (saleLines.length === 0) return totals;
 
       const amount = saleLines.reduce((sum, line) => {
@@ -313,10 +321,11 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
 
       if (txType === 'sell') totals.cash += amount;
       if (txType === 'credit') totals.credit += amount;
+      totals.hasPersistedMovement = true;
       return totals;
-    }, { cash: 0, credit: 0 });
+    }, { cash: 0, credit: 0, paidCredit: 0, hasPersistedMovement: false });
 
-    if (persistedTotals.cash > 0 || persistedTotals.credit > 0) {
+    if (persistedTotals.hasPersistedMovement) {
       return persistedTotals;
     }
 
@@ -330,16 +339,18 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
         if (isCredit) totals.credit += value;
         else totals.cash += value;
         return totals;
-      }, { cash: 0, credit: 0 });
+      }, { cash: 0, credit: 0, paidCredit: 0, hasPersistedMovement: false });
   }, [transactions, adjustments, inventory, creditAccounts]);
 
   const cashSalesValue = saleTotals.cash;
+  const paidCreditValue = saleTotals.paidCredit;
+  const valueSold = cashSalesValue + paidCreditValue;
   const creditSalesValue = saleTotals.credit;
 
-  // Cumulative inventory value equals physical stock in hand plus the retail
-  // value of all cash and customer-credit sales that removed stock.
-  const totalInventoryValue = stockInHandRetailValue + cashSalesValue + creditSalesValue;
-  const stockInHandValue = Math.max(0, totalInventoryValue - (cashSalesValue + creditSalesValue));
+  // Unpaid customer credit remains an asset. Repayments move into Value Sold.
+  // Restocks increase stock in hand and therefore increase cumulative value.
+  const totalInventoryValue = stockInHandRetailValue + valueSold + receivablesTotal;
+  const stockInHandValue = Math.max(0, totalInventoryValue - valueSold - receivablesTotal);
   const potentialProfit = totalRetailValue - totalCostValue;
 
   // Helpers to identify credit sale status and calculate realized profits
@@ -909,16 +920,16 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
           className="finnova-card p-4 sm:p-5 relative group/kpi flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Value Sold (Cash)</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Value Sold</span>
             <div className="w-8 h-8 neumorphic-circle text-slate-900 font-bold flex items-center justify-center">
               <MaterialIcon name="trending_up" size={16} />
             </div>
           </div>
           <div className="mt-1.5">
-            <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">{formatMoney(cashSalesValue)}</h3>
+            <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">{formatMoney(valueSold)}</h3>
             <div className="mt-1 flex items-center justify-between">
               <span className="font-extrabold text-slate-900 font-jakarta text-[9px]">
-                Cash Sales
+                Cash + Paid Credit
               </span>
             </div>
           </div>

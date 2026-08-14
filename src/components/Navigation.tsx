@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Building2, 
-  LayoutDashboard, 
-  Boxes, 
-  Coins, 
-  BarChart3, 
+import {
+  Building2,
+  LayoutDashboard,
+  Boxes,
+  Coins,
+  BarChart3,
   Settings,
   LogOut,
   ChevronDown,
@@ -48,6 +48,8 @@ interface NavigationProps {
   onNavigateToInventoryTab?: (tab: 'active_stock' | 'damaged_audit' | 'restock_validations') => void;
   readNotificationIds?: string[];
   onMarkAsRead?: (ids: string[]) => void;
+  themeMode?: 'light' | 'dark' | 'system';
+  onThemeChange?: (theme: 'light' | 'dark') => void;
 }
 
 export default function Navigation({
@@ -70,7 +72,9 @@ export default function Navigation({
   pendingRestocks = [],
   onNavigateToInventoryTab,
   readNotificationIds = [],
-  onMarkAsRead
+  onMarkAsRead,
+  themeMode,
+  onThemeChange
 }: NavigationProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -84,7 +88,7 @@ export default function Navigation({
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      
+
       if (isDropdownOpen) {
         const isClickInsideDropdown = dropdownRef.current?.contains(target);
         const isClickOnToggle = target.closest('#desktop-profile-trigger') || target.closest('#mobile-profile-trigger');
@@ -189,12 +193,12 @@ export default function Navigation({
 
   // Critical Alerts list: includes Out of Stock and Overdue Credit lines
   const criticalNotifications = React.useMemo(() => {
-    const list: Array<{ 
-      id: string; 
-      title: string; 
-      description: string; 
-      type: 'error' | 'warning' | 'success'; 
-      date: string; 
+    const list: Array<{
+      id: string;
+      title: string;
+      description: string;
+      type: 'error' | 'warning' | 'success';
+      date: string;
       category: string;
       targetScreen: string;
       targetTab?: string;
@@ -347,12 +351,12 @@ export default function Navigation({
 
   // Combined Operations Feed (Latest 8 stock movements or credit movements)
   const activityEvents = React.useMemo(() => {
-    const events: Array<{ 
-      id: string; 
-      title: string; 
-      description: string; 
-      type: 'stock' | 'payment'; 
-      date: string; 
+    const events: Array<{
+      id: string;
+      title: string;
+      description: string;
+      type: 'stock' | 'payment';
+      date: string;
       badge: string;
       targetScreen: string;
     }> = [];
@@ -425,15 +429,18 @@ export default function Navigation({
 
   const criticalCount = criticalNotifications.length;
 
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+  const [localDarkMode, setLocalDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
     }
     return false;
   });
 
+  const isDarkMode = themeMode ? themeMode === 'dark' : localDarkMode;
+
   useEffect(() => {
-    if (isDarkMode) {
+    if (themeMode) return;
+    if (localDarkMode) {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
       localStorage.setItem('theme', 'dark');
@@ -442,11 +449,11 @@ export default function Navigation({
       document.documentElement.setAttribute('data-theme', 'light');
       localStorage.setItem('theme', 'light');
     }
-  }, [isDarkMode]);
+  }, [themeMode, localDarkMode]);
 
   return (
     <div className="relative min-h-screen crextio-canvas overflow-x-hidden flex flex-col text-slate-900 font-sans">
-      
+
       {/* Decorative ambient subtle background gradients */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10 select-none">
         <div className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] rounded-full bg-indigo-200/30 blur-[130px]" />
@@ -457,7 +464,7 @@ export default function Navigation({
       {/* TOP FLOATING PILL NAVIGATION HEADER (CREXTIO & FINNOVA AESTHETIC) */}
       <header className="no-print sticky top-0 z-50 py-2.5 px-4 sm:px-6 xl:px-8 bg-[#ebf0f7] border-b border-slate-200/60 shadow-xs select-none">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          
+
           {/* Left Brand Identity Capsule */}
           <div className="flex items-center gap-3">
             {/* Mobile Hamburger Menu Button */}
@@ -497,11 +504,10 @@ export default function Navigation({
                     type="button"
                     id={`nav-btn-${item.id}`}
                     onClick={() => setActiveScreen(item.id)}
-                    className={`flex items-center gap-2 select-none transition-all cursor-pointer rounded-full px-4 py-1.5 text-xs xl:text-sm font-bold ${
-                      isActive 
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25' 
+                    className={`flex items-center gap-2 select-none transition-all cursor-pointer rounded-full px-4 py-1.5 text-xs xl:text-sm font-bold ${isActive
+                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 font-bold'
-                    }`}
+                      }`}
                   >
                     <MaterialIcon name={item.materialIcon} size={18} className={isActive ? 'text-white' : 'text-slate-500'} />
                     <span>{item.name}</span>
@@ -522,7 +528,11 @@ export default function Navigation({
             <button
               type="button"
               id="theme-toggle-trigger"
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              onClick={() => {
+                const nextTheme = isDarkMode ? 'light' : 'dark';
+                setLocalDarkMode(nextTheme === 'dark');
+                onThemeChange?.(nextTheme);
+              }}
               title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
               className="w-9 h-9 neumorphic-circle flex items-center justify-center text-slate-700 dark:text-amber-400 hover:text-amber-500 cursor-pointer transition-all duration-200"
             >
@@ -560,11 +570,11 @@ export default function Navigation({
               >
                 <div className="w-9 h-9 neumorphic-circle flex items-center justify-center text-slate-900 font-extrabold text-xs uppercase select-none overflow-hidden">
                   {displayPhoto ? (
-                    <img 
-                      src={displayPhoto} 
-                      alt="Profile" 
-                      className="w-full h-full object-cover" 
-                      referrerPolicy="no-referrer" 
+                    <img
+                      src={displayPhoto}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     menuLetter
@@ -587,11 +597,11 @@ export default function Navigation({
                     <div className="p-5 border-b border-slate-200/50 flex flex-col items-center text-center">
                       <div className="w-14 h-14 neumorphic-circle text-slate-900 font-extrabold text-lg flex items-center justify-center select-none mb-2.5 overflow-hidden border border-white/90">
                         {displayPhoto ? (
-                          <img 
-                            src={displayPhoto} 
-                            alt="Profile" 
-                            className="w-full h-full object-cover" 
-                            referrerPolicy="no-referrer" 
+                          <img
+                            src={displayPhoto}
+                            alt="Profile"
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
                           />
                         ) : (
                           menuLetter
@@ -643,294 +653,288 @@ export default function Navigation({
             </div>
           </div>
 
-      {/* Mobile Hamburger Menu Dropdown Overlay */}
-      <AnimatePresence>
-              {isMobileMenuOpen && (
-                <motion.div
-                  ref={mobileMenuRef}
-                  initial={{ opacity: 0, scale: 0.95, y: -8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                  transition={{ duration: 0.12, ease: 'easeOut' }}
-                  className="xl:hidden z-50 absolute left-4 right-4 top-14 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-slate-800 animate-fade-in"
-                >
-                  <div className="p-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                    <span className="font-bold text-[10px] uppercase tracking-wider text-slate-500">Navigation Menu</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-200 transition cursor-pointer"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <div className="py-1 max-h-[60vh] overflow-y-auto">
-                    {navItems.map(item => {
-                      const isActive = activeScreen === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            setActiveScreen(item.id);
-                            setIsMobileMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-4 py-3.5 text-xs font-bold transition cursor-pointer text-left border-l-4 ${
-                            isActive
-                              ? 'bg-indigo-50/75 text-indigo-700 border-indigo-500 font-extrabold'
-                              : 'text-slate-700 hover:bg-slate-50 border-transparent'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3.5">
-                            <MaterialIcon name={item.materialIcon} size={20} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
-                            <span>{item.name}</span>
-                          </div>
-                          {item.id === 'notifications' && unreadCriticalCount > 0 && (
-                            <span className="px-2 py-0.5 text-[9px] font-black bg-red-500 text-white rounded-full leading-none mr-2">
-                              {unreadCriticalCount}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-
-
-             {/* REAL-TIME DYNAMIC SYSTEM MONITORING NOTIFICATIONS PANEL */}
-            <AnimatePresence>
-              {isNotificationOpen && (
-                <motion.div
-                  ref={notificationRef}
-                  initial={{ opacity: 0, scale: 0.95, y: -8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                  transition={{ duration: 0.15, ease: 'easeOut' }}
-                  className="z-50 absolute right-0 top-11 xl:top-15 mt-1 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800 animate-fade-in"
-                >
-                  {/* Header Title with Counts */}
-                  <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Bell size={14} className="text-indigo-400 animate-swing" />
-                      <span className="font-bold text-xs tracking-tight">{translate('systemNotificationCenter', config.languageCode)}</span>
-                    </div>
-                    {unreadCriticalCount > 0 || unreadActivityCount > 0 ? (
+          {/* Mobile Hamburger Menu Dropdown Overlay */}
+          <AnimatePresence>
+            {isMobileMenuOpen && (
+              <motion.div
+                ref={mobileMenuRef}
+                initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                transition={{ duration: 0.12, ease: 'easeOut' }}
+                className="xl:hidden z-50 absolute left-4 right-4 top-14 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-slate-800 animate-fade-in"
+              >
+                <div className="p-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                  <span className="font-bold text-[10px] uppercase tracking-wider text-slate-500">Navigation Menu</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-200 transition cursor-pointer"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="py-1 max-h-[60vh] overflow-y-auto">
+                  {navItems.map(item => {
+                    const isActive = activeScreen === item.id;
+                    return (
                       <button
+                        key={item.id}
                         type="button"
-                        onClick={markAllAsRead}
-                        className="bg-slate-800 hover:bg-slate-705 active:bg-slate-700 text-slate-100 text-[8px] font-extrabold px-2 py-0.5 rounded-md border border-slate-700 transition cursor-pointer font-bold uppercase tracking-wider select-none"
+                        onClick={() => {
+                          setActiveScreen(item.id);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-4 py-3.5 text-xs font-bold transition cursor-pointer text-left border-l-4 ${isActive
+                            ? 'bg-indigo-50/75 text-indigo-700 border-indigo-500 font-extrabold'
+                            : 'text-slate-700 hover:bg-slate-50 border-transparent'
+                          }`}
                       >
-                        Mark all read
-                      </button>
-                    ) : (
-                      <span className="text-slate-400 text-[8px] font-semibold uppercase tracking-wider select-none">All Read</span>
-                    )}
-                  </div>
-
-                  {/* Tabs Selector */}
-                  <div className="flex border-b border-slate-100 bg-slate-50 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setNotificationTab('critical')}
-                      className={`flex-1 py-1.5 text-center text-[10px] font-bold rounded-md uppercase tracking-wider transition ${
-                        notificationTab === 'critical'
-                          ? 'bg-white text-indigo-700 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-850'
-                      }`}
-                    >
-                      {translate('alerts', config.languageCode)} ({unreadCriticalCount})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNotificationTab('activities')}
-                      className={`flex-1 py-1.5 text-center text-[10px] font-bold rounded-md uppercase tracking-wider transition ${
-                        notificationTab === 'activities'
-                          ? 'bg-white text-indigo-700 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-850'
-                      }`}
-                    >
-                      {translate('liveActivities', config.languageCode)} ({unreadActivityCount})
-                    </button>
-                  </div>
-
-                  {/* Notification List Container */}
-                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
-                    {notificationTab === 'critical' ? (
-                      criticalNotifications.length > 0 ? (
-                        criticalNotifications.map((notif) => {
-                          const isError = notif.type === 'error';
-                          const isSuccess = notif.type === 'success';
-                          const isRead = readNotificationIds.includes(notif.id);
-                          return (
-                            <div
-                              key={notif.id}
-                              className={`w-full text-left px-4 py-2.5 transition flex items-start gap-2.5 border-b border-slate-100 relative ${
-                                isRead ? 'bg-slate-50/50 hover:bg-slate-50/80 opacity-60' : 'bg-white hover:bg-slate-50/70'
-                              }`}
-                            >
-                              <div
-                                onClick={() => handleNotificationItemClick(notif.targetScreen, notif.targetTab)}
-                                className="flex-1 text-left flex items-start gap-2.5 min-w-0 cursor-pointer"
-                              >
-                                <div className="mt-0.5 shrink-0">
-                                  {isError ? (
-                                    <div className="p-1 rounded-full bg-red-50 text-red-600 border border-red-100">
-                                      <AlertTriangle size={12} />
-                                    </div>
-                                  ) : isSuccess ? (
-                                    <div className="p-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
-                                      <Check size={12} />
-                                    </div>
-                                  ) : (
-                                    <div className="p-1 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
-                                      <AlertCircle size={12} />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`font-bold text-[11px] leading-tight ${isRead ? 'text-slate-500' : isError ? 'text-red-700' : isSuccess ? 'text-emerald-700' : 'text-amber-700'}`}>
-                                    {notif.title}
-                                  </p>
-                                  <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
-                                    {notif.description}
-                                  </p>
-                                  <div className="flex items-center gap-1.5 mt-1.5 text-[8.5px] text-slate-400 font-semibold font-mono">
-                                    <span className="uppercase text-[8px] bg-slate-100 px-1 rounded text-slate-500">
-                                      {notif.category}
-                                    </span>
-                                    <span>•</span>
-                                    <span>{formatTimeAgo(notif.date)}</span>
-                                  </div>
-                                  {notif.category === 'Inventory' && (notif.title.includes('Low Stock') || notif.title.includes('Out of Stock')) && (config.attendantPhone || config.adminPhone || config.phone) && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const pendingReport = localStorage.getItem('velo_ic_pending_whatsapp_report') || `⚠️ Shortage Warning: ${notif.description}`;
-                                        const recipientPhone = config.attendantPhone || config.adminPhone || config.phone || '';
-                                        const cleanPh = recipientPhone.replace(/\D/g, '');
-                                        if (cleanPh) {
-                                          window.open(`https://wa.me/${cleanPh}?text=${encodeURIComponent(pendingReport)}`, '_blank', 'noopener,noreferrer');
-                                        }
-                                      }}
-                                      className="mt-1.5 flex items-center gap-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/60 rounded text-[9px] font-extrabold cursor-pointer transition select-none inline-flex"
-                                      title="Send WhatsApp Alert"
-                                    >
-                                      <span>WhatsApp 💬</span>
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Toggle Check Button on far right */}
-                              {!isRead && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => markAsRead(notif.id, e)}
-                                  className="shrink-0 p-1 bg-slate-100 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-md transition cursor-pointer self-center"
-                                  title="Mark as read"
-                                >
-                                  <Check size={11} className="stroke-[3]" />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="p-6 text-center text-slate-400">
-                          <Check className="mx-auto text-emerald-500 mb-2" size={18} />
-                          <p className="font-extrabold text-[10px] uppercase tracking-wider text-slate-800">{translate('noAlertsPending', config.languageCode)}</p>
-                          <p className="text-[10px] mt-0.5">{translate('allAlertsCleared', config.languageCode)}</p>
+                        <div className="flex items-center gap-3.5">
+                          <MaterialIcon name={item.materialIcon} size={20} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
+                          <span>{item.name}</span>
                         </div>
-                      )
-                    ) : (
-                      activityEvents.length > 0 ? (
-                        activityEvents.map((evt) => {
-                          const isStock = evt.type === 'stock';
-                          const isRead = readNotificationIds.includes(evt.id);
-                          return (
-                            <div
-                              key={evt.id}
-                              className={`w-full text-left px-4 py-2.5 transition flex items-start gap-2.5 border-b border-slate-100 relative ${
-                                isRead ? 'bg-slate-50/50 hover:bg-slate-50/80 opacity-60' : 'bg-white hover:bg-slate-50/70'
+                        {item.id === 'notifications' && unreadCriticalCount > 0 && (
+                          <span className="px-2 py-0.5 text-[9px] font-black bg-red-500 text-white rounded-full leading-none mr-2">
+                            {unreadCriticalCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+
+
+          {/* REAL-TIME DYNAMIC SYSTEM MONITORING NOTIFICATIONS PANEL */}
+          <AnimatePresence>
+            {isNotificationOpen && (
+              <motion.div
+                ref={notificationRef}
+                initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="z-50 absolute right-0 top-11 xl:top-15 mt-1 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800 animate-fade-in"
+              >
+                {/* Header Title with Counts */}
+                <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell size={14} className="text-indigo-400 animate-swing" />
+                    <span className="font-bold text-xs tracking-tight">{translate('systemNotificationCenter', config.languageCode)}</span>
+                  </div>
+                  {unreadCriticalCount > 0 || unreadActivityCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={markAllAsRead}
+                      className="bg-slate-800 hover:bg-slate-705 active:bg-slate-700 text-slate-100 text-[8px] font-extrabold px-2 py-0.5 rounded-md border border-slate-700 transition cursor-pointer font-bold uppercase tracking-wider select-none"
+                    >
+                      Mark all read
+                    </button>
+                  ) : (
+                    <span className="text-slate-400 text-[8px] font-semibold uppercase tracking-wider select-none">All Read</span>
+                  )}
+                </div>
+
+                {/* Tabs Selector */}
+                <div className="flex border-b border-slate-100 bg-slate-50 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setNotificationTab('critical')}
+                    className={`flex-1 py-1.5 text-center text-[10px] font-bold rounded-md uppercase tracking-wider transition ${notificationTab === 'critical'
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-850'
+                      }`}
+                  >
+                    {translate('alerts', config.languageCode)} ({unreadCriticalCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNotificationTab('activities')}
+                    className={`flex-1 py-1.5 text-center text-[10px] font-bold rounded-md uppercase tracking-wider transition ${notificationTab === 'activities'
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-850'
+                      }`}
+                  >
+                    {translate('liveActivities', config.languageCode)} ({unreadActivityCount})
+                  </button>
+                </div>
+
+                {/* Notification List Container */}
+                <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
+                  {notificationTab === 'critical' ? (
+                    criticalNotifications.length > 0 ? (
+                      criticalNotifications.map((notif) => {
+                        const isError = notif.type === 'error';
+                        const isSuccess = notif.type === 'success';
+                        const isRead = readNotificationIds.includes(notif.id);
+                        return (
+                          <div
+                            key={notif.id}
+                            className={`w-full text-left px-4 py-2.5 transition flex items-start gap-2.5 border-b border-slate-100 relative ${isRead ? 'bg-slate-50/50 hover:bg-slate-50/80 opacity-60' : 'bg-white hover:bg-slate-50/70'
                               }`}
+                          >
+                            <div
+                              onClick={() => handleNotificationItemClick(notif.targetScreen, notif.targetTab)}
+                              className="flex-1 text-left flex items-start gap-2.5 min-w-0 cursor-pointer"
                             >
+                              <div className="mt-0.5 shrink-0">
+                                {isError ? (
+                                  <div className="p-1 rounded-full bg-red-50 text-red-600 border border-red-100">
+                                    <AlertTriangle size={12} />
+                                  </div>
+                                ) : isSuccess ? (
+                                  <div className="p-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                    <Check size={12} />
+                                  </div>
+                                ) : (
+                                  <div className="p-1 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                                    <AlertCircle size={12} />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`font-bold text-[11px] leading-tight ${isRead ? 'text-slate-500' : isError ? 'text-red-700' : isSuccess ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                  {notif.title}
+                                </p>
+                                <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                                  {notif.description}
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-1.5 text-[8.5px] text-slate-400 font-semibold font-mono">
+                                  <span className="uppercase text-[8px] bg-slate-100 px-1 rounded text-slate-500">
+                                    {notif.category}
+                                  </span>
+                                  <span>•</span>
+                                  <span>{formatTimeAgo(notif.date)}</span>
+                                </div>
+                                {notif.category === 'Inventory' && (notif.title.includes('Low Stock') || notif.title.includes('Out of Stock')) && (config.attendantPhone || config.adminPhone || config.phone) && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const pendingReport = localStorage.getItem('velo_ic_pending_whatsapp_report') || `⚠️ Shortage Warning: ${notif.description}`;
+                                      const recipientPhone = config.attendantPhone || config.adminPhone || config.phone || '';
+                                      const cleanPh = recipientPhone.replace(/\D/g, '');
+                                      if (cleanPh) {
+                                        window.open(`https://wa.me/${cleanPh}?text=${encodeURIComponent(pendingReport)}`, '_blank', 'noopener,noreferrer');
+                                      }
+                                    }}
+                                    className="mt-1.5 flex items-center gap-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/60 rounded text-[9px] font-extrabold cursor-pointer transition select-none inline-flex"
+                                    title="Send WhatsApp Alert"
+                                  >
+                                    <span>WhatsApp 💬</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Toggle Check Button on far right */}
+                            {!isRead && (
                               <button
                                 type="button"
-                                onClick={() => handleNotificationItemClick(evt.targetScreen)}
-                                className="flex-1 text-left flex items-start gap-2.5 min-w-0 cursor-pointer"
+                                onClick={(e) => markAsRead(notif.id, e)}
+                                className="shrink-0 p-1 bg-slate-100 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-md transition cursor-pointer self-center"
+                                title="Mark as read"
                               >
-                                <div className="mt-0.5 shrink-0">
-                                  {isStock ? (
-                                    <div className="p-1 rounded-full bg-blue-50 text-indigo-500 border border-blue-100">
-                                      <Boxes size={12} />
-                                    </div>
-                                  ) : (
-                                    <div className="p-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
-                                      <Coins size={12} />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-extrabold text-[10px] text-slate-800 uppercase tracking-tight truncate">
-                                    {evt.title}
-                                  </p>
-                                  <p className="text-[10px] text-slate-655 mt-0.5 leading-snug">
-                                    {evt.description}
-                                  </p>
-                                  <div className="flex items-center gap-1.5 mt-1.5 text-[8.5px] text-slate-400 font-semibold">
-                                    <span className={`uppercase font-mono text-[8px] px-1 rounded ${
-                                      isStock ? 'bg-blue-50 text-indigo-600 font-bold' : 'bg-emerald-50 text-emerald-700 font-bold'
-                                    }`}>
-                                      {evt.badge}
-                                    </span>
-                                    <span>•</span>
-                                    <span className="font-mono text-slate-400">{formatTimeAgo(evt.date)}</span>
-                                  </div>
-                                </div>
+                                <Check size={11} className="stroke-[3]" />
                               </button>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-6 text-center text-slate-400">
+                        <Check className="mx-auto text-emerald-500 mb-2" size={18} />
+                        <p className="font-extrabold text-[10px] uppercase tracking-wider text-slate-800">{translate('noAlertsPending', config.languageCode)}</p>
+                        <p className="text-[10px] mt-0.5">{translate('allAlertsCleared', config.languageCode)}</p>
+                      </div>
+                    )
+                  ) : (
+                    activityEvents.length > 0 ? (
+                      activityEvents.map((evt) => {
+                        const isStock = evt.type === 'stock';
+                        const isRead = readNotificationIds.includes(evt.id);
+                        return (
+                          <div
+                            key={evt.id}
+                            className={`w-full text-left px-4 py-2.5 transition flex items-start gap-2.5 border-b border-slate-100 relative ${isRead ? 'bg-slate-50/50 hover:bg-slate-50/80 opacity-60' : 'bg-white hover:bg-slate-50/70'
+                              }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleNotificationItemClick(evt.targetScreen)}
+                              className="flex-1 text-left flex items-start gap-2.5 min-w-0 cursor-pointer"
+                            >
+                              <div className="mt-0.5 shrink-0">
+                                {isStock ? (
+                                  <div className="p-1 rounded-full bg-blue-50 text-indigo-500 border border-blue-100">
+                                    <Boxes size={12} />
+                                  </div>
+                                ) : (
+                                  <div className="p-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                    <Coins size={12} />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-extrabold text-[10px] text-slate-800 uppercase tracking-tight truncate">
+                                  {evt.title}
+                                </p>
+                                <p className="text-[10px] text-slate-655 mt-0.5 leading-snug">
+                                  {evt.description}
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-1.5 text-[8.5px] text-slate-400 font-semibold">
+                                  <span className={`uppercase font-mono text-[8px] px-1 rounded ${isStock ? 'bg-blue-50 text-indigo-600 font-bold' : 'bg-emerald-50 text-emerald-700 font-bold'
+                                    }`}>
+                                    {evt.badge}
+                                  </span>
+                                  <span>•</span>
+                                  <span className="font-mono text-slate-400">{formatTimeAgo(evt.date)}</span>
+                                </div>
+                              </div>
+                            </button>
 
-                              {/* Toggle Check Button on far right */}
-                              {!isRead && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => markAsRead(evt.id, e)}
-                                  className="shrink-0 p-1 bg-slate-100 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-md transition cursor-pointer self-center"
-                                  title="Mark as read"
-                                >
-                                  <Check size={11} className="stroke-[3]" />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="p-6 text-center text-slate-400">
-                          <Clock className="mx-auto text-slate-300 mb-2" size={16} />
-                          <p className="font-extrabold text-[10px] uppercase tracking-wider text-slate-800">No Activity Recorded</p>
-                          <p className="text-[10px] mt-0.5">Real-time actions populate automatic log feeds.</p>
-                        </div>
-                      )
-                    )}
-                  </div>
+                            {/* Toggle Check Button on far right */}
+                            {!isRead && (
+                              <button
+                                type="button"
+                                onClick={(e) => markAsRead(evt.id, e)}
+                                className="shrink-0 p-1 bg-slate-100 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-md transition cursor-pointer self-center"
+                                title="Mark as read"
+                              >
+                                <Check size={11} className="stroke-[3]" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-6 text-center text-slate-400">
+                        <Clock className="mx-auto text-slate-300 mb-2" size={16} />
+                        <p className="font-extrabold text-[10px] uppercase tracking-wider text-slate-800">No Activity Recorded</p>
+                        <p className="text-[10px] mt-0.5">Real-time actions populate automatic log feeds.</p>
+                      </div>
+                    )
+                  )}
+                </div>
 
-                  {/* Footer link to easily look at full log feed */}
-                  <div className="bg-slate-50 border-t border-slate-100 p-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => handleNotificationItemClick('transactions')}
-                      className="text-[9.5px] font-black uppercase text-indigo-600 hover:text-indigo-800 tracking-wider cursor-pointer"
-                    >
-                      {translate('viewFullAuditLedger', config.languageCode)} →
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                {/* Footer link to easily look at full log feed */}
+                <div className="bg-slate-50 border-t border-slate-100 p-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => handleNotificationItemClick('transactions')}
+                    className="text-[9.5px] font-black uppercase text-indigo-600 hover:text-indigo-800 tracking-wider cursor-pointer"
+                  >
+                    {translate('viewFullAuditLedger', config.languageCode)} →
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </header>
 
       {/* VIEWPORT BODY CONTENT CONTAINER */}
@@ -943,7 +947,7 @@ export default function Navigation({
                 <span className="font-extrabold text-slate-950 dark:text-white">LOW STOCK<span className="hidden sm:inline"> TICKER</span></span>
               </div>
             </div>
-            
+
             <div className="relative w-full h-full overflow-hidden flex items-center pl-3 sm:pl-4 bg-transparent select-none min-w-0">
               <AnimatePresence mode="wait">
                 {lowStockItems.map((item, idx) => {
@@ -957,8 +961,8 @@ export default function Navigation({
                       transition={{ duration: 0.45, ease: "easeInOut" }}
                       className="flex items-center gap-2 h-full py-1 whitespace-nowrap min-w-0 text-[11px] font-jakarta"
                     >
-                      <span 
-                        className="text-slate-950 dark:text-white font-extrabold hover:underline cursor-pointer truncate max-w-[110px] xs:max-w-[150px] sm:max-w-none" 
+                      <span
+                        className="text-slate-950 dark:text-white font-extrabold hover:underline cursor-pointer truncate max-w-[110px] xs:max-w-[150px] sm:max-w-none"
                         onClick={() => setActiveScreen('inventory')}
                         title={item.name}
                       >

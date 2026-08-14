@@ -479,3 +479,28 @@ export async function validateAttendantInvite(
     return { success: false, error: err?.message || 'Unable to validate invite code.' };
   }
 }
+
+
+/** Persist the authenticated user's personal theme preference. */
+export async function updateUserTheme(
+  userUid: string,
+  theme: 'light' | 'dark'
+): Promise<{ success: boolean; error?: string }> {
+  if (!userUid) return { success: false, error: 'User ID is required.' };
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ theme_preference: theme })
+      .eq('id', userUid)
+      .select('id, theme_preference')
+      .single();
+    if (error) throw error;
+    if (!data || data.id !== userUid || data.theme_preference !== theme) {
+      return { success: false, error: 'The authenticated profile theme was not updated.' };
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateUserTheme Error:', err);
+    return { success: false, error: err?.message || 'Failed to update theme preference.' };
+  }
+}
