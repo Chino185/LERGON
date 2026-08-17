@@ -397,10 +397,11 @@ export default function Navigation({
       });
     });
 
-    // Sort descending and slice to 8 items
-    return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8);
+    // Keep the full stream for unread-count reconciliation. The panel below
+    // still renders only the latest eight entries for readability.
+    return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [adjustments, transactions, config.currencySymbol]);
-
+  const visibleActivityEvents = activityEvents.slice(0, 8);
   const markAsRead = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (onMarkAsRead) {
@@ -513,7 +514,7 @@ export default function Navigation({
                     <MaterialIcon name={item.materialIcon} size={18} className={isActive ? 'text-white' : 'text-slate-500'} />
                     <span>{item.name}</span>
                     {item.id === 'notifications' && unreadNotificationCount > 0 && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-black bg-red-600 text-white rounded-full leading-none animate-pulse">
+                      <span className="px-1.5 py-0.5 text-[9px] font-black bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 rounded-full leading-none animate-pulse border border-red-500 dark:border-red-400">
                         {unreadNotificationCount}
                       </span>
                     )}
@@ -556,7 +557,7 @@ export default function Navigation({
             >
               <Bell size={16} />
               {unreadNotificationCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-600 text-white font-extrabold text-[8px] px-1 rounded-full flex items-center justify-center border border-white animate-pulse">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 font-extrabold text-[8px] px-1 rounded-full flex items-center justify-center border border-red-500 dark:border-red-400 animate-pulse">
                   {unreadNotificationCount}
                 </span>
               )}
@@ -700,7 +701,7 @@ export default function Navigation({
                           <span>{item.name}</span>
                         </div>
                         {item.id === 'notifications' && unreadNotificationCount > 0 && (
-                          <span className="px-2 py-0.5 text-[9px] font-black bg-red-600 text-white rounded-full leading-none mr-2">
+                          <span className="px-2 py-0.5 text-[9px] font-black bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 rounded-full leading-none mr-2 border border-red-500 dark:border-red-400">
                             {unreadNotificationCount}
                           </span>
                         )}
@@ -858,8 +859,8 @@ export default function Navigation({
                       </div>
                     )
                   ) : (
-                    activityEvents.length > 0 ? (
-                      activityEvents.map((evt) => {
+                    visibleActivityEvents.length > 0 ? (
+                      visibleActivityEvents.map((evt) => {
                         const isStock = evt.type === 'stock';
                         const isRead = readNotificationIds.includes(evt.id);
                         return (
