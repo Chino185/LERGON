@@ -819,13 +819,14 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
             type="button"
             id="action-btn-stock-out-credit"
             onClick={() => {
-              setQuickAction(quickAction === 'stock_out_credit' ? 'none' : 'stock_out_credit');
+              setQuickAction('none');
               setSelectedItemId('');
               setSelectedAccountId('');
               setItemQuery('');
               setAccountQuery('');
               setIsItemDropdownOpen(false);
               setIsAccountDropdownOpen(false);
+              onNavigate?.('credit-new');
             }}
             className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${quickAction === 'stock_out_credit'
                 ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
