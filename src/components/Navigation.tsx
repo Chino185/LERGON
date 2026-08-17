@@ -429,7 +429,10 @@ export default function Navigation({
   }, [activityEvents, readNotificationIds]);
 
   const criticalCount = criticalNotifications.length;
-  const unreadNotificationCount = unreadCriticalCount + unreadActivityCount;
+  // The global badge mirrors the Notifications page, which contains the
+  // system-notification list. Live activities remain available in the panel
+  // but must not make the main notification badge appear unread.
+  const unreadNotificationCount = unreadCriticalCount;
 
   const [localDarkMode, setLocalDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {

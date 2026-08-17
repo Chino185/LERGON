@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Sparkles, 
-  Bell, 
-  RotateCw, 
-  AlertTriangle, 
-  Check, 
-  AlertCircle, 
-  Clock, 
-  ChevronRight, 
+import {
+  Sparkles,
+  Bell,
+  RotateCw,
+  AlertTriangle,
+  Check,
+  AlertCircle,
+  Clock,
+  ChevronRight,
   ExternalLink,
   SlidersHorizontal,
   Mail,
@@ -88,12 +88,12 @@ export default function NotificationsScreen({
 
   // Build the complete list of system notifications/alerts
   const criticalNotifications = useMemo(() => {
-    const list: Array<{ 
-      id: string; 
-      title: string; 
-      description: string; 
-      type: 'error' | 'warning' | 'success'; 
-      date: string; 
+    const list: Array<{
+      id: string;
+      title: string;
+      description: string;
+      type: 'error' | 'warning' | 'success';
+      date: string;
       category: string;
       targetScreen: string;
       targetTab?: string;
@@ -272,7 +272,7 @@ export default function NotificationsScreen({
 
   return (
     <div className="space-y-6">
-      
+
       {/* Top Banner Area */}
       <div className="finnova-card p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -303,10 +303,10 @@ export default function NotificationsScreen({
 
       {/* Main Responsive Container */}
       <div className="max-w-5xl w-full mx-auto">
-        
+
         {/* Full-width System Alerts & Feed Panel */}
         <div className="finnova-card p-5 sm:p-6 flex flex-col">
-          
+
           {/* Header & Filter Controls */}
           <div className="border-b border-slate-200/50 pb-3 shrink-0">
             <div className="flex items-center justify-between mb-3.5">
@@ -330,11 +330,10 @@ export default function NotificationsScreen({
                 <button
                   key={f}
                   onClick={() => setActiveFilter(f)}
-                  className={`px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider rounded-xl transition cursor-pointer ${
-                    activeFilter === f
+                  className={`px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider rounded-xl transition cursor-pointer ${activeFilter === f
                       ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-sm'
                       : 'neumorphic-btn text-slate-800 hover:text-black'
-                  }`}
+                    }`}
                 >
                   {f === 'all' ? 'All Logs' : f}
                 </button>
@@ -357,15 +356,14 @@ export default function NotificationsScreen({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.18 }}
-                      className={`relative overflow-hidden finnova-card p-4 rounded-2xl transition duration-200 border ${
-                        isRead 
-                          ? 'opacity-70 border-slate-200 dark:border-slate-800' 
-                          : isError 
-                            ? 'border-red-300 dark:border-red-900/60 shadow-md' 
-                            : isSuccess 
-                              ? 'border-emerald-300 dark:border-emerald-900/60 shadow-md' 
+                      className={`relative overflow-hidden finnova-card p-4 rounded-2xl transition duration-200 border ${isRead
+                          ? 'opacity-70 border-slate-200 dark:border-slate-800'
+                          : isError
+                            ? 'border-red-300 dark:border-red-900/60 shadow-md'
+                            : isSuccess
+                              ? 'border-emerald-300 dark:border-emerald-900/60 shadow-md'
                               : 'border-slate-300 dark:border-slate-700 shadow-md'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-start gap-3.5">
                         <div className="mt-0.5 shrink-0">
@@ -393,13 +391,13 @@ export default function NotificationsScreen({
                               {formatTimeAgo(notif.date)}
                             </span>
                           </div>
-                          
+
                           <p className="text-xs text-slate-900 dark:text-slate-100 leading-relaxed font-bold mt-1 font-jakarta">
                             {notif.description}
                           </p>
 
                           <div className="flex flex-wrap items-center justify-between gap-2.5 mt-3 pt-3 border-t border-slate-200/80 dark:border-slate-800">
-                            
+
                             {/* Meta flags */}
                             <div className="flex items-center gap-2">
                               <span className="neumorphic-btn px-2.5 py-1 text-[9px] font-extrabold font-jakarta uppercase text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-md">
