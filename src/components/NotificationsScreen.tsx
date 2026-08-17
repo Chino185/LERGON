@@ -362,7 +362,7 @@ export default function NotificationsScreen({
                             ? 'border-red-300 dark:border-red-900/60 shadow-md'
                             : isSuccess
                               ? 'border-emerald-300 dark:border-emerald-900/60 shadow-md'
-                              : 'border-slate-300 dark:border-slate-700 shadow-md'
+                              : 'border-red-300 dark:border-red-900/60 shadow-md'
                         }`}
                     >
                       <div className="flex items-start gap-3.5">
@@ -404,8 +404,9 @@ export default function NotificationsScreen({
                                 {notif.category}
                               </span>
                               {!isRead && (
-                                <span className="bg-indigo-600 text-white font-extrabold text-[9px] px-2.5 py-0.5 rounded-md shadow-xs animate-pulse font-jakarta">
-                                  New
+                                <span className="inline-flex items-center gap-1 bg-red-600 text-white font-extrabold text-[9px] px-2.5 py-0.5 rounded-md shadow-xs animate-pulse font-jakarta">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                                  Unread
                                 </span>
                               )}
                             </div>
