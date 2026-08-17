@@ -113,7 +113,7 @@ import {
   flagTransaction,
   authorizeStockAdjustmentCorrection,
   authorizeTransactionCorrection
-} from './utils/correctionServices.ts';
+} from './utils/correctionServices';
 import { LandingPageBackground } from './components/LandingPageBackground';
 import Navigation from './components/Navigation';
 

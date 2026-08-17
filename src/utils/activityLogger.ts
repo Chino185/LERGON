@@ -111,7 +111,8 @@ export function buildUnifiedActivities(
   // 1. Process physical stock adjustments
   adjustments.forEach(adj => {
     const item = inventory.find(i => i.id === adj.itemId);
-    const d = new Date(adj.date || Date.now());
+    const activityDate = adj.isResolved && adj.resolvedAt ? adj.resolvedAt : (adj.date || Date.now());
+    const d = new Date(activityDate);
     const formattedTime = isNaN(d.getTime())
       ? (adj.date || 'Recently')
       : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
@@ -145,13 +146,19 @@ export function buildUnifiedActivities(
       description = `${adj.performedBy || 'Operator'} logged return of ${Math.abs(adj.qtyChanged)}x ${adj.itemName || 'item'}`;
     }
 
-    if (adj.notes && !description.includes(adj.notes)) {
-      description += ` (${adj.notes})`;
+    const adjustmentCorrectionNote = adj.isResolved && adj.correctionNotes
+      ? `[Corrected from ${adj.originalQtyChanged ?? adj.qtyChanged} to ${adj.qtyChanged}: ${adj.correctionNotes}]`
+      : '';
+    const adjustmentNotes = [adj.notes, adjustmentCorrectionNote]
+      .filter(Boolean)
+      .join(' ');
+    if (adjustmentNotes && !description.includes(adjustmentNotes)) {
+      description += ` (${adjustmentNotes})`;
     }
 
     list.push({
       id: `adj-${adj.id}`,
-      timestamp: adj.date || new Date().toISOString(),
+      timestamp: typeof activityDate === 'string' ? activityDate : new Date(activityDate).toISOString(),
       formattedTime,
       performedBy: adj.performedBy || 'Operator',
       category: 'stock',
@@ -166,7 +173,8 @@ export function buildUnifiedActivities(
   // 2. Process credit transactions
   transactions.forEach(tx => {
     const account = creditAccounts.find(a => a.id === tx.creditAccountId);
-    const d = new Date(tx.date || Date.now());
+    const activityDate = tx.isResolved && tx.resolvedAt ? tx.resolvedAt : (tx.date || Date.now());
+    const d = new Date(activityDate);
     const formattedTime = isNaN(d.getTime())
       ? (tx.date || 'Recently')
       : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
@@ -174,27 +182,34 @@ export function buildUnifiedActivities(
     let type = tx.type || 'credit';
     let title = `Credit Activity: ${tx.accountName || 'Account'}`;
     const safeAmount = typeof tx.amount === 'number' && !isNaN(tx.amount) ? tx.amount : 0;
-    let description = `${tx.flaggedBy || 'Operator'} recorded ${tx.type} of $${safeAmount.toFixed(2)} for ${tx.accountName || 'customer'}`;
+    const actor = tx.performedBy || 'Operator';
+    let description = `${actor} recorded ${tx.type} of $${safeAmount.toFixed(2)} for ${tx.accountName || 'customer'}`;
 
     if (tx.type === 'pay') {
       type = 'payment';
       title = `Payment Received from ${tx.accountName || 'Account'}`;
-      description = `${tx.flaggedBy || 'Operator'} received payment of $${safeAmount.toFixed(2)} from ${tx.accountName || 'customer'}`;
+      description = `${actor} received payment of $${safeAmount.toFixed(2)} from ${tx.accountName || 'customer'}`;
     } else if (tx.type === 'borrow' || tx.type === 'charge') {
       type = 'credit_sale';
       title = `Credit Given to ${tx.accountName || 'Account'}`;
-      description = `${tx.flaggedBy || 'Operator'} issued $${safeAmount.toFixed(2)} credit to ${tx.accountName || 'customer'}`;
+      description = `${actor} issued $${safeAmount.toFixed(2)} credit to ${tx.accountName || 'customer'}`;
     }
 
-    if (tx.notes && !description.includes(tx.notes)) {
-      description += ` (${tx.notes})`;
+    const transactionCorrectionNote = tx.isResolved && tx.correctionNotes
+      ? `[Corrected from ${tx.originalAmount ?? tx.amount} to ${tx.amount}: ${tx.correctionNotes}]`
+      : '';
+    const transactionNotes = [tx.notes, transactionCorrectionNote]
+      .filter(Boolean)
+      .join(' ');
+    if (transactionNotes && !description.includes(transactionNotes)) {
+      description += ` (${transactionNotes})`;
     }
 
     list.push({
       id: `tx-${tx.id}`,
-      timestamp: tx.date || new Date().toISOString(),
+      timestamp: typeof activityDate === 'string' ? activityDate : new Date(activityDate).toISOString(),
       formattedTime,
-      performedBy: tx.flaggedBy || 'Operator',
+      performedBy: actor,
       category: 'credit',
       type,
       title,

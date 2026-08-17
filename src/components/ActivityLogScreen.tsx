@@ -96,11 +96,17 @@ export default function ActivityLogScreen({
       const itemPrice = item?.unitPrice || 0;
       const totalCostValue = Math.abs(adj.qtyChanged) * itemCost;
       const totalSalesValue = Math.abs(adj.qtyChanged) * itemPrice;
+      const adjustmentCorrectionNote = adj.isResolved && adj.correctionNotes
+        ? `[Corrected from ${adj.originalQtyChanged ?? adj.qtyChanged} to ${adj.qtyChanged}: ${adj.correctionNotes}]`
+        : '';
+      const adjustmentNotes = adjustmentCorrectionNote && (adj.notes || '').includes(adjustmentCorrectionNote)
+        ? (adj.notes || adjustmentCorrectionNote)
+        : [adj.notes, adjustmentCorrectionNote].filter(Boolean).join(' ') || 'No description recorded.';
 
       list.push({
         id: `stock-${adj.id}`,
         rawId: adj.id,
-        date: adj.date,
+        date: adj.isResolved && adj.resolvedAt ? adj.resolvedAt : adj.date,
         performedBy: adj.performedBy || 'System / Initial Seed',
         category: 'stock',
         type: activityType,
@@ -109,7 +115,7 @@ export default function ActivityLogScreen({
         icon,
         quantity: Math.abs(adj.qtyChanged),
         amount: activityType === 'sell' ? totalSalesValue : totalCostValue,
-        notes: adj.notes || 'No description recorded.',
+        notes: adjustmentNotes,
         meta: {
           itemName: adj.itemName,
           sku: item?.sku || 'N/A',
@@ -151,10 +157,15 @@ export default function ActivityLogScreen({
           icon = <MaterialIcon name="settings_backup_restore" size={14} className="text-slate-800" />;
         }
 
+        const transactionCorrectionNote = txn.isResolved && txn.correctionNotes
+          ? `[Corrected from ${txn.originalAmount ?? txn.amount} to ${txn.amount}: ${txn.correctionNotes}]`
+          : '';
+        const transactionNotes = [txn.notes, transactionCorrectionNote].filter(Boolean).join(' ') || 'No notes entered.';
+
         list.push({
           id: `credit-${txn.id}`,
           rawId: txn.id,
-          date: txn.date,
+          date: txn.isResolved && txn.resolvedAt ? txn.resolvedAt : txn.date,
           performedBy: txn.performedBy || 'System / Initial Seed',
           category: 'credit',
           type: activityType,
@@ -163,7 +174,7 @@ export default function ActivityLogScreen({
           icon,
           quantity: null,
           amount: txn.amount,
-          notes: txn.notes || 'No notes entered.',
+          notes: transactionNotes,
           meta: {
             accountName: txn.accountName,
             accountPhone: account?.phone || 'N/A',
