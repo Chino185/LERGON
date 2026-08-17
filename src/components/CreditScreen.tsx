@@ -637,24 +637,24 @@ export default function CreditScreen({
                         {acc.type === 'receivable' ? 'Customer' : 'Supplier'}
                       </span>
                     </td>
-                    <td className="py-2.5 px-2 font-mono text-gray-800">
+                    <td className="py-2.5 px-2 font-mono text-slate-900 dark:text-white">
                       {acc.dateOfCrediting
                         ? new Date(acc.dateOfCrediting).toLocaleDateString()
                         : (acc.lastUpdated ? new Date(acc.lastUpdated).toLocaleDateString() : 'N/A')}
                     </td>
                     <td className="py-2.5 px-2 font-mono">
                       {acc.paymentDate ? (
-                        <span className="text-emerald-700 font-medium">
+                        <span className="text-emerald-700 dark:text-emerald-300 font-medium">
                           {new Date(acc.paymentDate).toLocaleDateString()}
                         </span>
                       ) : (
-                        <span className="text-gray-400 italic">No payments yet</span>
+                        <span className="text-slate-500 dark:text-slate-400 italic">No payments yet</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-2 font-mono font-medium">{formatMoney(acc.totalAmount)}</td>
+                    <td className="py-2.5 px-2 font-mono font-medium text-slate-900 dark:text-white">{formatMoney(acc.totalAmount)}</td>
                     <td className="py-2.5 px-2">
                       <div>
-                        <span className={`font-bold font-mono ${acc.remainingAmount === 0 ? 'text-slate-400 line-through' : 'text-gray-900'}`}>
+                        <span className={`font-bold font-mono ${acc.remainingAmount === 0 ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-white'}`}>
                           {formatMoney(acc.remainingAmount)}
                         </span>
                         {acc.totalAmount > 0 && acc.remainingAmount > 0 && (
@@ -1541,22 +1541,22 @@ export default function CreditScreen({
 
             {/* List */}
             <div className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
-              <div className="bg-slate-50 border p-3 rounded-lg grid grid-cols-2 gap-y-3 gap-x-2 text-[11px]">
+              <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] border border-white/80 dark:border-slate-700 p-3 rounded-xl grid grid-cols-2 gap-y-3 gap-x-2 text-[11px] text-slate-900 dark:text-white">
                 <div>
                   <span className="text-gray-500 block">Credit Record Identifier:</span>
                   <strong className="text-indigo-600 text-xs font-mono font-bold">CR-{historyAcc.id.replace('credit-', '').slice(-6).toUpperCase()}</strong>
                 </div>
                 <div>
                   <span className="text-gray-500 block">Total Credit Allocated:</span>
-                  <strong className="text-gray-900 text-sm font-mono">{formatMoney(historyAcc.totalAmount)}</strong>
+                  <strong className="text-slate-900 dark:text-white text-sm font-mono">{formatMoney(historyAcc.totalAmount)}</strong>
                 </div>
                 <div>
                   <span className="text-gray-500 block">Current Outstanding Balance:</span>
-                  <strong className="text-red-650 text-sm font-semibold font-mono">{formatMoney(historyAcc.remainingAmount)}</strong>
+                  <strong className="text-rose-700 dark:text-rose-300 text-sm font-semibold font-mono">{formatMoney(historyAcc.remainingAmount)}</strong>
                 </div>
                 <div>
                   <span className="text-gray-500 block">Date of Crediting:</span>
-                  <strong className="text-gray-900 font-mono text-[11px]">
+                  <strong className="text-slate-900 dark:text-white font-mono text-[11px]">
                     {historyAcc.dateOfCrediting
                       ? new Date(historyAcc.dateOfCrediting).toLocaleDateString()
                       : (historyAcc.lastUpdated ? new Date(historyAcc.lastUpdated).toLocaleDateString() : 'N/A')}
@@ -1571,11 +1571,11 @@ export default function CreditScreen({
               </div>
 
               {/* Modal Tabs */}
-              <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200/50 mb-4 font-semibold text-[11px]">
+              <div className="flex neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] p-1 rounded-xl border border-white/80 dark:border-slate-700 mb-4 font-semibold text-[11px]">
                 <button
                   type="button"
                   onClick={() => setModalHistoryTab('activity')}
-                  className={`flex-1 text-center py-1.5 rounded transition cursor-pointer ${modalHistoryTab === 'activity' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
+                  className={`flex-1 text-center py-1.5 rounded transition cursor-pointer ${modalHistoryTab === 'activity' ? 'neumorphic-btn bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white shadow-2xs font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                 >
                   {`Activity Ledger (${transactions.filter(t => t.creditAccountId === historyAcc.id).length})`}
@@ -1583,7 +1583,7 @@ export default function CreditScreen({
                 <button
                   type="button"
                   onClick={() => setModalHistoryTab('goods')}
-                  className={`flex-1 text-center py-1.5 rounded transition cursor-pointer ${modalHistoryTab === 'goods' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
+                  className={`flex-1 text-center py-1.5 rounded transition cursor-pointer ${modalHistoryTab === 'goods' ? 'neumorphic-btn bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white shadow-2xs font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                 >
                   {`Credited Goods & Deductions (${getProfileGoodsLedger(historyAcc).length})`}
@@ -1592,7 +1592,7 @@ export default function CreditScreen({
 
               {modalHistoryTab === 'activity' && (
                 <div className="space-y-3">
-                  <h4 className="font-bold text-gray-700 text-xs">Recorded Activity Ledger:</h4>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-xs">Recorded Activity Ledger:</h4>
                   <div className="divide-y divide-gray-100 pr-1">
                     {transactions.filter(t => t.creditAccountId === historyAcc.id).map(txn => (
                       <div key={txn.id} className="py-2.5 flex items-center justify-between gap-3">

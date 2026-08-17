@@ -118,7 +118,11 @@ export default function ActivityLogScreen({
     // supplier-credit row without an account ID is malformed legacy data and
     // must not appear as an "Unknown" credit charge in the operator ledger.
     transactions
-      .filter(txn => !['credit', 'supplier_credit'].includes(txn.transactionType || '') || Boolean(txn.creditAccountId))
+      .filter(txn => {
+        const transactionType = txn.transactionType || '';
+        const isCreditLedgerEvent = ['credit', 'supplier_credit', 'repayment', 'supplier_payment'].includes(transactionType);
+        return isCreditLedgerEvent && Boolean(txn.creditAccountId);
+      })
       .forEach(txn => {
         const account = creditAccounts.find(c => c.id === txn.creditAccountId);
 

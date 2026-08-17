@@ -64,7 +64,7 @@ export interface CreditTransaction {
   amount: number;
   date: string;
   notes: string;
-  paymentMethod?: 'Cash' | 'Mobile Money' | 'Bank';
+  paymentMethod?: 'Cash' | 'Mobile Money' | 'Bank' | 'Credit';
   transactionProof?: {
     name: string;
     dataUrl: string;

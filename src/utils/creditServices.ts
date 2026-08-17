@@ -36,6 +36,7 @@ export function subscribeToCreditProfiles(
             status: d.status || 'active',
             notes: d.notes || '',
             lastUpdated: d.last_payment_at || d.created_at || new Date().toISOString(),
+            paymentDate: d.last_payment_at || undefined,
             dateOfCrediting: d.created_at ? d.created_at.split('T')[0] : new Date().toISOString().split('T')[0]
           }));
           onUpdate(accounts);

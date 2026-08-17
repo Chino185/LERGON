@@ -1506,8 +1506,11 @@ export default function App() {
       alert('The inventory item could not be deleted from the backend.');
       return false;
     }
-    // Realtime inventory and stock-adjustment subscriptions remove the item
-    // and any cascaded records from every page without a refresh.
+
+    // Remove the item from the initiating user's view immediately after the
+    // backend confirms the delete. Realtime remains authoritative for every
+    // other active session and will confirm/correct the local state.
+    setInventory(prev => prev.filter(item => item.id !== id));
     return true;
   };
 
@@ -1567,7 +1570,66 @@ export default function App() {
 
     if (!result.success) {
       alert(result.error || 'Failed to persist the stock movement.');
+      return result;
     }
+
+    const now = new Date().toISOString();
+    const persistedMovementId = (result as { id?: string }).id;
+    const absoluteQty = Math.abs(qtyChanged);
+    const nextInventoryQty = type === 'sale_out' || type === 'damaged'
+      ? Math.max(0, item.quantity - absoluteQty)
+      : type === 'purchase_in' || type === 'returned'
+        ? item.quantity + absoluteQty
+        : item.quantity + qtyChanged;
+
+    setInventory(prev => prev.map(current => current.id === itemId
+      ? { ...current, quantity: nextInventoryQty, lastUpdated: now }
+      : current
+    ));
+
+    setAdjustments(prev => [{
+      id: persistedMovementId || `optimistic-adjustment-${Date.now()}`,
+      itemId,
+      itemName: item.name,
+      qtyChanged: type === 'sale_out' || type === 'damaged' ? -absoluteQty : qtyChanged,
+      type,
+      date: now,
+      notes,
+      creditAccountId,
+      performedBy: userUid
+    }, ...prev]);
+
+    if (type === 'sale_out') {
+      const saleAmount = absoluteQty * (item.unitPrice || 0);
+      const linkedAccount = creditAccountId ? creditAccounts.find(acc => acc.id === creditAccountId) : undefined;
+      setTransactions(prev => [{
+        id: persistedMovementId || `optimistic-sale-${Date.now()}`,
+        creditAccountId: creditAccountId || '',
+        accountName: linkedAccount?.name || '',
+        type: creditAccountId ? 'charge' : 'charge',
+        amount: saleAmount,
+        date: now,
+        notes,
+        paymentMethod: creditAccountId ? 'Cash' : 'Cash',
+        performedBy: userUid,
+        transactionType: creditAccountId ? 'credit' : 'sell',
+        lineItems: [{ item_id: itemId, item_name: item.name, quantity: absoluteQty, unit_price: item.unitPrice || 0, credit_id: creditAccountId || null, account_name: linkedAccount?.name || '' }]
+      }, ...prev]);
+
+      if (linkedAccount) {
+        setCreditAccounts(prev => prev.map(acc => acc.id === linkedAccount.id
+          ? {
+            ...acc,
+            totalAmount: acc.totalAmount + saleAmount,
+            remainingAmount: acc.remainingAmount + saleAmount,
+            status: 'active',
+            lastUpdated: now
+          }
+          : acc
+        ));
+      }
+    }
+
     return result;
   };
 
@@ -1598,6 +1660,41 @@ export default function App() {
     ).then(result => {
       if (result.result === 'error' || !result.success) {
         alert(result.error || 'Failed to persist restock verification.');
+        return;
+      }
+
+      if (status !== 'on_hold') {
+        const now = new Date().toISOString();
+        setInventory(prev => prev.map(item => item.id === pending.itemId
+          ? { ...item, quantity: item.quantity + targetQty, lastUpdated: now }
+          : item
+        ));
+        setAdjustments(prev => [{
+          id: `optimistic-restock-${id}`,
+          itemId: pending.itemId,
+          itemName: pending.itemName,
+          qtyChanged: targetQty,
+          type: 'purchase_in',
+          date: now,
+          notes: discrepancyNotes || pending.attendantNotes || 'Restock approved by Administrator',
+          performedBy: currentUserUid || ''
+        }, ...prev.filter(adjustment => adjustment.id !== `optimistic-restock-${id}`)]);
+        setPendingRestocks(prev => prev.map(request => request.id === id
+          ? {
+            ...request,
+            status: 'resolved',
+            adminInputQty: targetQty,
+            discrepancyNotes: discrepancyNotes || request.discrepancyNotes,
+            resolvedAt: now,
+            resolvedQty: targetQty
+          }
+          : request
+        ));
+      } else {
+        setPendingRestocks(prev => prev.map(request => request.id === id
+          ? { ...request, status: 'on_hold', adminInputQty: targetQty, discrepancyNotes }
+          : request
+        ));
       }
     });
 
@@ -1882,7 +1979,44 @@ export default function App() {
 
     if (!result.success) {
       alert(result.error || 'Failed to persist the credit transaction.');
+      return result;
     }
+
+    const now = new Date().toISOString();
+    const account = creditAccounts.find(acc => acc.id === accountId);
+    if (account) {
+      const isPayment = type === 'pay';
+      const nextRemaining = isPayment
+        ? Math.max(0, account.remainingAmount - amount)
+        : account.remainingAmount + amount;
+      const nextTotal = isPayment ? account.totalAmount : account.totalAmount + amount;
+      setCreditAccounts(prev => prev.map(acc => acc.id === accountId
+        ? {
+          ...acc,
+          totalAmount: nextTotal,
+          remainingAmount: nextRemaining,
+          status: nextRemaining === 0 ? 'settled' : nextRemaining < nextTotal ? 'partially_paid' : 'active',
+          lastUpdated: now,
+          paymentDate: isPayment ? now : acc.paymentDate
+        }
+        : acc
+      ));
+      setTransactions(prev => [{
+        id: result.id || `optimistic-credit-${Date.now()}`,
+        creditAccountId: accountId,
+        accountName: account.name,
+        type: isPayment ? 'pay' : 'charge',
+        amount,
+        date: now,
+        notes,
+        paymentMethod: isPayment ? (paymentMethod || 'Cash') : 'Credit',
+        remainingAmount: nextRemaining,
+        performedBy: currentUserUid,
+        transactionType: isPayment ? 'repayment' : 'credit',
+        lineItems: [{ credit_id: accountId, account_name: account.name, remaining_amount: nextRemaining, notes }]
+      }, ...prev]);
+    }
+
     return result;
   };
 
@@ -1953,6 +2087,9 @@ export default function App() {
     }
 
     if (newConfig.themeMode === 'light' || newConfig.themeMode === 'dark') {
+      const root = document.documentElement;
+      root.classList.toggle('dark', newConfig.themeMode === 'dark');
+      root.setAttribute('data-theme', newConfig.themeMode);
       localStorage.setItem('theme', newConfig.themeMode);
     }
 

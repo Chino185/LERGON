@@ -530,6 +530,10 @@ export default function Navigation({
               id="theme-toggle-trigger"
               onClick={() => {
                 const nextTheme = isDarkMode ? 'light' : 'dark';
+                const root = document.documentElement;
+                root.classList.toggle('dark', nextTheme === 'dark');
+                root.setAttribute('data-theme', nextTheme);
+                localStorage.setItem('theme', nextTheme);
                 setLocalDarkMode(nextTheme === 'dark');
                 onThemeChange?.(nextTheme);
               }}
