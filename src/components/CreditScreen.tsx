@@ -459,16 +459,7 @@ export default function CreditScreen({
               : "Track client credit payments, invoices due, and settlement diaries."}
           </p>
         </div>
-        <div>
-          <button
-            type="button"
-            id="btn-add-credit-trigger"
-            onClick={() => { setAccType(activeTab); setShowAddModal(true); }}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white rounded-full px-5 py-2.5 text-xs font-black cursor-pointer transition shadow-md shadow-sky-500/25 hover:opacity-95"
-          >
-            <Plus size={15} /> Add Credit Profile
-          </button>
-        </div>
+
       </div>
 
       {/* Credit Summary Board (Finnova KPI Card style) */}
