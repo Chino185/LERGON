@@ -428,6 +428,7 @@ export default function Navigation({
   }, [activityEvents, readNotificationIds]);
 
   const criticalCount = criticalNotifications.length;
+  const unreadNotificationCount = unreadCriticalCount + unreadActivityCount;
 
   const [localDarkMode, setLocalDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -511,9 +512,9 @@ export default function Navigation({
                   >
                     <MaterialIcon name={item.materialIcon} size={18} className={isActive ? 'text-white' : 'text-slate-500'} />
                     <span>{item.name}</span>
-                    {item.id === 'notifications' && unreadCriticalCount > 0 && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-black bg-red-500 text-white rounded-full leading-none animate-pulse">
-                        {unreadCriticalCount}
+                    {item.id === 'notifications' && unreadNotificationCount > 0 && (
+                      <span className="px-1.5 py-0.5 text-[9px] font-black bg-red-600 text-white rounded-full leading-none animate-pulse">
+                        {unreadNotificationCount}
                       </span>
                     )}
                   </button>
@@ -554,9 +555,9 @@ export default function Navigation({
               className="relative w-9 h-9 neumorphic-circle flex items-center justify-center text-slate-700 hover:text-indigo-600 cursor-pointer transition"
             >
               <Bell size={16} />
-              {unreadCriticalCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white font-extrabold text-[8px] px-1 rounded-full flex items-center justify-center border border-white animate-pulse">
-                  {unreadCriticalCount}
+              {unreadNotificationCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-600 text-white font-extrabold text-[8px] px-1 rounded-full flex items-center justify-center border border-white animate-pulse">
+                  {unreadNotificationCount}
                 </span>
               )}
             </button>
@@ -698,9 +699,9 @@ export default function Navigation({
                           <MaterialIcon name={item.materialIcon} size={20} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
                           <span>{item.name}</span>
                         </div>
-                        {item.id === 'notifications' && unreadCriticalCount > 0 && (
-                          <span className="px-2 py-0.5 text-[9px] font-black bg-red-500 text-white rounded-full leading-none mr-2">
-                            {unreadCriticalCount}
+                        {item.id === 'notifications' && unreadNotificationCount > 0 && (
+                          <span className="px-2 py-0.5 text-[9px] font-black bg-red-600 text-white rounded-full leading-none mr-2">
+                            {unreadNotificationCount}
                           </span>
                         )}
                       </button>
@@ -753,7 +754,7 @@ export default function Navigation({
                         : 'text-slate-500 hover:text-slate-850'
                       }`}
                   >
-                    {translate('alerts', config.languageCode)} ({unreadCriticalCount})
+                    {translate('alerts', config.languageCode)} <span className="text-red-600 font-black">({unreadCriticalCount})</span>
                   </button>
                   <button
                     type="button"
@@ -763,7 +764,7 @@ export default function Navigation({
                         : 'text-slate-500 hover:text-slate-850'
                       }`}
                   >
-                    {translate('liveActivities', config.languageCode)} ({unreadActivityCount})
+                    {translate('liveActivities', config.languageCode)} <span className="text-red-600 font-black">({unreadActivityCount})</span>
                   </button>
                 </div>
 
