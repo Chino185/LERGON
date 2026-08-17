@@ -108,6 +108,12 @@ import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, 
 import { saveCreditProfile, subscribeToCreditProfiles } from './utils/creditServices';
 import { recordSaleTransaction, recordCreditSaleTransaction, recordSupplierCreditPurchaseTransaction, recordCreditChargeTransaction, recordRepaymentTransaction, subscribeToTransactions } from './utils/transactionServices';
 import { saveInvoice } from './utils/invoiceServices';
+import {
+  flagStockAdjustment,
+  flagTransaction,
+  authorizeStockAdjustmentCorrection,
+  authorizeTransactionCorrection
+} from './utils/correctionServices.ts';
 import { LandingPageBackground } from './components/LandingPageBackground';
 import Navigation from './components/Navigation';
 
@@ -1702,26 +1708,42 @@ export default function App() {
     return isForced ? 'resolved_forced' : 'resolved_matched';
   };
 
-  const handleFlagAdjustment = (id: string, comment: string) => {
-    const actor = activeUserName;
+  const handleFlagAdjustment = async (id: string, comment: string) => {
+    const result = await flagStockAdjustment(currentOrgId, id, comment);
+    if (!result.success) {
+      alert(result.error || 'Failed to flag the stock adjustment for review.');
+      return;
+    }
 
-    setAdjustments(prev => prev.map(adj => {
-      if (adj.id === id) {
-        return {
-          ...adj,
-          isFlagged: true,
-          flagComment: comment,
-          flaggedBy: actor,
-          flaggedAt: new Date().toISOString()
-        };
+    const actor = activeUserName;
+    const now = new Date().toISOString();
+    setAdjustments(prev => prev.map(adj => adj.id === id
+      ? {
+        ...adj,
+        isFlagged: true,
+        isResolved: false,
+        flagComment: comment,
+        flaggedBy: actor,
+        flaggedAt: now
       }
-      return adj;
-    }));
+      : adj
+    ));
   };
 
-  const handleCorrectAdjustmentQty = (id: string, correctedQty: number, correctionNotes: string) => {
+  const handleCorrectAdjustmentQty = async (id: string, correctedQty: number, correctionNotes: string) => {
     const adj = adjustments.find(a => a.id === id);
     if (!adj) return;
+
+    const authorization = await authorizeStockAdjustmentCorrection(
+      currentOrgId,
+      id,
+      correctedQty,
+      correctionNotes
+    );
+    if (!authorization.success) {
+      alert(authorization.error || 'Only an Administrator can authorize this correction.');
+      return;
+    }
 
     const item = inventory.find(i => i.id === adj.itemId);
     const difference = correctedQty - adj.qtyChanged;
@@ -1791,26 +1813,42 @@ export default function App() {
     }));
   };
 
-  const handleFlagTransaction = (id: string, comment: string) => {
-    const actor = activeUserName;
+  const handleFlagTransaction = async (id: string, comment: string) => {
+    const result = await flagTransaction(currentOrgId, id, comment);
+    if (!result.success) {
+      alert(result.error || 'Failed to flag the transaction for review.');
+      return;
+    }
 
-    setTransactions(prev => prev.map(tx => {
-      if (tx.id === id) {
-        return {
-          ...tx,
-          isFlagged: true,
-          flagComment: comment,
-          flaggedBy: actor,
-          flaggedAt: new Date().toISOString()
-        };
+    const actor = activeUserName;
+    const now = new Date().toISOString();
+    setTransactions(prev => prev.map(tx => tx.id === id
+      ? {
+        ...tx,
+        isFlagged: true,
+        isResolved: false,
+        flagComment: comment,
+        flaggedBy: actor,
+        flaggedAt: now
       }
-      return tx;
-    }));
+      : tx
+    ));
   };
 
-  const handleCorrectTransactionAmount = (id: string, correctedAmount: number, correctionNotes: string) => {
+  const handleCorrectTransactionAmount = async (id: string, correctedAmount: number, correctionNotes: string) => {
     const targetTx = transactions.find(t => t.id === id);
     if (!targetTx) return;
+
+    const authorization = await authorizeTransactionCorrection(
+      currentOrgId,
+      id,
+      correctedAmount,
+      correctionNotes
+    );
+    if (!authorization.success) {
+      alert(authorization.error || 'Only an Administrator can authorize this correction.');
+      return;
+    }
 
     const difference = correctedAmount - targetTx.amount;
 

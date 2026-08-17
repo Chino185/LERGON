@@ -44,7 +44,18 @@ export function subscribeToTransactions(
       relatedCreditTxnId: d.items && d.items[0]?.related_credit_txn_id ? d.items[0].related_credit_txn_id : undefined,
       performedBy: d.performed_by || 'User',
       transactionType: d.type || undefined,
-      lineItems: Array.isArray(d.items) ? d.items : []
+      lineItems: Array.isArray(d.items) ? d.items : [],
+      isFlagged: Boolean(d.is_flagged),
+      flagComment: d.flag_comment || undefined,
+      flaggedBy: d.flagged_by || undefined,
+      flaggedAt: d.flagged_at || undefined,
+      isResolved: Boolean(d.is_resolved),
+      resolvedAt: d.resolved_at || undefined,
+      resolvedBy: d.resolved_by || undefined,
+      originalAmount: d.original_total_amount !== null && d.original_total_amount !== undefined
+        ? Number(d.original_total_amount)
+        : undefined,
+      correctionNotes: d.correction_notes || undefined
     }));
 
     // Backfill balance snapshots for legacy rows whose JSON items did not yet
