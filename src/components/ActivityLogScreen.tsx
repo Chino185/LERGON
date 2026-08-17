@@ -61,7 +61,15 @@ export default function ActivityLogScreen({
       let badgeColor = 'bg-slate-100 text-slate-800 border-slate-200';
       let icon = <Clock size={14} />;
 
-      if (adj.type === 'purchase_in') {
+      const isInitialStock = adj.type === 'initial_stock'
+        || (adj.type === 'purchase_in' && (adj.notes || '').toLowerCase().includes('initial stock'));
+
+      if (isInitialStock) {
+        activityType = 'new_item';
+        title = `New Item ${adj.itemName}`;
+        badgeColor = 'neumorphic-card bg-slate-100/80 text-slate-900 border-slate-200/80 font-extrabold shadow-2xs';
+        icon = <MaterialIcon name="add_box" size={14} className="text-slate-800" />;
+      } else if (adj.type === 'purchase_in') {
         activityType = 'restock';
         title = `Restocked ${adj.itemName}`;
         badgeColor = 'neumorphic-card bg-slate-100/80 text-slate-900 border-slate-200/80 font-extrabold shadow-2xs';
@@ -188,6 +196,7 @@ export default function ActivityLogScreen({
   const actionCategoryOptions: NeumorphicSelectOption[] = useMemo(() => [
     { value: 'all', label: 'All Movements' },
     { value: 'restock', label: 'Restocks (Capital Purchases)' },
+    { value: 'new_item', label: 'New Items (Initial Stock)' },
     { value: 'sell', label: 'Sales (Product Checkouts)' },
     { value: 'damaged', label: 'Damages (Asset Shrinkage)' },
     { value: 'credit', label: 'Credit Ledgers (Borrows/Pays)' }
@@ -225,6 +234,7 @@ export default function ActivityLogScreen({
       // 3. Filter by Transaction Activity Type
       if (typeFilter !== 'all') {
         if (typeFilter === 'restock' && act.type !== 'restock') return false;
+        if (typeFilter === 'new_item' && act.type !== 'new_item') return false;
         if (typeFilter === 'sell' && act.type !== 'sell') return false;
         if (typeFilter === 'damaged' && act.type !== 'damaged') return false;
         if (typeFilter === 'credit' && act.category !== 'credit') return false;

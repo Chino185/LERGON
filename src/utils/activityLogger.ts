@@ -120,7 +120,14 @@ export function buildUnifiedActivities(
     let title = `Stock Adjustment: ${adj.itemName || 'Item'}`;
     let description = `${adj.performedBy || 'Operator'} adjusted stock of ${adj.itemName || 'item'} by ${adj.qtyChanged > 0 ? '+' : ''}${adj.qtyChanged}`;
 
-    if (adj.type === 'purchase_in') {
+    const isInitialStock = adj.type === 'initial_stock'
+      || (adj.type === 'purchase_in' && (adj.notes || '').toLowerCase().includes('initial stock'));
+
+    if (isInitialStock) {
+      type = 'new_item';
+      title = `New Item ${adj.itemName || 'Item'}`;
+      description = `${adj.performedBy || 'Operator'} added ${adj.itemName || 'item'} to inventory with initial stock of ${Math.abs(adj.qtyChanged)}x`;
+    } else if (adj.type === 'purchase_in') {
       type = 'restock';
       title = `Restocked ${adj.itemName || 'Item'}`;
       description = `${adj.performedBy || 'Operator'} restocked ${Math.abs(adj.qtyChanged)}x ${adj.itemName || 'item'}`;
@@ -248,15 +255,15 @@ export function queryActivityLog(
 
   if (filters.activityType && filters.activityType !== 'all') {
     const targetType = filters.activityType.toLowerCase();
-    list = list.filter(act => 
-      act.type.toLowerCase().includes(targetType) || 
+    list = list.filter(act =>
+      act.type.toLowerCase().includes(targetType) ||
       act.category.toLowerCase().includes(targetType)
     );
   }
 
   if (filters.itemName) {
     const targetItem = filters.itemName.toLowerCase();
-    list = list.filter(act => 
+    list = list.filter(act =>
       (act.itemName && act.itemName.toLowerCase().includes(targetItem)) ||
       act.description.toLowerCase().includes(targetItem)
     );
@@ -264,7 +271,7 @@ export function queryActivityLog(
 
   if (filters.accountName) {
     const targetAcc = filters.accountName.toLowerCase();
-    list = list.filter(act => 
+    list = list.filter(act =>
       (act.accountName && act.accountName.toLowerCase().includes(targetAcc)) ||
       act.description.toLowerCase().includes(targetAcc)
     );

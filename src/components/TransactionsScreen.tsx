@@ -953,7 +953,13 @@ export default function TransactionsScreen({
                           const account = isCredited ? getLinkedAccount(adj) : null;
                           const paidRatio = isCredited ? getCreditAccountPaidRatio(account) : 0;
 
-                          let badgeText = adj.type === 'sale_out' ? 'SOLD' : adj.type.replace('_', ' ');
+                          const isInitialStock = adj.type === 'initial_stock'
+                            || (adj.type === 'purchase_in' && (adj.notes || '').toLowerCase().includes('initial stock'));
+                          let badgeText = isInitialStock
+                            ? 'NEW ITEM'
+                            : adj.type === 'sale_out'
+                              ? 'SOLD'
+                              : adj.type.replace('_', ' ');
                           if (isCredited) {
                             if (paidRatio === 1) {
                               badgeClass = 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold border border-slate-200 dark:border-slate-700';

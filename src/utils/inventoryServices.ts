@@ -249,7 +249,7 @@ export async function saveInventoryItem(
           p_business_id: businessId,
           p_item_id: data.id,
           p_qty_changed: requestedQuantity,
-          p_adjustment_type: 'purchase_in',
+          p_adjustment_type: 'initial_stock',
           p_notes: 'Initial stock captured when the inventory item was created.',
           p_credit_account_id: null,
           p_performed_by: userUid,
@@ -636,7 +636,7 @@ export async function recordStockAdjustmentTransaction(
   payload: {
     itemId: string;
     qtyChanged: number;
-    type: 'purchase_in' | 'sale_out' | 'damaged' | 'returned' | 'audit_adjustment';
+    type: 'initial_stock' | 'purchase_in' | 'sale_out' | 'damaged' | 'returned' | 'audit_adjustment';
     notes?: string;
     creditAccountId?: string;
   }

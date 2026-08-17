@@ -19,7 +19,7 @@ export interface StockAdjustment {
   itemId: string;
   itemName: string;
   qtyChanged: number; // positive = added, negative = removed
-  type: 'purchase_in' | 'sale_out' | 'damaged' | 'returned' | 'audit_adjustment';
+  type: 'initial_stock' | 'purchase_in' | 'sale_out' | 'damaged' | 'returned' | 'audit_adjustment';
   date: string;
   notes: string;
   creditAccountId?: string;
