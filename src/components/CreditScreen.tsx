@@ -55,6 +55,7 @@ interface CreditScreenProps {
   onSettleAccount: (accountId: string) => void;
   initialOpenAddModal?: boolean;
   onClearInitialOpenAddModal?: () => void;
+  modalOnly?: boolean;
   userRole?: number;
 }
 
@@ -69,6 +70,7 @@ export default function CreditScreen({
   onSettleAccount,
   initialOpenAddModal,
   onClearInitialOpenAddModal,
+  modalOnly = false,
   userRole
 }: CreditScreenProps) {
   // Navigation tabs for Receivables vs Payables
@@ -448,401 +450,404 @@ export default function CreditScreen({
   };
 
   return (
-    <div id="credit-screen" className="space-y-6">
-      {/* Header and Summary stats (Crextio & Finnova Aesthetic) */}
-      <div className="finnova-card p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Credit</h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            {userRole === 2
-              ? "Track client credit payments, invoices due, supplier balances, and settlement diaries."
-              : "Track client credit payments, invoices due, and settlement diaries."}
-          </p>
-        </div>
-
-      </div>
-
-      {/* Credit Summary Board (Finnova KPI Card style) */}
-      <div className={`grid grid-cols-1 ${userRole === 2 ? 'md:grid-cols-2' : ''} gap-5`}>
-        <div className="finnova-card p-5 sm:p-6 flex items-center justify-between transition duration-300">
+    <>
+      <div id="credit-screen" className={modalOnly ? 'hidden' : 'space-y-6'}>
+        {/* Header and Summary stats (Crextio & Finnova Aesthetic) */}
+        <div className="finnova-card p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Customer Receivables</span>
-            <strong className="text-2xl font-extrabold text-slate-900 block mt-1">{formatMoney(receivablesOutstanding)}</strong>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Credit</h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              {userRole === 2
+                ? "Track client credit payments, invoices due, supplier balances, and settlement diaries."
+                : "Track client credit payments, invoices due, and settlement diaries."}
+            </p>
           </div>
-          <div className="w-10 h-10 neumorphic-circle text-slate-900 flex items-center justify-center">
-            <MaterialIcon name="payments" size={22} />
-          </div>
+
         </div>
 
-        {userRole === 2 && (
+        {/* Credit Summary Board (Finnova KPI Card style) */}
+        <div className={`grid grid-cols-1 ${userRole === 2 ? 'md:grid-cols-2' : ''} gap-5`}>
           <div className="finnova-card p-5 sm:p-6 flex items-center justify-between transition duration-300">
             <div>
-              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Supplier Payables</span>
-              <strong className="text-2xl font-extrabold text-slate-900 block mt-1">{formatMoney(payablesOutstanding)}</strong>
+              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Customer Receivables</span>
+              <strong className="text-2xl font-extrabold text-slate-900 block mt-1">{formatMoney(receivablesOutstanding)}</strong>
             </div>
             <div className="w-10 h-10 neumorphic-circle text-slate-900 flex items-center justify-center">
-              <MaterialIcon name="outbound" size={22} />
+              <MaterialIcon name="payments" size={22} />
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Navigation tabs & Controls */}
-      <div className="finnova-card p-5 sm:p-6 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200/40 pb-3">
-          {/* Sub Navigation Pill Track */}
           {userRole === 2 && (
-            <div className="pill-nav-track inline-flex items-center gap-1 p-1.5 shadow-xs">
-              <button
-                onClick={() => { setActiveTab('receivable'); setStatusFilter('all'); }}
-                className={`text-xs font-bold px-4 py-1.5 rounded-full transition cursor-pointer ${activeTab === 'receivable'
-                    ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-              >
-                Customer Debtors
-              </button>
-              <button
-                onClick={() => { setActiveTab('payable'); setStatusFilter('all'); }}
-                className={`text-xs font-bold px-4 py-1.5 rounded-full transition cursor-pointer ${activeTab === 'payable'
-                    ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-              >
-                Supplier Accounts
-              </button>
+            <div className="finnova-card p-5 sm:p-6 flex items-center justify-between transition duration-300">
+              <div>
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Supplier Payables</span>
+                <strong className="text-2xl font-extrabold text-slate-900 block mt-1">{formatMoney(payablesOutstanding)}</strong>
+              </div>
+              <div className="w-10 h-10 neumorphic-circle text-slate-900 flex items-center justify-center">
+                <MaterialIcon name="outbound" size={22} />
+              </div>
             </div>
           )}
+        </div>
 
-          {/* Quick Filters */}
-          <div className="flex flex-wrap gap-2 items-center">
-            {(['all', 'settled'] as const).map(f => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setStatusFilter(f)}
-                className={`text-[11px] px-3.5 py-1.5 rounded-full font-bold transition cursor-pointer select-none ${statusFilter === f
-                    ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
-                    : 'finnova-card text-slate-600 hover:text-slate-900'
-                  }`}
-              >
-                {f === 'all' ? 'Active Profiles' : 'Settled (Audit)'}
-              </button>
-            ))}
+        {/* Navigation tabs & Controls */}
+        <div className="finnova-card p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200/40 pb-3">
+            {/* Sub Navigation Pill Track */}
+            {userRole === 2 && (
+              <div className="pill-nav-track inline-flex items-center gap-1 p-1.5 shadow-xs">
+                <button
+                  onClick={() => { setActiveTab('receivable'); setStatusFilter('all'); }}
+                  className={`text-xs font-bold px-4 py-1.5 rounded-full transition cursor-pointer ${activeTab === 'receivable'
+                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                >
+                  Customer Debtors
+                </button>
+                <button
+                  onClick={() => { setActiveTab('payable'); setStatusFilter('all'); }}
+                  className={`text-xs font-bold px-4 py-1.5 rounded-full transition cursor-pointer ${activeTab === 'payable'
+                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                >
+                  Supplier Accounts
+                </button>
+              </div>
+            )}
+
+            {/* Quick Filters */}
+            <div className="flex flex-wrap gap-2 items-center">
+              {(['all', 'settled'] as const).map(f => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setStatusFilter(f)}
+                  className={`text-[11px] px-3.5 py-1.5 rounded-full font-bold transition cursor-pointer select-none ${statusFilter === f
+                      ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
+                      : 'finnova-card text-slate-600 hover:text-slate-900'
+                    }`}
+                >
+                  {f === 'all' ? 'Active Profiles' : 'Settled (Audit)'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Search tool block */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-3 text-slate-400" size={16} />
+            <input
+              type="search"
+              id="credit-ledger-search-input"
+              name="creditLedgerSearchField"
+              autoComplete="off"
+              placeholder={`Search ${activeTab === 'receivable' ? 'Client' : 'Supplier'} Name or Phone...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full text-xs text-slate-900 rounded-full pl-10 pr-4 py-2.5 neumorphic-inset focus:outline-hidden transition font-bold placeholder:text-slate-400"
+            />
           </div>
         </div>
 
-        {/* Search tool block */}
-        <div className="relative">
-          <Search className="absolute left-3.5 top-3 text-slate-400" size={16} />
-          <input
-            type="search"
-            id="credit-ledger-search-input"
-            name="creditLedgerSearchField"
-            autoComplete="off"
-            placeholder={`Search ${activeTab === 'receivable' ? 'Client' : 'Supplier'} Name or Phone...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full text-xs text-slate-900 rounded-full pl-10 pr-4 py-2.5 neumorphic-inset focus:outline-hidden transition font-bold placeholder:text-slate-400"
-          />
-        </div>
-      </div>
+        {/* Accounts List Container (Desktop Table & Mobile list Cards) */}
+        <div className="finnova-card p-0 sm:p-0 overflow-hidden">
+          {/* Desktop View Table */}
+          <div className="hidden lg:block text-slate-900">
+            <table className="w-full text-left border-collapse table-fixed text-xs">
+              <thead>
+                <tr className="neumorphic-table-header text-[10px] select-none">
+                  <th className="py-3 px-3 w-[24%]">Contact Name</th>
+                  <th className="py-3 px-3 w-[10%]">Type</th>
+                  <th className="py-3 px-3 w-[11%]">Created</th>
+                  <th className="py-3 px-3 w-[12%]">Last Payment</th>
+                  <th className="py-3 px-3 w-[11%]">Initial</th>
+                  <th className="py-3 px-3 w-[12%]">Remaining</th>
+                  <th className="py-3 px-3 w-[8%]">Status</th>
+                  <th className="py-3 px-3 text-right w-[12%]">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/40 text-xs text-gray-700">
+                {filteredAccounts.map(acc => {
+                  const progressWidth = `${Math.max(0, Math.min(100, (1 - (acc.remainingAmount / (acc.totalAmount || 1))) * 100))}%`;
+                  const itemsForAcc = getProfileGoodsLedger(acc);
 
-      {/* Accounts List Container (Desktop Table & Mobile list Cards) */}
-      <div className="finnova-card p-0 sm:p-0 overflow-hidden">
-        {/* Desktop View Table */}
-        <div className="hidden lg:block text-slate-900">
-          <table className="w-full text-left border-collapse table-fixed text-xs">
-            <thead>
-              <tr className="neumorphic-table-header text-[10px] select-none">
-                <th className="py-3 px-3 w-[24%]">Contact Name</th>
-                <th className="py-3 px-3 w-[10%]">Type</th>
-                <th className="py-3 px-3 w-[11%]">Created</th>
-                <th className="py-3 px-3 w-[12%]">Last Payment</th>
-                <th className="py-3 px-3 w-[11%]">Initial</th>
-                <th className="py-3 px-3 w-[12%]">Remaining</th>
-                <th className="py-3 px-3 w-[8%]">Status</th>
-                <th className="py-3 px-3 text-right w-[12%]">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200/40 text-xs text-gray-700">
-              {filteredAccounts.map(acc => {
-                const progressWidth = `${Math.max(0, Math.min(100, (1 - (acc.remainingAmount / (acc.totalAmount || 1))) * 100))}%`;
-                const itemsForAcc = getProfileGoodsLedger(acc);
+                  return (
+                    <tr key={acc.id} className="hover:bg-white/45 border-b border-slate-100/30 transition duration-150">
+                      <td className="py-2.5 px-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-gray-905 text-xs">{acc.name}</span>
+                            <span className="font-mono text-[9px] bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded leading-none">
+                              CR-{acc.id.replace('credit-', '').slice(-6).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-[10px] items-center mt-1">
+                            <span className="flex items-center gap-0.5 text-gray-400"><PhoneCall size={10} /> {acc.phone || 'No phone'}</span>
+                            {acc.receipt && (
+                              <>
+                                <span className="text-gray-300 select-none">•</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewReceipt(acc)}
+                                  className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
+                                  title="Click to view/download attached receipt"
+                                >
+                                  <Paperclip size={10} className="shrink-0 text-indigo-500" /> Receipt File
+                                </button>
+                              </>
+                            )}
+                          </div>
 
-                return (
-                  <tr key={acc.id} className="hover:bg-white/45 border-b border-slate-100/30 transition duration-150">
-                    <td className="py-2.5 px-2">
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-semibold text-gray-905 text-xs">{acc.name}</span>
-                          <span className="font-mono text-[9px] bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded leading-none">
-                            CR-{acc.id.replace('credit-', '').slice(-6).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-[10px] items-center mt-1">
-                          <span className="flex items-center gap-0.5 text-gray-400"><PhoneCall size={10} /> {acc.phone || 'No phone'}</span>
-                          {acc.receipt && (
-                            <>
-                              <span className="text-gray-300 select-none">•</span>
-                              <button
-                                type="button"
-                                onClick={() => handleViewReceipt(acc)}
-                                className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
-                                title="Click to view/download attached receipt"
-                              >
-                                <Paperclip size={10} className="shrink-0 text-indigo-500" /> Receipt File
-                              </button>
-                            </>
+                          {/* List of Credited Items inside desktop row */}
+                          {itemsForAcc.length > 0 && (
+                            <div className="mt-2.5 bg-slate-50/70 p-2 rounded-lg border border-slate-200/40 max-w-[280px]">
+                              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">{`Credited Products (${itemsForAcc.length}):`}</span>
+                              <div className="space-y-1 max-h-[110px] overflow-y-auto pr-1">
+                                {itemsForAcc.map(g => (
+                                  <div key={g.id} className="flex justify-between items-center text-[10px] gap-2 py-0.5 border-b border-gray-100 last:border-0">
+                                    <span className="truncate text-slate-700 font-medium max-w-[150px]" title={g.itemName}>
+                                      {g.itemName} <span className="text-slate-400 font-mono text-[9px] font-normal">x{g.originalQuantity}</span>
+                                    </span>
+                                    <span className={`text-[8.5px] font-bold px-1 rounded-sm ${g.status === 'sold'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                        : 'bg-amber-50 text-amber-700 border border-amber-100'
+                                      }`}>
+                                      {g.status === 'sold' ? 'Sold' : formatMoney(g.outstandingValue)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           )}
                         </div>
-
-                        {/* List of Credited Items inside desktop row */}
-                        {itemsForAcc.length > 0 && (
-                          <div className="mt-2.5 bg-slate-50/70 p-2 rounded-lg border border-slate-200/40 max-w-[280px]">
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">{`Credited Products (${itemsForAcc.length}):`}</span>
-                            <div className="space-y-1 max-h-[110px] overflow-y-auto pr-1">
-                              {itemsForAcc.map(g => (
-                                <div key={g.id} className="flex justify-between items-center text-[10px] gap-2 py-0.5 border-b border-gray-100 last:border-0">
-                                  <span className="truncate text-slate-700 font-medium max-w-[150px]" title={g.itemName}>
-                                    {g.itemName} <span className="text-slate-400 font-mono text-[9px] font-normal">x{g.originalQuantity}</span>
-                                  </span>
-                                  <span className={`text-[8.5px] font-bold px-1 rounded-sm ${g.status === 'sold'
-                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                                      : 'bg-amber-50 text-amber-700 border border-amber-100'
-                                    }`}>
-                                    {g.status === 'sold' ? 'Sold' : formatMoney(g.outstandingValue)}
-                                  </span>
-                                </div>
-                              ))}
+                      </td>
+                      <td className="py-2.5 px-2">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${acc.type === 'receivable'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-100/50'
+                            : 'bg-purple-50 text-purple-700 border border-purple-100/50'
+                          }`}>
+                          {acc.type === 'receivable' ? 'Customer' : 'Supplier'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2 font-mono text-slate-900 dark:text-white">
+                        {acc.dateOfCrediting
+                          ? new Date(acc.dateOfCrediting).toLocaleDateString()
+                          : (acc.lastUpdated ? new Date(acc.lastUpdated).toLocaleDateString() : 'N/A')}
+                      </td>
+                      <td className="py-2.5 px-2 font-mono">
+                        {acc.paymentDate ? (
+                          <span className="text-emerald-700 dark:text-emerald-300 font-medium">
+                            {new Date(acc.paymentDate).toLocaleDateString()}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 dark:text-slate-400 italic">No payments yet</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-2 font-mono font-medium text-slate-900 dark:text-white">{formatMoney(acc.totalAmount)}</td>
+                      <td className="py-2.5 px-2">
+                        <div>
+                          <span className={`font-bold font-mono ${acc.remainingAmount === 0 ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-white'}`}>
+                            {formatMoney(acc.remainingAmount)}
+                          </span>
+                          {acc.totalAmount > 0 && acc.remainingAmount > 0 && (
+                            <div className="w-24 bg-gray-100 h-1.5 rounded-full overflow-hidden mt-1.5">
+                              <div className="bg-emerald-500 h-full rounded-full" style={{ width: progressWidth }} />
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-2">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${acc.type === 'receivable'
-                          ? 'bg-blue-50 text-blue-700 border border-blue-100/50'
-                          : 'bg-purple-50 text-purple-700 border border-purple-100/50'
-                        }`}>
-                        {acc.type === 'receivable' ? 'Customer' : 'Supplier'}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-2 font-mono text-slate-900 dark:text-white">
-                      {acc.dateOfCrediting
-                        ? new Date(acc.dateOfCrediting).toLocaleDateString()
-                        : (acc.lastUpdated ? new Date(acc.lastUpdated).toLocaleDateString() : 'N/A')}
-                    </td>
-                    <td className="py-2.5 px-2 font-mono">
-                      {acc.paymentDate ? (
-                        <span className="text-emerald-700 dark:text-emerald-300 font-medium">
-                          {new Date(acc.paymentDate).toLocaleDateString()}
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-2 text-center">
+                        <span className="inline-flex items-center gap-1 text-[9.5px] uppercase font-extrabold px-2.5 py-0.5 rounded-full neumorphic-btn text-slate-900 dark:text-white border border-white/80 dark:border-slate-700 select-none">
+                          {acc.status === 'settled' ? <CheckCircle2 size={10} className="text-slate-800 dark:text-slate-200" /> : <Clock size={10} className="text-slate-800 dark:text-slate-200" />}
+                          {acc.status.replace('_', ' ')}
                         </span>
-                      ) : (
-                        <span className="text-slate-500 dark:text-slate-400 italic">No payments yet</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-2 font-mono font-medium text-slate-900 dark:text-white">{formatMoney(acc.totalAmount)}</td>
-                    <td className="py-2.5 px-2">
-                      <div>
-                        <span className={`font-bold font-mono ${acc.remainingAmount === 0 ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-white'}`}>
-                          {formatMoney(acc.remainingAmount)}
-                        </span>
-                        {acc.totalAmount > 0 && acc.remainingAmount > 0 && (
-                          <div className="w-24 bg-gray-100 h-1.5 rounded-full overflow-hidden mt-1.5">
-                            <div className="bg-emerald-500 h-full rounded-full" style={{ width: progressWidth }} />
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-2 text-center">
-                      <span className="inline-flex items-center gap-1 text-[9.5px] uppercase font-extrabold px-2.5 py-0.5 rounded-full neumorphic-btn text-slate-900 dark:text-white border border-white/80 dark:border-slate-700 select-none">
-                        {acc.status === 'settled' ? <CheckCircle2 size={10} className="text-slate-800 dark:text-slate-200" /> : <Clock size={10} className="text-slate-800 dark:text-slate-200" />}
-                        {acc.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-2 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {acc.remainingAmount > 0 && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenTxn(acc.id)}
-                              className="px-2.5 py-1 neumorphic-btn text-slate-900 dark:text-white font-extrabold text-[10px] uppercase rounded-full cursor-pointer transition border border-white/80 dark:border-slate-700 select-none"
-                              title="Record repayment installment"
-                            >
-                              Record Payment
-                            </button>
-                            {acc.type === 'receivable' && (
+                      </td>
+                      <td className="py-2.5 px-2 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {acc.remainingAmount > 0 && (
+                            <>
                               <button
                                 type="button"
-                                onClick={() => { setReminderAcc(acc); setShowReminderModal(true); }}
-                                className="w-7 h-7 neumorphic-circle text-slate-800 dark:text-slate-200 hover:text-black inline-flex items-center justify-center select-none cursor-pointer"
-                                title="Generate reminder text"
+                                onClick={() => handleOpenTxn(acc.id)}
+                                className="px-2.5 py-1 neumorphic-btn text-slate-900 dark:text-white font-extrabold text-[10px] uppercase rounded-full cursor-pointer transition border border-white/80 dark:border-slate-700 select-none"
+                                title="Record repayment installment"
                               >
-                                <MessageSquare size={13} />
+                                Record Payment
                               </button>
-                            )}
-                          </>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => { setHistoryAcc(acc); setShowHistoryModal(true); }}
-                          className="w-7 h-7 neumorphic-btn text-slate-800 hover:text-black inline-flex items-center justify-center rounded-lg select-none cursor-pointer transition"
-                          title="Statements Ledger History"
-                        >
-                          <MaterialIcon name="history" size={16} className="text-slate-800" />
-                        </button>
+                              {acc.type === 'receivable' && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setReminderAcc(acc); setShowReminderModal(true); }}
+                                  className="w-7 h-7 neumorphic-circle text-slate-800 dark:text-slate-200 hover:text-black inline-flex items-center justify-center select-none cursor-pointer"
+                                  title="Generate reminder text"
+                                >
+                                  <MessageSquare size={13} />
+                                </button>
+                              )}
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => { setHistoryAcc(acc); setShowHistoryModal(true); }}
+                            className="w-7 h-7 neumorphic-btn text-slate-800 hover:text-black inline-flex items-center justify-center rounded-lg select-none cursor-pointer transition"
+                            title="Statements Ledger History"
+                          >
+                            <MaterialIcon name="history" size={16} className="text-slate-800" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredAccounts.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center">
+                      <div className="neumorphic-inset p-8 rounded-2xl flex flex-col items-center justify-center space-y-2">
+                        <p className="font-bold text-xs text-slate-600">No matching creditor or debtor journals found.</p>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
-              {filteredAccounts.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center">
-                    <div className="neumorphic-inset p-8 rounded-2xl flex flex-col items-center justify-center space-y-2">
-                      <p className="font-bold text-xs text-slate-600">No matching creditor or debtor journals found.</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>        {/* Mobile View Card list */}
-        <div className="block lg:hidden divide-y divide-gray-100 text-gray-950 p-2">
-          {filteredAccounts.map(acc => {
-            const itemsForAcc = getProfileGoodsLedger(acc);
-
-            return (
-              <div key={acc.id} className="py-4 px-2 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-sm font-bold text-gray-950 leading-tight">{acc.name}</h4>
-                      <span className="font-mono text-[9px] bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded leading-none">
-                        CR-{acc.id.replace('credit-', '').slice(-6).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${acc.type === 'receivable'
-                          ? 'bg-blue-50 text-blue-700 border border-blue-100/50'
-                          : 'bg-purple-50 text-purple-700 border border-purple-100/50'
-                        }`}>
-                        {acc.type === 'receivable' ? 'Customer Receivable' : 'Supplier Payable'}
-                      </span>
-                      {acc.receipt && (
-                        <button
-                          type="button"
-                          onClick={() => handleViewReceipt(acc)}
-                          className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded cursor-pointer"
-                        >
-                          <Paperclip size={8} /> Receipt Attached
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide shrink-0 ${acc.status === 'settled'
-                      ? 'bg-emerald-100 text-emerald-850'
-                      : 'bg-amber-100 text-amber-800'
-                    }`}>
-                    {acc.status.replace('_', ' ')}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-[10px]">
-                  <div>
-                    <span className="block text-gray-500 text-[9px] uppercase">Original Ledger</span>
-                    <strong className="text-gray-900 text-xs">{formatMoney(acc.totalAmount)}</strong>
-                  </div>
-                  <div>
-                    <span className="block text-gray-500 text-[9px] uppercase">Balance Remaining</span>
-                    <strong className={`text-xs block ${acc.remainingAmount === 0 ? 'text-slate-400 line-through' : 'text-red-600 font-extrabold'}`}>
-                      {formatMoney(acc.remainingAmount)}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="block text-gray-500 text-[9px] uppercase">Credited Date</span>
-                    <span className="font-mono text-gray-800 text-xs block">
-                      {acc.dateOfCrediting
-                        ? new Date(acc.dateOfCrediting).toLocaleDateString()
-                        : (acc.lastUpdated ? new Date(acc.lastUpdated).toLocaleDateString() : 'N/A')}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-gray-500 text-[9px] uppercase">Payment Date</span>
-                    <span className={`font-mono text-xs block ${acc.paymentDate ? 'text-emerald-700 font-semibold' : 'text-gray-400 italic font-normal'}`}>
-                      {acc.paymentDate ? new Date(acc.paymentDate).toLocaleDateString() : 'Pending'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Mobile Credited Items */}
-                {itemsForAcc.length > 0 && (
-                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-200/40 text-[10px] space-y-1">
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">{`Credited Products (${itemsForAcc.length}):`}</span>
-                    <div className="divide-y divide-gray-100 max-h-[110px] overflow-y-auto pr-1">
-                      {itemsForAcc.map(g => (
-                        <div key={g.id} className="flex justify-between items-center py-1 gap-2">
-                          <span className="truncate text-slate-700 font-medium max-w-[150px]" title={g.itemName}>
-                            {g.itemName} <span className="text-gray-400 font-mono text-[9px]">x{g.originalQuantity}</span>
-                          </span>
-                          <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded-sm border ${g.status === 'sold'
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                              : 'bg-amber-50 text-amber-800 border-amber-100'
-                            }`}>
-                            {g.status === 'sold' ? 'Sold' : formatMoney(g.outstandingValue)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 )}
+              </tbody>
+            </table>
+          </div>        {/* Mobile View Card list */}
+          <div className="block lg:hidden divide-y divide-gray-100 text-gray-950 p-2">
+            {filteredAccounts.map(acc => {
+              const itemsForAcc = getProfileGoodsLedger(acc);
 
-                {/* Mobile action strip with 44px touch sizes */}
-                <div className="flex gap-2">
-                  {acc.remainingAmount > 0 ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenTxn(acc.id)}
-                        className="flex-1 min-h-[44px] bg-slate-100 text-emerald-700 rounded-lg flex items-center justify-center gap-1.5 font-bold text-xs hover:bg-emerald-50 cursor-pointer"
-                      >
-                        <Coins size={14} /> Record Payment
-                      </button>
-                      {acc.type === 'receivable' && (
-                        <button
-                          type="button"
-                          onClick={() => { setReminderAcc(acc); setShowReminderModal(true); }}
-                          className="w-12 min-h-[44px] bg-indigo-50 text-indigo-750 rounded-lg flex items-center justify-center hover:bg-indigo-100 cursor-pointer"
-                        >
-                          <MessageSquare size={16} />
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center min-h-[44px] text-xs text-emerald-700 bg-emerald-50 font-semibold rounded-lg">
-                      Fully Settled Ledger Profile
+              return (
+                <div key={acc.id} className="py-4 px-2 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-bold text-gray-950 leading-tight">{acc.name}</h4>
+                        <span className="font-mono text-[9px] bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded leading-none">
+                          CR-{acc.id.replace('credit-', '').slice(-6).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${acc.type === 'receivable'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-100/50'
+                            : 'bg-purple-50 text-purple-700 border border-purple-100/50'
+                          }`}>
+                          {acc.type === 'receivable' ? 'Customer Receivable' : 'Supplier Payable'}
+                        </span>
+                        {acc.receipt && (
+                          <button
+                            type="button"
+                            onClick={() => handleViewReceipt(acc)}
+                            className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            <Paperclip size={8} /> Receipt Attached
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide shrink-0 ${acc.status === 'settled'
+                        ? 'bg-emerald-100 text-emerald-850'
+                        : 'bg-amber-100 text-amber-800'
+                      }`}>
+                      {acc.status.replace('_', ' ')}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-[10px]">
+                    <div>
+                      <span className="block text-gray-500 text-[9px] uppercase">Original Ledger</span>
+                      <strong className="text-gray-900 text-xs">{formatMoney(acc.totalAmount)}</strong>
+                    </div>
+                    <div>
+                      <span className="block text-gray-500 text-[9px] uppercase">Balance Remaining</span>
+                      <strong className={`text-xs block ${acc.remainingAmount === 0 ? 'text-slate-400 line-through' : 'text-red-600 font-extrabold'}`}>
+                        {formatMoney(acc.remainingAmount)}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="block text-gray-500 text-[9px] uppercase">Credited Date</span>
+                      <span className="font-mono text-gray-800 text-xs block">
+                        {acc.dateOfCrediting
+                          ? new Date(acc.dateOfCrediting).toLocaleDateString()
+                          : (acc.lastUpdated ? new Date(acc.lastUpdated).toLocaleDateString() : 'N/A')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-gray-500 text-[9px] uppercase">Payment Date</span>
+                      <span className={`font-mono text-xs block ${acc.paymentDate ? 'text-emerald-700 font-semibold' : 'text-gray-400 italic font-normal'}`}>
+                        {acc.paymentDate ? new Date(acc.paymentDate).toLocaleDateString() : 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Mobile Credited Items */}
+                  {itemsForAcc.length > 0 && (
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-200/40 text-[10px] space-y-1">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">{`Credited Products (${itemsForAcc.length}):`}</span>
+                      <div className="divide-y divide-gray-100 max-h-[110px] overflow-y-auto pr-1">
+                        {itemsForAcc.map(g => (
+                          <div key={g.id} className="flex justify-between items-center py-1 gap-2">
+                            <span className="truncate text-slate-700 font-medium max-w-[150px]" title={g.itemName}>
+                              {g.itemName} <span className="text-gray-400 font-mono text-[9px]">x{g.originalQuantity}</span>
+                            </span>
+                            <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded-sm border ${g.status === 'sold'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                                : 'bg-amber-50 text-amber-800 border-amber-100'
+                              }`}>
+                              {g.status === 'sold' ? 'Sold' : formatMoney(g.outstandingValue)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => { setHistoryAcc(acc); setShowHistoryModal(true); }}
-                    className="w-8 h-8 neumorphic-btn text-slate-800 hover:text-black inline-flex items-center justify-center rounded-xl select-none cursor-pointer transition"
-                    title="Statements Ledger History"
-                  >
-                    <MaterialIcon name="history" size={16} className="text-slate-800" />
-                  </button>
+
+                  {/* Mobile action strip with 44px touch sizes */}
+                  <div className="flex gap-2">
+                    {acc.remainingAmount > 0 ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTxn(acc.id)}
+                          className="flex-1 min-h-[44px] bg-slate-100 text-emerald-700 rounded-lg flex items-center justify-center gap-1.5 font-bold text-xs hover:bg-emerald-50 cursor-pointer"
+                        >
+                          <Coins size={14} /> Record Payment
+                        </button>
+                        {acc.type === 'receivable' && (
+                          <button
+                            type="button"
+                            onClick={() => { setReminderAcc(acc); setShowReminderModal(true); }}
+                            className="w-12 min-h-[44px] bg-indigo-50 text-indigo-750 rounded-lg flex items-center justify-center hover:bg-indigo-100 cursor-pointer"
+                          >
+                            <MessageSquare size={16} />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center min-h-[44px] text-xs text-emerald-700 bg-emerald-50 font-semibold rounded-lg">
+                        Fully Settled Ledger Profile
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setHistoryAcc(acc); setShowHistoryModal(true); }}
+                      className="w-8 h-8 neumorphic-btn text-slate-800 hover:text-black inline-flex items-center justify-center rounded-xl select-none cursor-pointer transition"
+                      title="Statements Ledger History"
+                    >
+                      <MaterialIcon name="history" size={16} className="text-slate-800" />
+                    </button>
+                  </div>
                 </div>
+              );
+            })}
+            {filteredAccounts.length === 0 && (
+              <div className="py-12 text-center text-gray-400">
+                <p className="text-xs">No matching dynamic credit entries.</p>
               </div>
-            );
-          })}
-          {filteredAccounts.length === 0 && (
-            <div className="py-12 text-center text-gray-400">
-              <p className="text-xs">No matching dynamic credit entries.</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
       </div>
 
       {/* MODAL: ADD CREDIT ACCOUNT */}
@@ -1948,6 +1953,6 @@ export default function CreditScreen({
           </motion.div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -3326,27 +3326,44 @@ export default function App() {
           >
             {/* Dynamic Screen Routing */}
             {activeScreen === 'dashboard' && (
-              <DashboardScreen
-                inventory={inventory}
-                creditAccounts={creditAccounts}
-                adjustments={adjustments}
-                transactions={transactions}
-                config={config}
-                isLoading={isDataLoading}
-                onQuickStockIn={handleQuickStockIn}
-                onQuickStockOut={handleQuickStockOut}
-                onQuickRepayment={handleQuickRepayment}
-                userRole={currentUserRole || undefined}
-                onUpdateConfig={handleUpdateConfig}
-                onNavigate={(screen) => {
-                  if (screen === 'credit-new') {
-                    setActiveScreen('credit');
-                    setInitialOpenAddModal(true);
-                  } else {
-                    setActiveScreen(screen as any);
-                  }
-                }}
-              />
+              <>
+                <DashboardScreen
+                  inventory={inventory}
+                  creditAccounts={creditAccounts}
+                  adjustments={adjustments}
+                  transactions={transactions}
+                  config={config}
+                  isLoading={isDataLoading}
+                  onQuickStockIn={handleQuickStockIn}
+                  onQuickStockOut={handleQuickStockOut}
+                  onQuickRepayment={handleQuickRepayment}
+                  userRole={currentUserRole || undefined}
+                  onUpdateConfig={handleUpdateConfig}
+                  onNavigate={(screen) => {
+                    if (screen === 'credit-new') {
+                      // Keep the Dashboard visible while reusing the Credit
+                      // page's existing New Credit Profile modal.
+                      setInitialOpenAddModal(true);
+                    } else {
+                      setActiveScreen(screen as any);
+                    }
+                  }}
+                />
+                <CreditScreen
+                  creditAccounts={creditAccounts}
+                  transactions={transactions}
+                  config={config}
+                  inventory={inventory}
+                  adjustments={adjustments}
+                  onAddAccount={handleAddAccount}
+                  onAddTransaction={handleAddTransaction}
+                  onSettleAccount={handleSettleAccount}
+                  initialOpenAddModal={initialOpenAddModal}
+                  onClearInitialOpenAddModal={() => setInitialOpenAddModal(false)}
+                  modalOnly
+                  userRole={currentUserRole || undefined}
+                />
+              </>
             )}
 
             {activeScreen === 'notifications' && (
