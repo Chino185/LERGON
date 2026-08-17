@@ -330,3 +330,20 @@ export interface TenantReport {
   total_sales: number;
   created_at: string;
 }
+
+
+
+
+export interface BackendNotification {
+  id: string;
+  eventKey: string;
+  category: 'inventory' | 'credit' | 'system';
+  title: string;
+  message: string;
+  severity: 'error' | 'warning' | 'success';
+  relatedRef?: string;
+  targetScreen: string;
+  targetTab?: string;
+  isActive: boolean;
+  createdAt: string;
+}

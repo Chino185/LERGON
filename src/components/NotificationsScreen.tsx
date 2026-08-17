@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MaterialIcon from './MaterialIcon';
-import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, PendingRestock } from '../types';
+import { BackendNotification, BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, PendingRestock } from '../types';
 
 interface NotificationsScreenProps {
   insights: any;
@@ -39,6 +39,7 @@ interface NotificationsScreenProps {
   pendingRestocks?: PendingRestock[];
   onNavigate: (screen: string, tab?: string) => void;
   readNotificationIds?: string[];
+  backendNotifications?: BackendNotification[];
   onMarkAsRead?: (ids: string[]) => void;
 }
 
@@ -62,6 +63,7 @@ export default function NotificationsScreen({
   pendingRestocks = [],
   onNavigate,
   readNotificationIds: readNotifs = [],
+  backendNotifications,
   onMarkAsRead
 }: NotificationsScreenProps) {
   const [activeFilter, setActiveFilter] = useState<'all' | 'inventory' | 'credit' | 'system'>('all');
@@ -88,6 +90,21 @@ export default function NotificationsScreen({
 
   // Build the complete list of system notifications/alerts
   const criticalNotifications = useMemo(() => {
+    if (backendNotifications !== undefined) {
+      return backendNotifications
+        .filter(notification => notification.isActive)
+        .map(notification => ({
+          id: notification.eventKey || notification.id,
+          title: notification.title,
+          description: notification.message,
+          type: notification.severity,
+          date: notification.createdAt,
+          category: notification.category === 'inventory' ? 'Inventory' : notification.category === 'credit' ? 'Credit' : 'System',
+          targetScreen: notification.targetScreen,
+          targetTab: notification.targetTab
+        }));
+    }
+
     const list: Array<{
       id: string;
       title: string;
@@ -103,7 +120,7 @@ export default function NotificationsScreen({
     inventory.forEach(item => {
       if (item.quantity === 0) {
         list.push({
-          id: `notif-oos-${item.id}`,
+          id: `notif-oos-${item.id}-${item.lastUpdated || item.quantity}`,
           title: 'Out of Stock Alert',
           description: `"${item.name}" (SKU: ${item.sku}) is completely Sold Out!`,
           type: 'error',
@@ -113,7 +130,7 @@ export default function NotificationsScreen({
         });
       } else if (item.quantity <= item.reorderPoint) {
         list.push({
-          id: `notif-low-${item.id}`,
+          id: `notif-low-${item.id}-${item.lastUpdated || item.quantity}`,
           title: 'Low Stock Level Notification',
           description: `"${item.name}" (SKU: ${item.sku}) is running low with ${item.quantity} units left (reorder level: ${item.reorderPoint}).`,
           type: 'warning',
@@ -242,7 +259,7 @@ export default function NotificationsScreen({
       if (a.type !== 'error' && b.type === 'error') return 1;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [inventory, creditAccounts, adjustments, transactions, config?.currencySymbol, userRole, currentOrg, pendingRestocks]);
+  }, [backendNotifications, inventory, creditAccounts, adjustments, transactions, config?.currencySymbol, userRole, currentOrg, pendingRestocks]);
 
   const markAsRead = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();

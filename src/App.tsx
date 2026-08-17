@@ -57,7 +57,8 @@ import {
   BusinessConfig,
   Organization,
   UserRole,
-  PendingRestock
+  PendingRestock,
+  BackendNotification
 } from './types';
 import {
   INITIAL_BUSINESS_CONFIG,
@@ -114,6 +115,7 @@ import {
   authorizeStockAdjustmentCorrection,
   authorizeTransactionCorrection
 } from './utils/correctionServices';
+import { subscribeToBackendNotifications } from './utils/notificationServices';
 import { LandingPageBackground } from './components/LandingPageBackground';
 import Navigation from './components/Navigation';
 
@@ -162,6 +164,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [currentUserUid, setCurrentUserUid] = useState<string>('');
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [backendNotifications, setBackendNotifications] = useState<BackendNotification[]>([]);
 
   // --- Landing Page & Auth Modal States ---
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
@@ -1178,6 +1181,7 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn || !currentOrgId) {
       setIsDataLoading(false);
+      setBackendNotifications([]);
       return;
     }
 
@@ -1214,7 +1218,13 @@ export default function App() {
       setPendingRestocks(requests || []);
     });
 
-    // 6. Real-time Business Currency Listener — keeps every device (Admin
+    // 6. Backend notification source of truth. Low-stock and correction
+    // events are written to public.notifications by Supabase triggers.
+    const unsubBackendNotifications = subscribeToBackendNotifications(currentOrgId, (notifications) => {
+      setBackendNotifications(notifications || []);
+    });
+
+    // 7. Real-time Business Currency Listener — keeps every device (Admin
     // and Attendant) in sync the instant the Admin changes the business
     // currency, instead of waiting on next login/refresh.
     const unsubCurrency = subscribeToBusinessCurrency(currentOrgId, ({ country, currencyCode, currencySymbol }) => {
@@ -1237,6 +1247,7 @@ export default function App() {
       unsubSales();
       unsubAdjustments();
       unsubRestocks();
+      unsubBackendNotifications();
       unsubCurrency();
     };
   }, [isLoggedIn, currentOrgId, currentUserUid, currentUserRole, activeUserName]);
@@ -3355,6 +3366,7 @@ export default function App() {
             pendingRestocks={pendingRestocks}
             onNavigateToInventoryTab={(tab) => setInventoryTabOverride(tab)}
             readNotificationIds={readNotificationIds}
+            backendNotifications={backendNotifications}
             themeMode={config.themeMode}
             onThemeChange={(theme) => handleUpdateConfig({ ...config, themeMode: theme })}
             onMarkAsRead={(ids) => {
@@ -3424,6 +3436,7 @@ export default function App() {
                 currentOrg={organizations.find(o => o.id === currentOrgId)}
                 pendingRestocks={pendingRestocks}
                 readNotificationIds={readNotificationIds}
+                backendNotifications={backendNotifications}
                 onMarkAsRead={(ids) => {
                   setReadNotificationIds(prev => Array.from(new Set([...prev, ...ids])));
                   markNotificationsAsRead(currentUserUid, ids, currentOrgId);

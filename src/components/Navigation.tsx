@@ -23,7 +23,7 @@ import {
   Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, Organization, PendingRestock } from '../types';
+import { BackendNotification, BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, Organization, PendingRestock } from '../types';
 import { translate } from '../utils/translations';
 import MaterialIcon from './MaterialIcon';
 
@@ -47,6 +47,7 @@ interface NavigationProps {
   pendingRestocks?: PendingRestock[];
   onNavigateToInventoryTab?: (tab: 'active_stock' | 'damaged_audit' | 'restock_validations') => void;
   readNotificationIds?: string[];
+  backendNotifications?: BackendNotification[];
   onMarkAsRead?: (ids: string[]) => void;
   themeMode?: 'light' | 'dark' | 'system';
   onThemeChange?: (theme: 'light' | 'dark') => void;
@@ -72,6 +73,7 @@ export default function Navigation({
   pendingRestocks = [],
   onNavigateToInventoryTab,
   readNotificationIds = [],
+  backendNotifications,
   onMarkAsRead,
   themeMode,
   onThemeChange
@@ -193,6 +195,21 @@ export default function Navigation({
 
   // Critical Alerts list: includes Out of Stock and Overdue Credit lines
   const criticalNotifications = React.useMemo(() => {
+    if (backendNotifications !== undefined) {
+      return backendNotifications
+        .filter(notification => notification.isActive)
+        .map(notification => ({
+          id: notification.eventKey || notification.id,
+          title: notification.title,
+          description: notification.message,
+          type: notification.severity,
+          date: notification.createdAt,
+          category: notification.category === 'inventory' ? 'Inventory' : notification.category === 'credit' ? 'Credit' : 'System',
+          targetScreen: notification.targetScreen,
+          targetTab: notification.targetTab
+        }));
+    }
+
     const list: Array<{
       id: string;
       title: string;
@@ -208,7 +225,7 @@ export default function Navigation({
     inventory.forEach(item => {
       if (item.quantity === 0) {
         list.push({
-          id: `notif-oos-${item.id}`,
+          id: `notif-oos-${item.id}-${item.lastUpdated || item.quantity}`,
           title: 'Out of Stock Alert',
           description: `"${item.name}" (SKU: ${item.sku}) is completely Sold Out!`,
           type: 'error',
@@ -218,7 +235,7 @@ export default function Navigation({
         });
       } else if (item.quantity <= item.reorderPoint) {
         list.push({
-          id: `notif-low-${item.id}`,
+          id: `notif-low-${item.id}-${item.lastUpdated || item.quantity}`,
           title: 'Low Stock Level Notification',
           description: `"${item.name}" (SKU: ${item.sku}) is running low with ${item.quantity} units left (shortage level: ${item.reorderPoint}).`,
           type: 'warning',
@@ -347,7 +364,7 @@ export default function Navigation({
       if (a.type !== 'error' && b.type === 'error') return 1;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [inventory, creditAccounts, adjustments, transactions, config.currencySymbol, userRole, currentOrg, pendingRestocks]);
+  }, [backendNotifications, inventory, creditAccounts, adjustments, transactions, config.currencySymbol, userRole, currentOrg, pendingRestocks]);
 
   // Combined Operations Feed (Latest 8 stock movements or credit movements)
   const activityEvents = React.useMemo(() => {
