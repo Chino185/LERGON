@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { GoogleGenAI, Modality, ThinkingLevel, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
 
 // Load environment variables
 dotenv.config();
@@ -13,6 +14,171 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" }));
+
+const supabaseAdmin = (() => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) {
+    console.warn("WARNING: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing. Invoice PDF backend storage is unavailable.");
+    return null;
+  }
+  return createClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+})();
+
+const INVOICE_PDF_BUCKET = "invoice-pdfs";
+const MAX_INVOICE_PDF_BYTES = 15 * 1024 * 1024;
+
+const sanitizeFilenamePart = (value: string): string =>
+  String(value || "invoice").trim().replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120) || "invoice";
+
+const parseJsonHeader = <T>(value: string | undefined, fallback: T): T => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const getInvoicePdfFileName = (invoiceNumber: string): string =>
+  `${sanitizeFilenamePart(invoiceNumber || "invoice")}.pdf`;
+
+
+const getAuthenticatedRequestUser = async (req: express.Request) => {
+  if (!supabaseAdmin) return { error: "Backend storage is not configured." } as const;
+  const authorization = req.header("authorization") || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  if (!token) return { error: "Authentication is required." } as const;
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !authData.user) return { error: "Invalid or expired authentication session." } as const;
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, business_id, role")
+    .eq("id", authData.user.id)
+    .maybeSingle();
+  if (profileError) return { error: "Unable to verify the authenticated profile." } as const;
+
+  return { user: authData.user, profile: profile || null } as const;
+};
+
+app.post("/api/invoices/pdf", express.raw({ type: "application/pdf", limit: MAX_INVOICE_PDF_BYTES }), async (req, res) => {
+  const authenticated = await getAuthenticatedRequestUser(req);
+  if ("error" in authenticated) return res.status(401).json({ success: false, error: authenticated.error });
+
+  const businessId = String(req.header("x-business-id") || "").trim();
+  if (!businessId || authenticated.profile?.business_id !== businessId) {
+    return res.status(403).json({ success: false, error: "The authenticated user is not a member of this business." });
+  }
+
+  const pdfBuffer = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
+  if (pdfBuffer.length === 0) return res.status(400).json({ success: false, error: "The PDF body is empty." });
+  if (pdfBuffer.length > MAX_INVOICE_PDF_BYTES) return res.status(413).json({ success: false, error: "The PDF exceeds the 15 MB limit." });
+  if (pdfBuffer.subarray(0, 4).toString() !== "%PDF") return res.status(415).json({ success: false, error: "The uploaded file is not a valid PDF." });
+
+  const invoiceNumber = String(req.header("x-invoice-number") || "Invoice").trim().slice(0, 100);
+  const billTo = String(req.header("x-invoice-bill-to") || "Walk-in Customer").trim().slice(0, 200);
+  const grandTotal = Math.max(0, Number(req.header("x-invoice-grand-total") || 0) || 0);
+  const lineItems = parseJsonHeader(req.header("x-invoice-line-items"), [] as unknown[]);
+  const requestedInvoiceId = String(req.header("x-invoice-id") || "").trim();
+
+  try {
+    let invoiceId = requestedInvoiceId;
+    if (invoiceId) {
+      const { data: existing, error: existingError } = await supabaseAdmin
+        .from("invoices")
+        .select("id")
+        .eq("id", invoiceId)
+        .eq("business_id", businessId)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (!existing) invoiceId = "";
+    }
+
+    if (!invoiceId) {
+      const { data: created, error: createError } = await supabaseAdmin
+        .from("invoices")
+        .insert({
+          business_id: businessId,
+          invoice_number: invoiceNumber || "Invoice",
+          bill_to: billTo || "Walk-in Customer",
+          line_items: Array.isArray(lineItems) ? lineItems : [],
+          grand_total: grandTotal,
+          generated_by: authenticated.user.id
+        })
+        .select("id")
+        .single();
+      if (createError || !created) throw createError || new Error("Unable to create invoice record.");
+      invoiceId = created.id;
+    }
+
+    const storageKey = `${businessId}/${invoiceId}/${Date.now()}-${sanitizeFilenamePart(invoiceNumber)}.pdf`;
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(INVOICE_PDF_BUCKET)
+      .upload(storageKey, pdfBuffer, { contentType: "application/pdf", upsert: false });
+    if (uploadError) throw uploadError;
+
+    const { error: updateError } = await supabaseAdmin
+      .from("invoices")
+      .update({
+        pdf_storage_key: storageKey,
+        pdf_size_bytes: pdfBuffer.length,
+        pdf_content_type: "application/pdf",
+        pdf_created_at: new Date().toISOString()
+      })
+      .eq("id", invoiceId)
+      .eq("business_id", businessId);
+    if (updateError) throw updateError;
+
+    return res.json({
+      success: true,
+      id: invoiceId,
+      pdfUrl: `/api/invoices/${encodeURIComponent(businessId)}/${encodeURIComponent(invoiceId)}/pdf`,
+      sizeBytes: pdfBuffer.length
+    });
+  } catch (error: any) {
+    console.error("Invoice PDF upload error:", error);
+    return res.status(500).json({ success: false, error: error?.message || "Failed to store invoice PDF." });
+  }
+});
+
+app.get("/api/invoices/:businessId/:invoiceId/pdf", async (req, res) => {
+  const authenticated = await getAuthenticatedRequestUser(req);
+  if ("error" in authenticated) return res.status(401).json({ success: false, error: authenticated.error });
+
+  const { businessId, invoiceId } = req.params;
+  if (authenticated.profile?.business_id !== businessId) {
+    return res.status(403).json({ success: false, error: "The authenticated user is not a member of this business." });
+  }
+
+  try {
+    const { data: invoice, error: invoiceError } = await supabaseAdmin!
+      .from("invoices")
+      .select("invoice_number, pdf_storage_key")
+      .eq("id", invoiceId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+    if (invoiceError) throw invoiceError;
+    if (!invoice?.pdf_storage_key) return res.status(404).json({ success: false, error: "No stored PDF exists for this invoice." });
+
+    const { data: file, error: downloadError } = await supabaseAdmin!.storage
+      .from(INVOICE_PDF_BUCKET)
+      .download(invoice.pdf_storage_key);
+    if (downloadError || !file) throw downloadError || new Error("Stored PDF could not be downloaded.");
+
+    const pdfBytes = Buffer.from(await file.arrayBuffer());
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Length", pdfBytes.length);
+    res.setHeader("Content-Disposition", `attachment; filename="${getInvoicePdfFileName(invoice.invoice_number)}"`);
+    return res.send(pdfBytes);
+  } catch (error: any) {
+    console.error("Invoice PDF download error:", error);
+    return res.status(500).json({ success: false, error: error?.message || "Failed to download invoice PDF." });
+  }
+});
 
 // Initialize Gemini SDK with User-Agent telemetry headers
 const getGeminiClient = () => {
@@ -155,7 +321,7 @@ function generateProgrammaticInventoryAnalysis(inventory: any[] = [], adjustment
       const velocityBasedQty = Math.max(v.sales30Days * 1.5, isOut ? (i.reorderPoint || 10) * 3 : (i.reorderPoint || 10) * 2);
       const recommendedQty = Math.ceil(velocityBasedQty);
 
-      const reason = isOut 
+      const reason = isOut
         ? `Critically out of stock with 7-day velocity of ${v.sales7Days} units and 30-day velocity of ${v.sales30Days} units. Prompt replenishment of ${recommendedQty} is required to satisfy demand.`
         : `Stock level (${i.quantity}) has dipped below the reorder point of ${i.reorderPoint}. Recommending ${recommendedQty} based on a 30-day sales velocity of ${v.sales30Days} units (${v.sales7Days} in last 7 days).`;
 
@@ -181,11 +347,11 @@ function generateProgrammaticInventoryAnalysis(inventory: any[] = [], adjustment
     });
   }
 
-  const summary = outOfStock.length > 0 
+  const summary = outOfStock.length > 0
     ? `Critical inventory alerts: ${outOfStock.length} items are out of stock. Immediate replenishment action is recommended for "${config?.businessName || "our store"}".`
     : lowStock.length > 0
-    ? `Operational health is stable, but ${lowStock.length} items have fallen below safety reorder points.`
-    : `Excellent stock status. All ${totalItemsTracked} tracked items are fully stocked with high safety margins.`;
+      ? `Operational health is stable, but ${lowStock.length} items have fallen below safety reorder points.`
+      : `Excellent stock status. All ${totalItemsTracked} tracked items are fully stocked with high safety margins.`;
 
   return {
     summary,
@@ -208,7 +374,7 @@ function generateProgrammaticInventoryAnalysis(inventory: any[] = [], adjustment
 function generateProgrammaticCreditAnalysis(creditAccounts: any[] = [], transactions: any[] = [], config: any = {}) {
   const activeDebts = creditAccounts.filter(a => (a.remainingAmount || 0) > 0);
   const totalOutstanding = activeDebts.reduce((acc, a) => acc + (a.remainingAmount || 0), 0);
-  
+
   const riskScores = creditAccounts.map(a => {
     const isOverdue = a.status === 'overdue';
     const isHighAmount = (a.remainingAmount || 0) > 1000;
@@ -448,7 +614,7 @@ app.post("/api/gemini/analyze-inventory", async (req, res) => {
 
     // Choose model based on the request
     const model = deepAnalysis ? "gemini-3.1-pro-preview" : "gemini-3.6-flash";
-    
+
     const prompt = `Perform a comprehensive business inventory audit and report for "${config?.businessName || "our store"}".
     
     Here is the current active inventory items:
@@ -869,23 +1035,23 @@ wss.on("connection", (clientWs: WebSocket) => {
     const maxMins = Math.round(AI_VOICE_SESSION_MAX_MS / 60000);
     console.log(`Live voice session reached maximum allowed duration (${maxMins} mins). Disconnecting session to preserve token quota.`);
     try {
-      clientWs.send(JSON.stringify({ 
-        type: "transcript", 
-        source: "model", 
-        text: `[SYSTEM TOKEN PROTECTION NOTICE]: Maximum continuous voice session duration (${maxMins} minutes) reached. Disconnecting session to preserve token quota.` 
+      clientWs.send(JSON.stringify({
+        type: "transcript",
+        source: "model",
+        text: `[SYSTEM TOKEN PROTECTION NOTICE]: Maximum continuous voice session duration (${maxMins} minutes) reached. Disconnecting session to preserve token quota.`
       }));
-    } catch (e) {}
+    } catch (e) { }
 
     setTimeout(() => {
-      try { clientWs.send(JSON.stringify({ type: "status", status: "closed", reason: "max_duration" })); } catch (e) {}
-      try { clientWs.close(); } catch (e) {}
+      try { clientWs.send(JSON.stringify({ type: "status", status: "closed", reason: "max_duration" })); } catch (e) { }
+      try { clientWs.close(); } catch (e) { }
     }, 1500);
   }, AI_VOICE_SESSION_MAX_MS);
 
   clientWs.on("message", async (data) => {
     try {
       const msg = JSON.parse(data.toString());
-      
+
       // Handle session initialization with specific context
       if (msg.type === "init") {
         const {
@@ -898,12 +1064,12 @@ wss.on("connection", (clientWs: WebSocket) => {
           userRole,
           isWakeWordTriggered = false
         } = msg;
-        
-        const inventoryContext = inventory.map((i: any) => 
+
+        const inventoryContext = inventory.map((i: any) =>
           `- Name: ${i.name} (ID: ${i.id || "N/A"}, SKU: ${i.sku || "N/A"}, Stock: ${i.quantity} ${i.unit || "units"}, Reorder at: ${i.reorderPoint}, Unit Cost: ${i.unitCost || 0}, Price: ${i.unitPrice}, Category: ${i.category || "General"}, Supplier: ${i.supplier || i.supplierName || "N/A"})`
         ).join("\n");
 
-        const creditContext = creditAccounts.map((a: any) => 
+        const creditContext = creditAccounts.map((a: any) =>
           `- Debtor/Creditor Name: ${a.name} (ID: ${a.id || "N/A"}, Debt remaining: ${a.remainingAmount}, Total Limit/Amount: ${a.totalAmount || "N/A"}, Type: ${a.type}, Status: ${a.status}, Due Date: ${a.dueDate || "N/A"}, Phone: ${a.phone || "N/A"})`
         ).join("\n");
 
@@ -1007,7 +1173,7 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
         Acknowledge low stock alerts or severe overdue debts when asked, and recommend actions verbally. Use a friendly but professional tone. Do not use markdown notation in your speech (e.g., avoid asterisks or bullet lists, speak in smooth complete sentences).`;
 
         console.log("Connecting Live API session...");
-        
+
         try {
           liveSession = await ai.live.connect({
             model: "gemini-3.1-flash-live-preview",
@@ -1421,7 +1587,7 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                 if (message.serverContent?.interrupted) {
                   clientWs.send(JSON.stringify({ type: "interrupted" }));
                 }
-                
+
                 // Handle transcript returned from model output or user input
                 const outputText = message.serverContent?.modelTurn?.parts?.[0]?.text;
                 if (outputText) {
@@ -1432,10 +1598,10 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                 if (message.toolCall?.functionCalls) {
                   for (const call of message.toolCall.functionCalls) {
                     console.log("🤖 [GEMINI LIVE SERVER] Received function call request from AI:", call.name, call.args);
-                    
-                    let toolResponsePayload: any = { 
-                      success: true, 
-                      message: `Successfully executed ${call.name} in user interface.` 
+
+                    let toolResponsePayload: any = {
+                      success: true,
+                      message: `Successfully executed ${call.name} in user interface.`
                     };
 
                     if (call.name === "query_activity_log") {
@@ -1447,13 +1613,13 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                     }
 
                     // Forward tool call details to client
-                    clientWs.send(JSON.stringify({ 
-                      type: "tool_call", 
-                      name: call.name, 
+                    clientWs.send(JSON.stringify({
+                      type: "tool_call",
+                      name: call.name,
                       args: call.args,
                       result: toolResponsePayload.matchingLogs
                     }));
-                    
+
                     // Respond back to Gemini Live API immediately to complete the call transaction
                     if (liveSession) {
                       try {
@@ -1462,7 +1628,7 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                             {
                               name: call.name,
                               id: call.id,
-                              response: { 
+                              response: {
                                 output: toolResponsePayload
                               }
                             }

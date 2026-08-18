@@ -21,11 +21,18 @@ import {
   Search,
   History,
   X,
-  ArrowRight
+  ArrowRight,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, SavedInvoice } from '../types';
-import { SaveInvoicePayload, fetchInvoicesFromSupabase, deleteInvoiceFromSupabase } from '../utils/invoiceServices';
+import {
+  SaveInvoicePayload,
+  fetchInvoicesFromSupabase,
+  deleteInvoiceFromSupabase,
+  uploadInvoicePdfToBackend,
+  downloadInvoicePdfFromBackend
+} from '../utils/invoiceServices';
 import { translate } from '../utils/translations';
 import MaterialIcon from './MaterialIcon';
 import NeumorphicSelect, { NeumorphicSelectOption } from './NeumorphicSelect';
@@ -131,6 +138,7 @@ export default function InvoiceGeneratorScreen({
   const [successAnimation, setSuccessAnimation] = useState(false);
   const [isPdfBusy, setIsPdfBusy] = useState(false);
   const persistedInvoiceFingerprint = useRef<string | null>(null);
+  const persistedInvoiceId = useRef<string | null>(null);
 
   // Customizable Logo state (Custom files only + size adjustment)
   const [logoImage, setLogoImage] = useState<string>(''); // base64 uploaded image string
@@ -171,6 +179,15 @@ export default function InvoiceGeneratorScreen({
     setIsHistoryModalOpen(false);
     setViewMode('preview');
     setIsPreviewMode(true);
+  };
+
+  const handleDownloadSavedInvoice = async (inv: SavedInvoice) => {
+    setIsPdfBusy(true);
+    const result = await downloadInvoicePdfFromBackend(currentOrgId || '', inv.id, inv.invoice_number);
+    if (!result.success) {
+      console.error('Saved invoice PDF download failed:', result.error);
+    }
+    setIsPdfBusy(false);
   };
 
   const handleDeleteSavedInvoice = async (invoiceId: string) => {
@@ -868,40 +885,56 @@ export default function InvoiceGeneratorScreen({
     }, 150);
   };
 
-  const persistGeneratedInvoice = async () => {
-    if (!onPersistInvoice || persistedInvoiceFingerprint.current === invoiceFingerprint) return;
+  const persistGeneratedInvoice = async (pdfBlob?: Blob): Promise<string | null> => {
+    if (!onPersistInvoice) return null;
 
     try {
-      const result = await onPersistInvoice({
-        invoiceNumber: invoiceNo,
-        billTo: billTo || 'Walk-in Customer',
-        grandTotal: invoiceCalculatedTotal,
-        lineItems: rows,
-        metadata: {
-          companyName,
-          companySubHeader,
-          companyAddress,
-          companyContact,
-          invoiceDate,
-          documentTopic,
-          paymentBankName,
-          paymentAccountNumber,
-          paymentBranch,
-          logoImage
-        }
-      });
+      let invoiceId = persistedInvoiceId.current;
+      if (persistedInvoiceFingerprint.current !== invoiceFingerprint || !invoiceId) {
+        const result = await onPersistInvoice({
+          invoiceNumber: invoiceNo,
+          billTo: billTo || 'Walk-in Customer',
+          grandTotal: invoiceCalculatedTotal,
+          lineItems: rows,
+          metadata: {
+            companyName,
+            companySubHeader,
+            companyAddress,
+            companyContact,
+            invoiceDate,
+            documentTopic,
+            paymentBankName,
+            paymentAccountNumber,
+            paymentBranch,
+            logoImage
+          }
+        });
 
-      if (!result.success) {
-        console.error('Invoice persistence failed:', result.error);
-        return;
+        if (!result.success || !result.id) {
+          console.error('Invoice persistence failed:', result.error || 'No invoice ID was returned.');
+          return null;
+        }
+
+        invoiceId = result.id;
+        persistedInvoiceId.current = result.id;
+        persistedInvoiceFingerprint.current = invoiceFingerprint;
       }
 
-      persistedInvoiceFingerprint.current = invoiceFingerprint;
+      if (pdfBlob && currentOrgId && invoiceId) {
+        const pdfResult = await uploadInvoicePdfToBackend(currentOrgId, invoiceId, invoiceNo, pdfBlob);
+        if (!pdfResult.success) {
+          console.error('Invoice PDF backend upload failed:', pdfResult.error);
+          return null;
+        }
+      }
+
       if (currentOrgId) {
         void fetchInvoicesFromSupabase(currentOrgId).then(setSavedInvoices);
       }
+      return invoiceId;
     } catch (err) {
       console.error('Invoice persistence error:', err);
+      return null;
     }
   };
 
@@ -912,11 +945,33 @@ export default function InvoiceGeneratorScreen({
     setIsPreviewMode(true);
   };
 
+  const handleDownloadPdf = async () => {
+    setIsPdfBusy(true);
+    try {
+      const pdfBlob = await buildInvoicePdf();
+      const invoiceId = await persistGeneratedInvoice(pdfBlob);
+      if (!invoiceId) throw new Error('The invoice metadata could not be saved before PDF upload.');
+      const refreshedInvoices = currentOrgId ? await fetchInvoicesFromSupabase(currentOrgId) : [];
+      const saved = refreshedInvoices.find(inv => inv.id === invoiceId);
+      if (!saved?.pdf_storage_key) {
+        throw new Error('The backend did not return a stored PDF for this invoice.');
+      }
+      const result = await downloadInvoicePdfFromBackend(currentOrgId || '', invoiceId, invoiceNo);
+      if (!result.success) throw new Error(result.error || 'Backend PDF download failed.');
+      setSavedInvoices(refreshedInvoices);
+    } catch (err) {
+      console.error('Invoice PDF download failed:', err);
+    } finally {
+      setIsPdfBusy(false);
+      clearPdfArtifacts();
+    }
+  };
+
   const handlePrintInvoice = () => {
     setViewMode('preview');
     setIsPreviewMode(true);
 
-    // Persist printed invoice to Supabase with line_items jsonb
+    // Persist invoice metadata; PDF export uses handleDownloadPdf and backend storage.
     void persistGeneratedInvoice();
 
     window.setTimeout(() => {
@@ -1109,8 +1164,8 @@ export default function InvoiceGeneratorScreen({
                   type="button"
                   onClick={() => handleLoadPreset('invoice_credit')}
                   className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'invoice_credit'
-                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
-                      : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                    ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
+                    : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                     }`}
                 >
                   <div className="flex justify-between items-start w-full">
@@ -1124,8 +1179,8 @@ export default function InvoiceGeneratorScreen({
                   type="button"
                   onClick={() => handleLoadPreset('custom')}
                   className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'custom'
-                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
-                      : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                    ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
+                    : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                     }`}
                 >
                   <div className="flex justify-between items-start w-full">
@@ -1369,8 +1424,8 @@ export default function InvoiceGeneratorScreen({
                         type="button"
                         onClick={() => setProfessionalAlign(align)}
                         className={`py-1.5 px-2 text-[8px] font-black rounded-full uppercase transition cursor-pointer ${professionalAlign === align
-                            ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
-                            : 'finnova-card text-slate-600 hover:text-slate-900'
+                          ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
+                          : 'finnova-card text-slate-600 hover:text-slate-900'
                           }`}
                       >
                         {translate(align, config.languageCode)}
@@ -1866,6 +1921,15 @@ export default function InvoiceGeneratorScreen({
             </button>
             <button
               type="button"
+              onClick={() => void handleDownloadPdf()}
+              disabled={isPdfBusy}
+              className="text-xs neumorphic-inset px-5 py-3 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider text-slate-800 disabled:opacity-60 disabled:cursor-not-allowed hover:bg-slate-200/60 active:scale-95 transition-all"
+            >
+              <Download size={15} />
+              <span>{isPdfBusy ? 'Saving PDF…' : 'Download PDF'}</span>
+            </button>
+            <button
+              type="button"
               onClick={handlePrintInvoice}
               disabled={isPdfBusy}
               className="text-xs neumorphic-btn-dark px-7 py-3 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed shadow-md hover:brightness-110 active:scale-95 transition-all"
@@ -2216,8 +2280,8 @@ export default function InvoiceGeneratorScreen({
                         type="button"
                         onClick={() => setQtyInputValue(String(presetVal))}
                         className={`py-2 rounded-xl text-xs font-extrabold transition cursor-pointer text-center font-jakarta ${isSelected
-                            ? 'neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white border border-slate-700/60 shadow-md scale-105'
-                            : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                          ? 'neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white border border-slate-700/60 shadow-md scale-105'
+                          : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                           }`}
                       >
                         {presetVal}
@@ -2330,6 +2394,17 @@ export default function InvoiceGeneratorScreen({
                         <span className="font-black text-sm text-slate-900 dark:text-emerald-400 mr-2">
                           {config.currencySymbol || '$'}{Number(inv.grand_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
+                        {inv.pdf_storage_key && (
+                          <button
+                            type="button"
+                            disabled={isPdfBusy}
+                            onClick={() => void handleDownloadSavedInvoice(inv)}
+                            className="p-2 rounded-xl text-slate-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition cursor-pointer disabled:opacity-50"
+                            title="Download stored PDF"
+                          >
+                            <Download size={15} />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleLoadSavedInvoice(inv)}
