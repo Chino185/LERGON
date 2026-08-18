@@ -474,7 +474,7 @@ export default function Navigation({
   }, [themeMode, localDarkMode]);
 
   return (
-    <div className="relative min-h-screen crextio-canvas overflow-x-hidden flex flex-col text-slate-900 font-sans">
+    <div id="app-shell" className="relative min-h-screen crextio-canvas overflow-x-hidden flex flex-col text-slate-900 font-sans">
 
       {/* Decorative ambient subtle background gradients */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10 select-none">
@@ -1010,7 +1010,7 @@ export default function Navigation({
           </div>
         )}
 
-        <main className="flex-1 p-3 sm:p-4 xl:p-4 overflow-y-auto">
+        <main id="app-main-content" className="flex-1 p-3 sm:p-4 xl:p-4 overflow-y-auto">
           <div className={`${(activeScreen === 'invoice' || activeScreen === 'transactions') ? 'max-w-none xl:max-w-[1550px]' : 'max-w-7xl'} mx-auto w-full`}>
             {children}
           </div>

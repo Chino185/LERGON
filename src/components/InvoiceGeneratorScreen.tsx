@@ -430,12 +430,20 @@ export default function InvoiceGeneratorScreen({
 
   const clearPdfArtifacts = () => {
     document
-      .querySelectorAll('.html2pdf__overlay, .html2pdf__container, .html2canvas-container')
+      .querySelectorAll('.html2pdf__overlay, .html2pdf__container, .html2canvas-container, #invoice-pdf-capture-root')
       .forEach((node) => node.remove());
   };
 
+  const setInvoicePrintContext = (enabled: boolean) => {
+    document.documentElement.classList.toggle('invoice-printing', enabled);
+    document.body?.classList.toggle('invoice-printing', enabled);
+  };
+
   useEffect(() => {
-    return () => clearPdfArtifacts();
+    return () => {
+      clearPdfArtifacts();
+      setInvoicePrintContext(false);
+    };
   }, []);
 
   const handleBackToEditor = () => {
@@ -447,19 +455,44 @@ export default function InvoiceGeneratorScreen({
 
   const buildInvoicePdf = async (): Promise<Blob> => {
     const printableRoot = document.getElementById('invoice-print-root');
-    if (!printableRoot) throw new Error('Invoice preview is not ready for PDF generation.');
+    const printableSheets = Array.from(document.querySelectorAll<HTMLElement>('.printable-sheet'));
+    if (!printableRoot || printableSheets.length === 0) {
+      throw new Error('Invoice preview is not ready for PDF generation.');
+    }
 
-    const originalStyles = {
-      overflow: printableRoot.style.overflow,
-      height: printableRoot.style.height,
-      maxHeight: printableRoot.style.maxHeight,
-      background: printableRoot.style.background
-    };
+    const captureRoot = document.createElement('div');
+    captureRoot.id = 'invoice-pdf-capture-root';
+    captureRoot.style.position = 'absolute';
+    captureRoot.style.left = '0';
+    captureRoot.style.top = '0';
+    captureRoot.style.width = '210mm';
+    captureRoot.style.margin = '0';
+    captureRoot.style.padding = '0';
+    captureRoot.style.background = '#ffffff';
+    captureRoot.style.color = '#000000';
+    captureRoot.style.display = 'block';
+    captureRoot.style.pointerEvents = 'none';
+    captureRoot.setAttribute('aria-hidden', 'true');
 
-    printableRoot.style.overflow = 'visible';
-    printableRoot.style.height = 'auto';
-    printableRoot.style.maxHeight = 'none';
-    printableRoot.style.background = '#ffffff';
+    printableSheets.forEach((sheet) => {
+      const clonedSheet = sheet.cloneNode(true) as HTMLElement;
+      clonedSheet.classList.remove('shadow-xl', 'transition-all', 'select-all', 'space-y-4');
+      clonedSheet.style.zoom = '1';
+      clonedSheet.style.transform = 'none';
+      clonedSheet.style.width = '210mm';
+      clonedSheet.style.maxWidth = '210mm';
+      clonedSheet.style.minHeight = '297mm';
+      clonedSheet.style.height = '297mm';
+      clonedSheet.style.margin = '0';
+      clonedSheet.style.padding = '15mm';
+      clonedSheet.style.background = '#ffffff';
+      clonedSheet.style.color = '#000000';
+      clonedSheet.style.boxSizing = 'border-box';
+      clonedSheet.querySelectorAll('.no-print').forEach((node) => node.remove());
+      captureRoot.appendChild(clonedSheet);
+    });
+
+    document.body.appendChild(captureRoot);
 
     try {
       const html2pdfModule = await import('html2pdf.js');
@@ -477,10 +510,16 @@ export default function InvoiceGeneratorScreen({
           margin: 0,
           filename: fileName,
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            windowWidth: 794,
+            windowHeight: 1123
+          }
         })
-        .from(printableRoot)
+        .from(captureRoot)
         .outputPdf('blob') as Blob;
 
       if (!(pdfBlob instanceof Blob) || pdfBlob.size === 0) {
@@ -488,10 +527,6 @@ export default function InvoiceGeneratorScreen({
       }
       return pdfBlob;
     } finally {
-      printableRoot.style.overflow = originalStyles.overflow;
-      printableRoot.style.height = originalStyles.height;
-      printableRoot.style.maxHeight = originalStyles.maxHeight;
-      printableRoot.style.background = originalStyles.background;
       clearPdfArtifacts();
     }
   };
@@ -550,17 +585,27 @@ export default function InvoiceGeneratorScreen({
         console.error('Invoice PDF persistence failed after download:', error);
       });
 
-      // Print the exact settled preview in the current window so the system output matches the screen.
+      // Print the exact settled preview in the current window, isolated from the app shell.
       window.setTimeout(() => {
-        clearPdfArtifacts();
+        setInvoicePrintContext(true);
+        const handleAfterPrint = () => {
+          setInvoicePrintContext(false);
+          clearPdfArtifacts();
+          window.removeEventListener('afterprint', handleAfterPrint);
+        };
+        window.addEventListener('afterprint', handleAfterPrint, { once: true });
         try {
           window.focus();
           window.print();
         } catch (error) {
           console.error('Invoice system print failed:', error);
+          window.removeEventListener('afterprint', handleAfterPrint);
+          setInvoicePrintContext(false);
         }
       }, 150);
     } catch (e) {
+      setInvoicePrintContext(false);
+      clearPdfArtifacts();
       console.error('Invoice PDF export failed:', e);
     } finally {
       setIsPdfBusy(false);
