@@ -426,6 +426,21 @@ export default function InvoiceGeneratorScreen({
     invoiceCalculatedTotal
   ]);
 
+  const clearPdfArtifacts = () => {
+    document.querySelectorAll('.html2pdf__container').forEach((node) => node.remove());
+  };
+
+  useEffect(() => {
+    return () => clearPdfArtifacts();
+  }, []);
+
+  const handleBackToEditor = () => {
+    clearPdfArtifacts();
+    setIsPdfBusy(false);
+    setViewMode('composer');
+    setIsPreviewMode(false);
+  };
+
   const buildInvoicePdf = async (): Promise<Blob> => {
     const printableRoot = document.getElementById('invoice-print-root');
     if (!printableRoot) throw new Error('Invoice preview is not ready for PDF generation.');
@@ -465,6 +480,7 @@ export default function InvoiceGeneratorScreen({
       printableRoot.style.height = originalStyles.height;
       printableRoot.style.maxHeight = originalStyles.maxHeight;
       printableRoot.style.background = originalStyles.background;
+      clearPdfArtifacts();
     }
   };
 
@@ -696,8 +712,8 @@ export default function InvoiceGeneratorScreen({
                   type="button"
                   onClick={() => handleLoadPreset('invoice_credit')}
                   className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'invoice_credit'
-                    ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
-                    : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
+                      : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                     }`}
                 >
                   <div className="flex justify-between items-start w-full">
@@ -711,8 +727,8 @@ export default function InvoiceGeneratorScreen({
                   type="button"
                   onClick={() => handleLoadPreset('custom')}
                   className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'custom'
-                    ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
-                    : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
+                      : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                     }`}
                 >
                   <div className="flex justify-between items-start w-full">
@@ -922,8 +938,8 @@ export default function InvoiceGeneratorScreen({
                         type="button"
                         onClick={() => setProfessionalAlign(align)}
                         className={`py-1.5 px-2 text-[8px] font-black rounded-full uppercase transition cursor-pointer ${professionalAlign === align
-                          ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
-                          : 'finnova-card text-slate-600 hover:text-slate-900'
+                            ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
+                            : 'finnova-card text-slate-600 hover:text-slate-900'
                           }`}
                       >
                         {translate(align, config.languageCode)}
@@ -1390,8 +1406,9 @@ export default function InvoiceGeneratorScreen({
         <div className="finnova-card p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 no-print">
           <div className="flex items-center gap-3.5">
             <button
-              onClick={() => setViewMode('composer')}
-              className="text-xs neumorphic-inset text-slate-900 font-extrabold uppercase tracking-wider px-4 py-2 rounded-full transition flex items-center gap-2 cursor-pointer hover:bg-slate-200/60"
+              type="button"
+              onClick={handleBackToEditor}
+              className="text-xs neumorphic-inset text-slate-900 font-extrabold uppercase tracking-wider px-4 py-2 rounded-full transition flex items-center gap-2 cursor-pointer hover:bg-slate-200/60 pointer-events-auto"
             >
               <Undo2 size={14} className="text-slate-700" />
               <span>{translate('back to editor', config.languageCode)}</span>
@@ -1744,8 +1761,8 @@ export default function InvoiceGeneratorScreen({
                         type="button"
                         onClick={() => setQtyInputValue(String(presetVal))}
                         className={`py-2 rounded-xl text-xs font-extrabold transition cursor-pointer text-center font-jakarta ${isSelected
-                          ? 'neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white border border-slate-700/60 shadow-md scale-105'
-                          : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                            ? 'neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white border border-slate-700/60 shadow-md scale-105'
+                            : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                           }`}
                       >
                         {presetVal}

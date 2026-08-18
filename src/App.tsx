@@ -142,6 +142,10 @@ const ADJUSTMENTS_KEY = 'velo_ic_adjustments';
 const CREDIT_ACCOUNTS_KEY = 'velo_ic_accounts';
 const TRANSACTIONS_KEY = 'velo_ic_transactions';
 const PENDING_RESTOCKS_KEY = 'velo_ic_pending_restocks';
+const NOTIFICATION_READ_CACHE_PREFIX = 'lergon_notification_reads';
+
+const getNotificationReadCacheKey = (businessId: string, userUid: string): string =>
+  `${NOTIFICATION_READ_CACHE_PREFIX}:${businessId}:${userUid}`;
 
 const cleanPhoneForWhatsApp = (num: string): string => {
   return num.replace(/\D/g, ''); // Removes all non-numeric characters
@@ -1155,13 +1159,57 @@ export default function App() {
   }, []);
 
   // Restore per-user notification read state from the current tenant.
+  // The local cache prevents a refresh-time unread flash while the backend read keys load.
   useEffect(() => {
     if (!isLoggedIn || !currentOrgId || !currentUserUid) {
       setReadNotificationIds([]);
       return;
     }
-    loadNotificationReadIds(currentUserUid, currentOrgId).then(setReadNotificationIds);
+
+    const cacheKey = getNotificationReadCacheKey(currentOrgId, currentUserUid);
+    let cachedIds: string[] = [];
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      const parsed = cached ? JSON.parse(cached) : [];
+      cachedIds = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+    } catch (error) {
+      console.warn('[Notifications] Unable to restore local read cache:', error);
+    }
+
+    setReadNotificationIds(cachedIds);
+
+    loadNotificationReadIds(currentUserUid, currentOrgId).then((backendIds) => {
+      const mergedIds = Array.from(new Set([...cachedIds, ...backendIds]));
+      setReadNotificationIds(mergedIds);
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(mergedIds));
+      } catch (error) {
+        console.warn('[Notifications] Unable to update local read cache:', error);
+      }
+    });
   }, [isLoggedIn, currentOrgId, currentUserUid]);
+
+  const handleMarkNotificationsAsRead = (ids: string[]) => {
+    const normalizedIds = Array.from(new Set(ids.filter(Boolean)));
+    if (normalizedIds.length === 0) return;
+
+    setReadNotificationIds((previousIds) => {
+      const mergedIds = Array.from(new Set([...previousIds, ...normalizedIds]));
+      if (currentOrgId && currentUserUid) {
+        try {
+          localStorage.setItem(
+            getNotificationReadCacheKey(currentOrgId, currentUserUid),
+            JSON.stringify(mergedIds)
+          );
+        } catch (error) {
+          console.warn('[Notifications] Unable to save local read cache:', error);
+        }
+      }
+      return mergedIds;
+    });
+
+    void markNotificationsAsRead(currentUserUid, normalizedIds, currentOrgId);
+  };
 
   // Sync role & screen state
   useEffect(() => {
@@ -3372,10 +3420,7 @@ export default function App() {
             backendNotifications={backendNotifications}
             themeMode={config.themeMode}
             onThemeChange={(theme) => handleUpdateConfig({ ...config, themeMode: theme })}
-            onMarkAsRead={(ids) => {
-              setReadNotificationIds(prev => Array.from(new Set([...prev, ...ids])));
-              markNotificationsAsRead(currentUserUid, ids, currentOrgId);
-            }}
+            onMarkAsRead={handleMarkNotificationsAsRead}
           >
             {/* Dynamic Screen Routing */}
             {activeScreen === 'dashboard' && (
@@ -3440,10 +3485,7 @@ export default function App() {
                 pendingRestocks={pendingRestocks}
                 readNotificationIds={readNotificationIds}
                 backendNotifications={backendNotifications}
-                onMarkAsRead={(ids) => {
-                  setReadNotificationIds(prev => Array.from(new Set([...prev, ...ids])));
-                  markNotificationsAsRead(currentUserUid, ids, currentOrgId);
-                }}
+                onMarkAsRead={handleMarkNotificationsAsRead}
                 onNavigate={(screen, tab) => {
                   if (screen === 'credit-new') {
                     setActiveScreen('credit');
