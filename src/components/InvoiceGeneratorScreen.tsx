@@ -31,7 +31,8 @@ import {
   fetchInvoicesFromSupabase,
   deleteInvoiceFromSupabase,
   uploadInvoicePdfToBackend,
-  downloadInvoicePdfFromBackend
+  downloadInvoicePdfFromBackend,
+  subscribeToInvoices
 } from '../utils/invoiceServices';
 import { translate } from '../utils/translations';
 import MaterialIcon from './MaterialIcon';
@@ -156,9 +157,19 @@ export default function InvoiceGeneratorScreen({
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (currentOrgId) {
-      void fetchInvoicesFromSupabase(currentOrgId).then(setSavedInvoices);
-    }
+    if (!currentOrgId) return;
+
+    // Initial fetch
+    void fetchInvoicesFromSupabase(currentOrgId).then(setSavedInvoices);
+
+    // Live Real-Time Postgres subscription
+    const unsubscribe = subscribeToInvoices(currentOrgId, (updatedInvoices) => {
+      setSavedInvoices(updatedInvoices);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [currentOrgId]);
 
   const filteredSavedInvoices = useMemo(() => {
