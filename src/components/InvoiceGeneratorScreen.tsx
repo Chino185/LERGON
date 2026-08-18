@@ -878,34 +878,22 @@ export default function InvoiceGeneratorScreen({
     }
   };
 
-  const handlePrintOnly = () => {
-    printInvoiceSheets();
-  };
+  const handlePrintInvoice = () => {
+    setViewMode('preview');
+    setIsPreviewMode(true);
 
-  const handleExportPdf = async () => {
-    if (isPdfBusy) return;
-    setIsPdfBusy(true);
-
-    try {
-      const pdfBlob = await buildInvoicePdf();
-      downloadPdfBlob(pdfBlob);
-      setSuccessAnimation(true);
-      setTimeout(() => setSuccessAnimation(false), 2500);
-
-      void persistGeneratedInvoice(pdfBlob).catch((error) => {
-        console.error('Invoice PDF persistence failed after download:', error);
+    if (onPersistInvoice) {
+      void buildInvoicePdf().then((pdfBlob) => {
+        return persistGeneratedInvoice(pdfBlob);
+      }).catch((err) => {
+        console.error('Invoice persistence failed:', err);
       });
-
-      // Also trigger isolated print preview
-      setTimeout(() => {
-        printInvoiceSheets();
-      }, 400);
-    } catch (e) {
-      console.error('Invoice PDF export failed:', e);
-      alert('Could not generate PDF: ' + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      setIsPdfBusy(false);
     }
+
+    window.setTimeout(() => {
+      window.focus();
+      window.print();
+    }, 120);
   };
 
   return (
@@ -922,17 +910,16 @@ export default function InvoiceGeneratorScreen({
           }
 
           /* Completely collapse and remove non-print layout wrappers */
-          html, body, #root, main, [class*="max-w-"], [class*="flex-1"], [class*="lg:col-span-"] {
-            position: static !important;
-            overflow: visible !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
+          html, body {
             margin: 0 !important;
             padding: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
             background: #ffffff !important;
+            color: #000000 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           /* Hide all non-printable UI elements completely so they take 0 layout height */
@@ -947,16 +934,37 @@ export default function InvoiceGeneratorScreen({
           }
 
           /* Ensure root containers display cleanly from the very top of page 1 */
-          #root > div, main {
+          #root, main, #root > div, [class*="max-w-"], [class*="flex-1"] {
             display: block !important;
+            position: static !important;
             padding: 0 !important;
             margin: 0 !important;
             background: #ffffff !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            max-width: none !important;
+          }
+
+          #invoice-print-root {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            background: #ffffff !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
           }
 
           /* Lock layout sheet to standard physical A4 paper dimensions */
           .printable-sheet {
             display: flex !important;
+            flex-direction: column !important;
             position: relative !important;
             width: 210mm !important;
             max-width: 210mm !important;
@@ -965,7 +973,7 @@ export default function InvoiceGeneratorScreen({
             box-sizing: border-box !important;
             border: none !important;
             box-shadow: none !important;
-            padding: 15mm 15mm !important;
+            padding: 15mm 18mm !important;
             margin: 0 auto !important;
             background: #ffffff !important;
             color: #000000 !important;
@@ -985,6 +993,8 @@ export default function InvoiceGeneratorScreen({
             visibility: visible !important;
             color: #000000 !important;
             border-color: #000000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .printable-sheet .bg-black,
@@ -1798,21 +1808,12 @@ export default function InvoiceGeneratorScreen({
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <button
               type="button"
-              onClick={handleDownloadPdf}
+              onClick={handlePrintInvoice}
               disabled={isPdfBusy}
-              className="text-xs neumorphic-btn-dark px-5 py-2.5 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed shadow-md hover:brightness-110 active:scale-95 transition-all"
+              className="text-xs neumorphic-btn-dark px-7 py-3 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed shadow-md hover:brightness-110 active:scale-95 transition-all"
             >
-              <Download size={14} />
-              <span>{isPdfBusy ? translate('generating pdf...', config.languageCode) : translate('download pdf', config.languageCode)}</span>
-            </button>
-            <button
-              type="button"
-              onClick={handlePrintOnly}
-              disabled={isPdfBusy}
-              className="text-xs neumorphic-inset px-4 py-2.5 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider text-slate-900 hover:bg-slate-200/70 active:scale-95 transition-all"
-            >
-              <Printer size={14} />
-              <span>{translate('print', config.languageCode)}</span>
+              <Printer size={15} />
+              <span>{translate('print invoice', config.languageCode)}</span>
             </button>
           </div>
         </div>
