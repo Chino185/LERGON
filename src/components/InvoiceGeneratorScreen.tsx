@@ -165,16 +165,6 @@ export default function InvoiceGeneratorScreen({
   const [previewZoom, setPreviewZoom] = useState<number>(0.85); // default 0.85 scale for print preview fit
   const [sheetWidthMm, setSheetWidthMm] = useState<number>(210); // standard A4 sheet width (210mm)
 
-  // Check if we are inside an iframe since browsers block calling window.print() inside iframes
-  const [isInsideIframe, setIsInsideIframe] = useState(false);
-  useEffect(() => {
-    try {
-      setIsInsideIframe(window.self !== window.top);
-    } catch (e) {
-      setIsInsideIframe(true);
-    }
-  }, []);
-
   // Active credit account computing for autofills
   const activeUnpaidDetails = useMemo(() => {
     if (!invoiceAccountId) return null;
@@ -515,36 +505,11 @@ export default function InvoiceGeneratorScreen({
     persistedInvoiceFingerprint.current = invoiceFingerprint;
   };
 
-  const handlePreviewAndPrint = async () => {
-    if (isPdfBusy) return;
-    setIsPdfBusy(true);
+  const handleShowPreview = () => {
+    clearPdfArtifacts();
+    setIsPdfBusy(false);
     setViewMode('preview');
-
-    try {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      const pdfBlob = await buildInvoicePdf();
-      await persistGeneratedInvoice(pdfBlob);
-      setTimeout(() => {
-        try {
-          window.focus();
-          window.print();
-        } catch (e) {
-          console.error(e);
-        }
-      }, 250);
-    } catch (e) {
-      console.error('Invoice PDF generation failed:', e);
-      setTimeout(() => {
-        try {
-          window.focus();
-          window.print();
-        } catch (printError) {
-          console.error(printError);
-        }
-      }, 250);
-    } finally {
-      setIsPdfBusy(false);
-    }
+    setIsPreviewMode(true);
   };
 
   const handleExportPdf = async () => {
@@ -686,7 +651,7 @@ export default function InvoiceGeneratorScreen({
 
           <button
             type="button"
-            onClick={handlePreviewAndPrint}
+            onClick={handleShowPreview}
             className="w-full sm:w-auto px-6 py-2.5 neumorphic-btn-dark font-black rounded-full flex items-center justify-center gap-2 cursor-pointer text-xs"
           >
             <Eye size={14} />
@@ -1431,11 +1396,11 @@ export default function InvoiceGeneratorScreen({
 
               <button
                 type="button"
-                onClick={handlePreviewAndPrint}
+                onClick={handleShowPreview}
                 className="w-full sm:w-auto px-7 py-3 neumorphic-btn-dark text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Eye size={14} />
-                <span>{translate('preview & print invoice', config.languageCode)}</span>
+                <span>{translate('preview invoice layout', config.languageCode)}</span>
               </button>
             </div>
 
