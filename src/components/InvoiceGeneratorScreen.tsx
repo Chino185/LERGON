@@ -720,31 +720,25 @@ export default function InvoiceGeneratorScreen({
   const buildInvoicePdf = async (): Promise<Blob> => {
     setViewMode('preview');
     setIsPreviewMode(true);
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    await new Promise((resolve) => setTimeout(resolve, 250));
 
-    const printableSheets = Array.from(document.querySelectorAll<HTMLElement>('.printable-sheet'));
-    if (printableSheets.length === 0) {
+    const printRoot = document.getElementById('invoice-print-root');
+    if (!printRoot) {
       throw new Error('Invoice preview is not ready for PDF generation.');
     }
 
-    const { jsPDF } = await import('jspdf');
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-      compress: true
-    });
+    const html2pdfModule = await import('html2pdf.js');
+    const html2pdf = (html2pdfModule as any).default || html2pdfModule;
 
-    for (let i = 0; i < printableSheets.length; i++) {
-      if (i > 0) {
-        pdf.addPage('a4', 'portrait');
-      }
-      const canvas = await renderSheetToCanvas(printableSheets[i]);
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-    }
+    const opt = {
+      margin: 0,
+      filename: `${(invoiceNo || 'invoice').replace(/[^a-z0-9._-]+/gi, '-')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
 
-    const pdfBlob = pdf.output('blob');
+    const pdfBlob: Blob = await html2pdf().set(opt).from(printRoot).outputPdf('blob');
     if (!(pdfBlob instanceof Blob) || pdfBlob.size === 0) {
       throw new Error('PDF generation returned an empty file.');
     }
@@ -984,13 +978,15 @@ export default function InvoiceGeneratorScreen({
     setIsPdfBusy(true);
 
     try {
-      // 1. Build high-res PDF
-      const pdfBlob = await buildInvoicePdf().catch(() => undefined);
+      // 1. Build high-res PDF with html2pdf
+      const pdfBlob = await buildInvoicePdf();
 
       // 2. Save metadata + upload PDF file to Supabase storage
       await persistGeneratedInvoice(pdfBlob);
     } catch (err) {
-      console.warn('PDF storage during print skipped:', err);
+      console.error('PDF generation/storage error during print:', err);
+      // Fallback: at least save invoice metadata
+      await persistGeneratedInvoice();
     } finally {
       setIsPdfBusy(false);
       clearPdfArtifacts();
@@ -999,7 +995,7 @@ export default function InvoiceGeneratorScreen({
     window.setTimeout(() => {
       window.focus();
       window.print();
-    }, 120);
+    }, 150);
   };
 
   return (
