@@ -322,11 +322,7 @@ export interface SavedInvoice {
   line_items: any[];
   grand_total: number;
   generated_by?: string;
-  pdf_storage_key?: string | null;
   pdf_url?: string | null;
-  pdf_size_bytes?: number | null;
-  pdf_content_type?: string | null;
-  pdf_created_at?: string | null;
   created_at: string;
 }
 

@@ -98,15 +98,11 @@ export async function uploadInvoicePdfToBackend(
       .from('invoice-pdfs')
       .getPublicUrl(filePath);
 
-    // 3. Update the invoices record with direct public URL & storage metadata
+    // 3. Update the invoices record with direct public URL
     const { error: updateError } = await supabase
       .from('invoices')
       .update({
-        pdf_url: publicUrl,
-        pdf_storage_key: filePath,
-        pdf_size_bytes: pdfBlob.size,
-        pdf_content_type: 'application/pdf',
-        pdf_created_at: new Date().toISOString()
+        pdf_url: publicUrl
       })
       .eq('id', invoiceId)
       .eq('business_id', businessId);
@@ -128,7 +124,7 @@ export async function uploadInvoicePdfToBackend(
 }
 
 /**
- * Opens or downloads the stored invoice PDF directly using its public URL or fetched blob.
+ * Opens or downloads the stored invoice PDF directly using its public URL.
  */
 export async function downloadInvoicePdfFromBackend(
   businessId: string,
@@ -141,7 +137,7 @@ export async function downloadInvoicePdfFromBackend(
     // 1. Check if invoice has a direct public URL
     const { data, error } = await supabase
       .from('invoices')
-      .select('pdf_url, pdf_storage_key')
+      .select('pdf_url')
       .eq('id', invoiceId)
       .eq('business_id', businessId)
       .maybeSingle();
@@ -149,7 +145,7 @@ export async function downloadInvoicePdfFromBackend(
     if (error) throw error;
 
     if (data?.pdf_url) {
-      // Trigger browser download via URL
+      // Trigger browser download via direct public URL
       const res = await fetch(data.pdf_url);
       if (res.ok) {
         const blob = await res.blob();
@@ -165,26 +161,7 @@ export async function downloadInvoicePdfFromBackend(
       }
     }
 
-    // Fallback: download directly from storage
-    if (data?.pdf_storage_key) {
-      const { data: fileBlob, error: downloadError } = await supabase.storage
-        .from('invoice-pdfs')
-        .download(data.pdf_storage_key);
-
-      if (downloadError) throw downloadError;
-
-      const url = URL.createObjectURL(fileBlob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `${(invoiceNumber || 'invoice').replace(/[^a-z0-9._-]+/gi, '-')}.pdf`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return { success: true };
-    }
-
-    return { success: false, error: 'No stored PDF found for this invoice.' };
+    return { success: false, error: 'No stored PDF URL found for this invoice.' };
   } catch (err: any) {
     console.error('downloadInvoicePdf Error:', err);
     return { success: false, error: err?.message || 'Failed to download invoice PDF.' };

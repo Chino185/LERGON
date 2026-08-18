@@ -958,7 +958,7 @@ export default function InvoiceGeneratorScreen({
       if (!invoiceId) throw new Error('The invoice metadata could not be saved before PDF upload.');
       const refreshedInvoices = currentOrgId ? await fetchInvoicesFromSupabase(currentOrgId) : [];
       const saved = refreshedInvoices.find(inv => inv.id === invoiceId);
-      if (!saved?.pdf_storage_key) {
+      if (!saved?.pdf_url) {
         throw new Error('The backend did not return a stored PDF for this invoice.');
       }
       const result = await downloadInvoicePdfFromBackend(currentOrgId || '', invoiceId, invoiceNo);
@@ -2403,7 +2403,7 @@ export default function InvoiceGeneratorScreen({
                         <span className="font-black text-sm text-slate-900 dark:text-emerald-400 mr-2">
                           {config.currencySymbol || '$'}{Number(inv.grand_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
-                        {inv.pdf_storage_key && (
+                        {inv.pdf_url && (
                           <button
                             type="button"
                             disabled={isPdfBusy}
