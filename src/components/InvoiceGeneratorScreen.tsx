@@ -462,7 +462,15 @@ export default function InvoiceGeneratorScreen({
     printableRoot.style.background = '#ffffff';
 
     try {
-      const { default: html2pdf } = await import('html2pdf.js');
+      const html2pdfModule = await import('html2pdf.js');
+      const moduleCandidate = (html2pdfModule as { default?: unknown }).default ?? html2pdfModule;
+      const html2pdf = typeof moduleCandidate === 'function'
+        ? moduleCandidate
+        : (moduleCandidate as { default?: unknown }).default;
+      if (typeof html2pdf !== 'function') {
+        throw new Error('The html2pdf.js module did not expose a callable PDF generator.');
+      }
+
       const fileName = `invoice-${invoiceNo.trim() || 'draft'}.pdf`;
       const pdfBlob = await html2pdf()
         .set({
@@ -507,6 +515,18 @@ export default function InvoiceGeneratorScreen({
     persistedInvoiceFingerprint.current = invoiceFingerprint;
   };
 
+  const downloadPdfBlob = (pdfBlob: Blob) => {
+    const downloadUrl = URL.createObjectURL(pdfBlob);
+    const anchor = document.createElement('a');
+    anchor.href = downloadUrl;
+    anchor.download = `invoice-${invoiceNo.trim() || 'draft'}.pdf`;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  };
+
   const handleShowPreview = () => {
     clearPdfArtifacts();
     setIsPdfBusy(false);
@@ -522,16 +542,12 @@ export default function InvoiceGeneratorScreen({
     try {
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       const pdfBlob = await buildInvoicePdf();
-      await persistGeneratedInvoice(pdfBlob);
+      downloadPdfBlob(pdfBlob);
 
-      const downloadUrl = URL.createObjectURL(pdfBlob);
-      const anchor = document.createElement('a');
-      anchor.href = downloadUrl;
-      anchor.download = `invoice-${invoiceNo.trim() || 'draft'}.pdf`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(downloadUrl);
+      // Saving to Supabase is best effort and must never prevent the local download.
+      void persistGeneratedInvoice(pdfBlob).catch((error) => {
+        console.error('Invoice PDF persistence failed after download:', error);
+      });
     } catch (e) {
       console.error('Invoice PDF export failed:', e);
     } finally {
