@@ -314,12 +314,26 @@ export interface TenantNotification {
   created_at: string;
 }
 
+export interface SavedInvoice {
+  id: string;
+  business_id: string;
+  invoice_number: string;
+  bill_to: string;
+  line_items: any[];
+  grand_total: number;
+  generated_by?: string;
+  created_at: string;
+}
+
 export interface TenantInvoice {
   id: string;
   business_id: string;
   invoice_number: string;
-  customer_name: string;
-  total_amount: number;
+  customer_name?: string;
+  bill_to?: string;
+  total_amount?: number;
+  grand_total?: number;
+  line_items?: any[];
   pdf_url?: string;
   created_at: string;
 }

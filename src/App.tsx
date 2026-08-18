@@ -3574,7 +3574,20 @@ export default function App() {
                 adjustments={adjustments}
                 transactions={transactions}
                 config={config}
-                onPersistInvoice={async (payload) => saveInvoice(currentOrgId, currentUserUid, payload)}
+                currentOrgId={currentOrgId}
+                currentUserUid={currentUserUid}
+                onPersistInvoice={async (payload) => {
+                  const res = await saveInvoice(currentOrgId, currentUserUid, payload);
+                  if (res.success && currentOrgId && currentUserUid) {
+                    void logActivity(
+                      currentOrgId,
+                      currentUserUid,
+                      'invoice_generated',
+                      `Generated & Printed Invoice #${payload.invoiceNumber} for ${payload.billTo} (${config.currencySymbol || '$'}${Number(payload.grandTotal || 0).toLocaleString()})`
+                    );
+                  }
+                  return res;
+                }}
               />
             )}
 
