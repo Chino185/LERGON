@@ -107,6 +107,10 @@ export default function InvoiceGeneratorScreen({
   const [companyContact, setCompanyContact] = useState(() => [config?.phone, config?.email].filter(Boolean).join('   '));
   const [professionalTag, setProfessionalTag] = useState('');
   const [documentTopic, setDocumentTopic] = useState('PROFORMA INVOICE');
+  const [paymentInstructionsTitle, setPaymentInstructionsTitle] = useState('');
+  const [paymentBankName, setPaymentBankName] = useState('');
+  const [paymentAccountNumber, setPaymentAccountNumber] = useState('');
+  const [paymentBranch, setPaymentBranch] = useState('');
 
   const [invoiceNo, setInvoiceNo] = useState(() => `INV-${Date.now().toString().slice(-8)}`);
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
@@ -394,6 +398,10 @@ export default function InvoiceGeneratorScreen({
     companyContact,
     professionalTag,
     documentTopic,
+    paymentInstructionsTitle,
+    paymentBankName,
+    paymentAccountNumber,
+    paymentBranch,
     logoImage,
     logoWidth,
     logoHeight,
@@ -414,6 +422,10 @@ export default function InvoiceGeneratorScreen({
     companyContact,
     professionalTag,
     documentTopic,
+    paymentInstructionsTitle,
+    paymentBankName,
+    paymentAccountNumber,
+    paymentBranch,
     logoImage,
     logoWidth,
     logoHeight,
@@ -720,7 +732,7 @@ export default function InvoiceGeneratorScreen({
                     <MaterialIcon name="description" size={16} className={activePreset === 'invoice_credit' ? 'text-sky-600 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400'} />
                     <span className="text-[8px] neumorphic-btn text-slate-800 dark:text-white font-extrabold px-2 py-0.5 rounded uppercase font-mono">{translate('image exact', config.languageCode)}</span>
                   </div>
-                  <span className="text-[10px] mt-2 block font-black text-slate-900 dark:text-white">{translate('jollidun proforma', config.languageCode)}</span>
+                  <span className="text-[10px] mt-2 block font-black text-slate-900 dark:text-white">{companyName || translate('proforma invoice', config.languageCode)}</span>
                 </button>
 
                 <button
@@ -914,6 +926,40 @@ export default function InvoiceGeneratorScreen({
                     onChange={(val) => setCompanyContact(val)}
                     className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
                   />
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/40 space-y-2">
+                  <div className="text-[8.5px] font-black text-slate-500 uppercase">Payment instructions (optional)</div>
+                  <DebouncedInput
+                    type="text"
+                    value={paymentInstructionsTitle}
+                    onChange={(val) => setPaymentInstructionsTitle(val.toUpperCase())}
+                    placeholder="e.g. Payment details"
+                    className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                  <DebouncedInput
+                    type="text"
+                    value={paymentBankName}
+                    onChange={(val) => setPaymentBankName(val.toUpperCase())}
+                    placeholder="Bank or payment provider"
+                    className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <DebouncedInput
+                      type="text"
+                      value={paymentAccountNumber}
+                      onChange={setPaymentAccountNumber}
+                      placeholder="Account / wallet number"
+                      className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                    />
+                    <DebouncedInput
+                      type="text"
+                      value={paymentBranch}
+                      onChange={(val) => setPaymentBranch(val.toUpperCase())}
+                      placeholder="Branch or payment note"
+                      className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1451,7 +1497,7 @@ export default function InvoiceGeneratorScreen({
 
                 {/* Top reference strip */}
                 <div className="absolute top-2 left-0 right-0 flex justify-between items-center px-10 sm:px-14 opacity-20 select-none no-print text-[7.5px] font-mono uppercase tracking-widest text-slate-500">
-                  <span>{translate('jollidun proforma invoice station', config.languageCode)}</span>
+                  <span>{companyName || translate('proforma invoice', config.languageCode)}</span>
                   <span>{translate('page', config.languageCode)} {pageIndex + 1} {translate('of', config.languageCode)} {itemsPages.length}</span>
                 </div>
 
@@ -1628,24 +1674,31 @@ export default function InvoiceGeneratorScreen({
                       </div>
                     </div>
 
-                    {/* Cheque Payment Instructions */}
-                    <div className="text-left self-start max-w-sm select-text font-sans space-y-0.5">
-                      <div className="text-[11px] font-black text-black uppercase tracking-wider underline decoration-black decoration-1.5 underline-offset-2 mb-1">
-                        {translate('make all cheques payable to:', config.languageCode).toUpperCase()}
+                    {/* Optional tenant-specific payment instructions. */}
+                    {[paymentInstructionsTitle, paymentBankName, paymentAccountNumber, paymentBranch].some((value) => value.trim()) && (
+                      <div className="text-left self-start max-w-sm select-text font-sans space-y-0.5">
+                        {paymentInstructionsTitle.trim() && (
+                          <div className="text-[11px] font-black text-black uppercase tracking-wider underline decoration-black decoration-1.5 underline-offset-2 mb-1">
+                            {paymentInstructionsTitle}
+                          </div>
+                        )}
+                        {paymentBankName.trim() && (
+                          <div className="text-[11px] font-black text-black uppercase leading-snug">
+                            {paymentBankName}
+                          </div>
+                        )}
+                        {paymentAccountNumber.trim() && (
+                          <div className="text-[11px] font-black text-black tracking-wide leading-snug select-all">
+                            {paymentAccountNumber}
+                          </div>
+                        )}
+                        {paymentBranch.trim() && (
+                          <div className="text-[11px] font-black text-black uppercase leading-snug">
+                            {paymentBranch}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-[11px] font-black text-black uppercase leading-tight select-all">
-                        {companyName}
-                      </div>
-                      <div className="text-[11px] font-black text-black uppercase leading-snug">
-                        AGRICULTURAL DEVELOPMENT BANK
-                      </div>
-                      <div className="text-[11px] font-black text-black tracking-wide leading-snug select-all">
-                        ACC NO: 1171010173652401
-                      </div>
-                      <div className="text-[11px] font-black text-black uppercase leading-snug">
-                        ACHIMOTA BRANCH
-                      </div>
-                    </div>
+                    )}
                   </div>
                 )}
 
