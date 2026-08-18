@@ -429,7 +429,9 @@ export default function InvoiceGeneratorScreen({
   ]);
 
   const clearPdfArtifacts = () => {
-    document.querySelectorAll('.html2pdf__container').forEach((node) => node.remove());
+    document
+      .querySelectorAll('.html2pdf__overlay, .html2pdf__container, .html2canvas-container')
+      .forEach((node) => node.remove());
   };
 
   useEffect(() => {
