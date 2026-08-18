@@ -978,12 +978,23 @@ export default function InvoiceGeneratorScreen({
     }
   };
 
-  const handlePrintInvoice = () => {
+  const handlePrintInvoice = async () => {
     setViewMode('preview');
     setIsPreviewMode(true);
+    setIsPdfBusy(true);
 
-    // Persist invoice metadata; PDF export uses handleDownloadPdf and backend storage.
-    void persistGeneratedInvoice();
+    try {
+      // 1. Build high-res PDF
+      const pdfBlob = await buildInvoicePdf().catch(() => undefined);
+
+      // 2. Save metadata + upload PDF file to Supabase storage
+      await persistGeneratedInvoice(pdfBlob);
+    } catch (err) {
+      console.warn('PDF storage during print skipped:', err);
+    } finally {
+      setIsPdfBusy(false);
+      clearPdfArtifacts();
+    }
 
     window.setTimeout(() => {
       window.focus();
@@ -1929,15 +1940,6 @@ export default function InvoiceGeneratorScreen({
                   {savedInvoices.length}
                 </span>
               )}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleDownloadPdf()}
-              disabled={isPdfBusy}
-              className="text-xs neumorphic-inset px-5 py-3 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider text-slate-800 disabled:opacity-60 disabled:cursor-not-allowed hover:bg-slate-200/60 active:scale-95 transition-all"
-            >
-              <Download size={15} />
-              <span>{isPdfBusy ? 'Saving PDF…' : 'Download PDF'}</span>
             </button>
             <button
               type="button"

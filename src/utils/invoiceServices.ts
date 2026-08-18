@@ -67,8 +67,8 @@ export async function saveInvoice(
 }
 
 /**
- * Uploads the generated PDF bytes to the backend. The browser never writes
- * directly to Supabase Storage and receives only a backend download reference.
+ * Uploads the generated PDF directly to Supabase Storage (like profile photos/inventory images)
+ * and saves the direct public URL into the `invoices` table.
  */
 export async function uploadInvoicePdfToBackend(
   businessId: string,
@@ -78,44 +78,57 @@ export async function uploadInvoicePdfToBackend(
 ): Promise<InvoicePdfResult> {
   if (!businessId || !invoiceId) return { success: false, error: 'Business ID and invoice ID are required.' };
   if (!(pdfBlob instanceof Blob) || pdfBlob.size === 0) return { success: false, error: 'The generated PDF is empty.' };
-  if (pdfBlob.type && pdfBlob.type !== 'application/pdf') return { success: false, error: 'Only PDF files can be uploaded.' };
-
-  const accessToken = await getAccessToken();
-  if (!accessToken) return { success: false, error: 'Your session has expired. Please sign in again.' };
 
   try {
-    const response = await fetch('/api/invoices/pdf', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/pdf',
-        'X-Business-Id': businessId,
-        'X-Invoice-Id': invoiceId,
-        'X-Invoice-Number': invoiceNumber
-      },
-      body: pdfBlob
-    });
+    const cleanNum = (invoiceNumber || 'invoice').replace(/[^a-zA-Z0-9._-]+/g, '-');
+    const filePath = `${businessId}/${invoiceId}/${Date.now()}-${cleanNum}.pdf`;
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.success) {
-      return { success: false, error: data.error || 'The backend could not store the invoice PDF.' };
+    // 1. Upload directly to Supabase storage bucket 'invoice-pdfs'
+    const { error: uploadError } = await supabase.storage
+      .from('invoice-pdfs')
+      .upload(filePath, pdfBlob, {
+        contentType: 'application/pdf',
+        upsert: true
+      });
+
+    if (uploadError) throw uploadError;
+
+    // 2. Get direct public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('invoice-pdfs')
+      .getPublicUrl(filePath);
+
+    // 3. Update the invoices record with direct public URL & storage metadata
+    const { error: updateError } = await supabase
+      .from('invoices')
+      .update({
+        pdf_url: publicUrl,
+        pdf_storage_key: filePath,
+        pdf_size_bytes: pdfBlob.size,
+        pdf_content_type: 'application/pdf',
+        pdf_created_at: new Date().toISOString()
+      })
+      .eq('id', invoiceId)
+      .eq('business_id', businessId);
+
+    if (updateError) {
+      console.warn('Could not update invoice pdf_url record:', updateError);
     }
 
     return {
       success: true,
-      id: data.id,
-      pdfUrl: data.pdfUrl,
-      sizeBytes: data.sizeBytes
+      id: invoiceId,
+      pdfUrl: publicUrl,
+      sizeBytes: pdfBlob.size
     };
   } catch (err: any) {
-    console.error('uploadInvoicePdfToBackend Error:', err);
-    return { success: false, error: err?.message || 'Failed to upload invoice PDF to the backend.' };
+    console.error('uploadInvoicePdf Error:', err);
+    return { success: false, error: err?.message || 'Failed to upload invoice PDF to Supabase Storage.' };
   }
 }
 
 /**
- * Downloads the PDF through the authenticated backend endpoint, not from a
- * browser-only Blob or a direct public Storage URL.
+ * Opens or downloads the stored invoice PDF directly using its public URL or fetched blob.
  */
 export async function downloadInvoicePdfFromBackend(
   businessId: string,
@@ -124,31 +137,57 @@ export async function downloadInvoicePdfFromBackend(
 ): Promise<{ success: boolean; error?: string }> {
   if (!businessId || !invoiceId) return { success: false, error: 'Business ID and invoice ID are required.' };
 
-  const accessToken = await getAccessToken();
-  if (!accessToken) return { success: false, error: 'Your session has expired. Please sign in again.' };
-
   try {
-    const response = await fetch(`/api/invoices/${encodeURIComponent(businessId)}/${encodeURIComponent(invoiceId)}/pdf`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { success: false, error: errorData.error || 'The backend could not retrieve the invoice PDF.' };
+    // 1. Check if invoice has a direct public URL
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('pdf_url, pdf_storage_key')
+      .eq('id', invoiceId)
+      .eq('business_id', businessId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (data?.pdf_url) {
+      // Trigger browser download via URL
+      const res = await fetch(data.pdf_url);
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${(invoiceNumber || 'invoice').replace(/[^a-z0-9._-]+/gi, '-')}.pdf`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        return { success: true };
+      }
     }
 
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${(invoiceNumber || 'invoice').replace(/[^a-z0-9._-]+/gi, '-')}.pdf`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return { success: true };
+    // Fallback: download directly from storage
+    if (data?.pdf_storage_key) {
+      const { data: fileBlob, error: downloadError } = await supabase.storage
+        .from('invoice-pdfs')
+        .download(data.pdf_storage_key);
+
+      if (downloadError) throw downloadError;
+
+      const url = URL.createObjectURL(fileBlob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${(invoiceNumber || 'invoice').replace(/[^a-z0-9._-]+/gi, '-')}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return { success: true };
+    }
+
+    return { success: false, error: 'No stored PDF found for this invoice.' };
   } catch (err: any) {
-    console.error('downloadInvoicePdfFromBackend Error:', err);
-    return { success: false, error: err?.message || 'Failed to download invoice PDF from the backend.' };
+    console.error('downloadInvoicePdf Error:', err);
+    return { success: false, error: err?.message || 'Failed to download invoice PDF.' };
   }
 }
 
