@@ -603,6 +603,9 @@ export function subscribeToStockAdjustments(
           type: d.adjustment_type,
           date: d.created_at,
           notes: d.notes || '',
+          unitPriceSnapshot: d.unit_price_snapshot !== null && d.unit_price_snapshot !== undefined
+            ? Number(d.unit_price_snapshot)
+            : undefined,
           creditAccountId: d.credit_account_id || undefined,
           performedBy: d.performed_by || 'System',
           isFlagged: Boolean(d.is_flagged),

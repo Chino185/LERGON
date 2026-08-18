@@ -1612,6 +1612,7 @@ export default function App() {
       type,
       date: now,
       notes,
+      unitPriceSnapshot: type === 'sale_out' ? item.unitPrice : undefined,
       creditAccountId,
       performedBy: userUid
     }, ...prev]);
@@ -1774,7 +1775,9 @@ export default function App() {
     // 2. Update CreditAccounts and Transactions if credit-linked
     if (adj.creditAccountId) {
       const adjType = adj.type;
-      const unitPriceOrCost = adjType === 'sale_out' ? (item?.unitPrice || 0) : (item?.unitCost || 0);
+      const unitPriceOrCost = adjType === 'sale_out'
+        ? (adj.unitPriceSnapshot ?? item?.unitPrice ?? 0)
+        : (item?.unitCost || 0);
       const creditAmountDiff = (Math.abs(adj.qtyChanged) - Math.abs(correctedQty)) * unitPriceOrCost;
 
       setCreditAccounts(prevAccs => prevAccs.map(acc => {

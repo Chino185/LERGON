@@ -277,7 +277,7 @@ export default function ReportScreen({
       .forEach(adj => {
         const item = inventory.find(i => i.id === adj.itemId);
         const qty = Math.abs(adj.qtyChanged);
-        const price = item ? item.unitPrice : 0;
+        const price = adj.unitPriceSnapshot ?? (item ? item.unitPrice : 0);
         const cost = item ? item.unitCost : 0;
         const revenue = qty * price;
         const margin = price - cost;
@@ -381,7 +381,7 @@ export default function ReportScreen({
 
       const item = inventory.find(i => i.id === adj.itemId);
       const qty = Math.abs(adj.qtyChanged);
-      const price = item ? item.unitPrice : 0;
+      const price = adj.unitPriceSnapshot ?? (item ? item.unitPrice : 0);
       const cost = item ? item.unitCost : 0;
       const revenue = qty * price;
       const margin = price - cost;

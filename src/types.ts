@@ -22,6 +22,7 @@ export interface StockAdjustment {
   type: 'initial_stock' | 'purchase_in' | 'sale_out' | 'damaged' | 'returned' | 'audit_adjustment';
   date: string;
   notes: string;
+  unitPriceSnapshot?: number;
   creditAccountId?: string;
   performedBy?: string;
   isFlagged?: boolean;

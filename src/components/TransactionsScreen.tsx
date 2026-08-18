@@ -525,7 +525,7 @@ export default function TransactionsScreen({
 
     filteredSaleCreditAdjustments.forEach(adj => {
       const item = inventory.find(i => i.id === adj.itemId);
-      const price = item ? item.unitPrice : 0;
+      const price = adj.unitPriceSnapshot ?? (item ? item.unitPrice : 0);
       const val = Math.abs(adj.qtyChanged) * price;
 
       const isCredited = !!adj.creditAccountId || !!(adj.notes && (adj.notes.toLowerCase().includes('credited') || adj.notes.toLowerCase().includes('on credit') || adj.notes.toLowerCase().includes('sold on credit') || adj.notes.toLowerCase().includes('purchased on credit')));
@@ -670,7 +670,7 @@ export default function TransactionsScreen({
       rows = filteredSaleCreditAdjustments.map(adj => {
         const isCredited = !!adj.creditAccountId || !!(adj.notes && (adj.notes.toLowerCase().includes('credited') || adj.notes.toLowerCase().includes('on credit') || adj.notes.toLowerCase().includes('sold on credit') || adj.notes.toLowerCase().includes('purchased on credit')));
         const item = inventory.find(i => i.id === adj.itemId);
-        const price = item ? item.unitPrice : 0;
+        const price = adj.unitPriceSnapshot ?? (item ? item.unitPrice : 0);
         const val = Math.abs(adj.qtyChanged) * price;
         return [
           adj.id,
@@ -1272,7 +1272,7 @@ export default function TransactionsScreen({
                           {group.items.map((adj) => {
                             const isCredited = !!adj.creditAccountId || !!(adj.notes && (adj.notes.toLowerCase().includes('credited') || adj.notes.toLowerCase().includes('on credit') || adj.notes.toLowerCase().includes('sold on credit') || adj.notes.toLowerCase().includes('purchased on credit')));
                             const item = inventory.find(i => i.id === adj.itemId);
-                            const price = item ? item.unitPrice : 0;
+                            const price = adj.unitPriceSnapshot ?? (item ? item.unitPrice : 0);
                             const val = Math.abs(adj.qtyChanged) * price;
 
                             const account = isCredited ? getLinkedAccount(adj) : null;
@@ -1387,7 +1387,7 @@ export default function TransactionsScreen({
                         {group.items.map((adj) => {
                           const isCredited = !!adj.creditAccountId || !!(adj.notes && (adj.notes.toLowerCase().includes('credited') || adj.notes.toLowerCase().includes('on credit') || adj.notes.toLowerCase().includes('sold on credit') || adj.notes.toLowerCase().includes('purchased on credit')));
                           const item = inventory.find(i => i.id === adj.itemId);
-                          const price = item ? item.unitPrice : 0;
+                          const price = adj.unitPriceSnapshot ?? (item ? item.unitPrice : 0);
                           const val = Math.abs(adj.qtyChanged) * price;
 
                           const account = isCredited ? getLinkedAccount(adj) : null;
