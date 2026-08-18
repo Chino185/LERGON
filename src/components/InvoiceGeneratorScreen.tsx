@@ -534,20 +534,36 @@ export default function InvoiceGeneratorScreen({
     setIsPreviewMode(true);
   };
 
+  const openSystemPrintDialog = () => {
+    clearPdfArtifacts();
+    window.setTimeout(() => {
+      try {
+        window.focus();
+        window.print();
+      } catch (error) {
+        console.error('Invoice system print failed:', error);
+      }
+    }, 100);
+  };
+
   const handleExportPdf = async () => {
     if (isPdfBusy) return;
     setIsPdfBusy(true);
     setViewMode('preview');
+    setIsPreviewMode(true);
 
     try {
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       const pdfBlob = await buildInvoicePdf();
       downloadPdfBlob(pdfBlob);
 
-      // Saving to Supabase is best effort and must never prevent the local download.
+      // Saving to Supabase is best effort and must never prevent local download or printing.
       void persistGeneratedInvoice(pdfBlob).catch((error) => {
         console.error('Invoice PDF persistence failed after download:', error);
       });
+
+      // The print stylesheet above produces the system-printable invoice layout.
+      openSystemPrintDialog();
     } catch (e) {
       console.error('Invoice PDF export failed:', e);
     } finally {
@@ -1455,7 +1471,7 @@ export default function InvoiceGeneratorScreen({
               className="text-xs neumorphic-btn-dark px-6 py-2.5 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Printer size={14} />
-              <span>{translate('export as pdf', config.languageCode)}</span>
+              <span>{translate('export as pdf and print', config.languageCode)}</span>
             </button>
           </div>
         </div>
