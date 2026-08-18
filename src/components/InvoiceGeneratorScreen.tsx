@@ -534,93 +534,11 @@ export default function InvoiceGeneratorScreen({
     setIsPreviewMode(true);
   };
 
-  const openInvoicePrintWindow = (): Window | null => {
-    const printableSheets = Array.from(document.querySelectorAll<HTMLElement>('.printable-sheet'))
-      .map((sheet) => sheet.outerHTML)
-      .join('');
-
-    if (!printableSheets) {
-      console.error('Invoice print failed: no printable invoice sheets were found.');
-      return null;
-    }
-
-    const copiedStyles = Array.from(document.styleSheets)
-      .map((sheet) => {
-        try {
-          return Array.from(sheet.cssRules).map((rule) => rule.cssText).join('\\n');
-        } catch {
-          return '';
-        }
-      })
-      .filter(Boolean)
-      .join('\\n');
-
-    const printWindow = window.open('', '_blank', 'width=1000,height=800');
-    if (!printWindow) {
-      console.error('Invoice print failed because the browser blocked the print window.');
-      return null;
-    }
-
-    const printStyles = `
-      @page { size: A4 portrait; margin: 0; }
-      html, body { margin: 0; padding: 0; background: #ffffff; }
-      body { color: #000000; }
-      .printable-sheet {
-        display: flex !important;
-        position: relative !important;
-        width: 210mm !important;
-        max-width: 210mm !important;
-        min-height: 297mm !important;
-        height: 297mm !important;
-        box-sizing: border-box !important;
-        margin: 0 auto !important;
-        padding: 15mm !important;
-        background: #ffffff !important;
-        color: #000000 !important;
-        box-shadow: none !important;
-        transform: none !important;
-        zoom: 1 !important;
-        page-break-after: always !important;
-        break-after: page !important;
-      }
-      .printable-sheet:last-child { page-break-after: auto !important; break-after: auto !important; }
-      .printable-sheet * { visibility: visible !important; color: #000000 !important; border-color: #000000 !important; }
-      .printable-sheet .bg-black,
-      .printable-sheet tr.bg-black { background-color: #000000 !important; color: #ffffff !important; }
-      .printable-sheet .bg-black * { color: #ffffff !important; }
-      @media screen {
-        .printable-sheet { margin: 16px auto !important; box-shadow: 0 2px 12px rgba(0,0,0,.18) !important; }
-      }
-    `;
-
-    const printDocument = printWindow.document;
-    printDocument.open();
-    printDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNo.trim() || 'draft'}</title><style>${copiedStyles}</style><style>${printStyles}</style></head><body>${printableSheets}</body></html>`);
-    printDocument.close();
-
-    let printed = false;
-    const printNow = () => {
-      if (printed || printWindow.closed) return;
-      printed = true;
-      printWindow.focus();
-      printWindow.print();
-    };
-    printWindow.addEventListener('afterprint', () => printWindow.close(), { once: true });
-    printWindow.addEventListener('load', () => window.setTimeout(printNow, 50), { once: true });
-    window.setTimeout(printNow, 250);
-
-    return printWindow;
-  };
-
   const handleExportPdf = async () => {
     if (isPdfBusy) return;
     setIsPdfBusy(true);
     setViewMode('preview');
     setIsPreviewMode(true);
-
-    // Open the print window synchronously while the browser still recognizes the user click.
-    // Delaying window.open until after PDF generation causes popup blockers to reject printing.
-    const printWindow = openInvoicePrintWindow();
 
     try {
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -632,22 +550,16 @@ export default function InvoiceGeneratorScreen({
         console.error('Invoice PDF persistence failed after download:', error);
       });
 
-      // The print window was opened from the original user gesture before async work began.
-      // If the browser blocked that popup, the local PDF download still completes.
-      if (!printWindow) {
-        console.error('Invoice print window was blocked. Falling back to the current invoice preview.');
+      // Print the exact settled preview in the current window so the system output matches the screen.
+      window.setTimeout(() => {
         clearPdfArtifacts();
-        window.setTimeout(() => {
-          try {
-            window.focus();
-            window.print();
-          } catch (error) {
-            console.error('Invoice fallback system print failed:', error);
-          }
-        }, 100);
-      } else {
-        clearPdfArtifacts();
-      }
+        try {
+          window.focus();
+          window.print();
+        } catch (error) {
+          console.error('Invoice system print failed:', error);
+        }
+      }, 150);
     } catch (e) {
       console.error('Invoice PDF export failed:', e);
     } finally {
