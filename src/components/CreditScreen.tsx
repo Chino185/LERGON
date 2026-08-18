@@ -1540,7 +1540,7 @@ export default function CreditScreen({
               <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] border border-white/80 dark:border-slate-700 p-3 rounded-xl grid grid-cols-2 gap-y-3 gap-x-2 text-[11px] text-slate-900 dark:text-white">
                 <div>
                   <span className="text-gray-500 block">Credit Record Identifier:</span>
-                  <strong className="text-indigo-600 text-xs font-mono font-bold">CR-{historyAcc.id.replace('credit-', '').slice(-6).toUpperCase()}</strong>
+                  <strong className="text-slate-800 dark:text-white text-xs font-mono font-bold">CR-{historyAcc.id.replace('credit-', '').slice(-6).toUpperCase()}</strong>
                 </div>
                 <div>
                   <span className="text-gray-500 block">Total Credit Allocated:</span>
@@ -1548,7 +1548,7 @@ export default function CreditScreen({
                 </div>
                 <div>
                   <span className="text-gray-500 block">Current Outstanding Balance:</span>
-                  <strong className="text-rose-700 dark:text-rose-300 text-sm font-semibold font-mono">{formatMoney(historyAcc.remainingAmount)}</strong>
+                  <strong className="text-slate-800 dark:text-white text-sm font-semibold font-mono">{formatMoney(historyAcc.remainingAmount)}</strong>
                 </div>
                 <div>
                   <span className="text-gray-500 block">Date of Crediting:</span>
@@ -1560,7 +1560,7 @@ export default function CreditScreen({
                 </div>
                 <div>
                   <span className="text-gray-500 block">Payment Date:</span>
-                  <strong className={`font-mono text-[11px] ${historyAcc.paymentDate ? 'text-emerald-700' : 'text-gray-400 italic font-normal'}`}>
+                  <strong className={`font-mono text-[11px] ${historyAcc.paymentDate ? 'text-slate-800 dark:text-white' : 'text-gray-400 italic font-normal'}`}>
                     {historyAcc.paymentDate ? new Date(historyAcc.paymentDate).toLocaleDateString() : 'No payments yet'}
                   </strong>
                 </div>
@@ -1596,7 +1596,7 @@ export default function CreditScreen({
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-gray-800 capitalize">{txn.type === 'pay' ? 'Installment Repayment' : 'Credit Granted / Charge'}</span>
                             {txn.paymentMethod && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-sm border border-indigo-100">
+                              <span className="neumorphic-inset text-slate-800 dark:text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm border border-slate-300 dark:border-slate-700">
                                 {txn.paymentMethod}
                               </span>
                             )}
@@ -1612,7 +1612,7 @@ export default function CreditScreen({
                                   });
                                   setShowProofModal(true);
                                 }}
-                                className="text-[9px] font-bold text-indigo-700 hover:text-indigo-950 underline flex items-center gap-0.5 cursor-pointer ml-1"
+                                className="text-[9px] font-bold text-slate-800 dark:text-white hover:text-slate-950 dark:hover:text-slate-200 underline flex items-center gap-0.5 cursor-pointer ml-1"
                               >
                                 <Paperclip size={8} /> Receipt Proof
                               </button>
@@ -1621,23 +1621,23 @@ export default function CreditScreen({
                           <p className="text-[10px] text-gray-400 mt-1">
                             {txn.notes} • {new Date(txn.date).toLocaleString()}
                             {txn.type === 'pay' && txn.relatedCreditTxnId && (
-                              <span className="block text-indigo-600 font-bold mt-0.5">
+                              <span className="block text-slate-800 dark:text-white font-bold mt-0.5">
                                 Directed to Credit ID: {txn.relatedCreditTxnId.replace('txn-', '')}
                               </span>
                             )}
                             {(txn.type === 'charge' || txn.type === 'borrow') && (
-                              <span className={`block font-bold mt-0.5 ${(txn.remainingAmount !== undefined ? txn.remainingAmount : txn.amount) === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              <span className={`block font-bold mt-0.5 text-slate-800 dark:text-white`}>
                                 Unpaid Record Balance: {formatMoney(txn.remainingAmount !== undefined ? txn.remainingAmount : txn.amount)}
                               </span>
                             )}
                             {txn.type === 'pay' && txn.remainingAmount !== undefined && (
-                              <span className={`block font-bold mt-0.5 ${txn.remainingAmount === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              <span className={`block font-bold mt-0.5 text-slate-800 dark:text-white`}>
                                 Balance Left After Payment: {formatMoney(txn.remainingAmount)}
                               </span>
                             )}
                           </p>
                         </div>
-                        <strong className={`font-mono font-bold text-xs shrink-0 ${txn.type === 'pay' ? 'text-emerald-600' : 'text-slate-800'}`}>
+                        <strong className={`font-mono font-bold text-xs shrink-0 text-slate-800 dark:text-white`}>
                           {txn.type === 'pay' ? '-' : '+'}{formatMoney(txn.amount)}
                         </strong>
                       </div>
@@ -1651,9 +1651,6 @@ export default function CreditScreen({
 
               {modalHistoryTab === 'goods' && (
                 <div className="space-y-3">
-                  <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-3 text-[11px] leading-relaxed">
-                    Payments made by the client dynamically deduct from outstanding items starting from the oldest credited goods (FIFO). Items with 0 remaining balance are officially registered as <strong>Fully Paid & Sold</strong>.
-                  </div>
                   <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
                     <table className="w-full text-left text-[11px] border-collapse">
                       <thead>
@@ -1683,7 +1680,7 @@ export default function CreditScreen({
                             <td className="py-3 px-3">
                               {g.outstandingQuantity > 0 ? (
                                 <div>
-                                  <span className="text-red-650 font-bold font-mono">
+                                  <span className="text-slate-800 dark:text-white font-bold font-mono">
                                     {formatMoney(g.outstandingValue)}
                                   </span>
                                   <span className="text-[9px] text-slate-400 block font-mono">
@@ -1691,22 +1688,22 @@ export default function CreditScreen({
                                   </span>
                                 </div>
                               ) : (
-                                <span className="text-emerald-600 line-through font-mono font-medium">
+                                <span className="text-slate-800 dark:text-white line-through font-mono font-medium">
                                   {formatMoney(0)}
                                 </span>
                               )}
                             </td>
                             <td className="py-3 px-3 text-right">
                               {g.status === 'sold' ? (
-                                <span className="bg-emerald-50 text-emerald-800 border border-emerald-250 rounded-full font-extrabold uppercase text-[9px] px-2 py-0.5 inline-block whitespace-nowrap">
+                                <span className="neumorphic-inset text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-full font-extrabold uppercase text-[9px] px-2 py-0.5 inline-block whitespace-nowrap">
                                   ✓ Sold & Fully Paid
                                 </span>
                               ) : g.status === 'partially_paid' ? (
-                                <span className="bg-blue-50 text-blue-800 border border-blue-200 rounded-full font-bold uppercase text-[9px] px-2 py-0.5 inline-block whitespace-nowrap">
+                                <span className="neumorphic-inset text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-full font-bold uppercase text-[9px] px-2 py-0.5 inline-block whitespace-nowrap">
                                   Part-Deducted
                                 </span>
                               ) : (
-                                <span className="bg-amber-50 text-amber-800 border border-amber-200 rounded-full font-bold uppercase text-[9px] px-2 py-0.5 inline-block whitespace-nowrap">
+                                <span className="neumorphic-inset text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-full font-bold uppercase text-[9px] px-2 py-0.5 inline-block whitespace-nowrap">
                                   Outstanding
                                 </span>
                               )}
