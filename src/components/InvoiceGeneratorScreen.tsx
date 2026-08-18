@@ -720,11 +720,11 @@ export default function InvoiceGeneratorScreen({
   const buildInvoicePdf = async (): Promise<Blob> => {
     setViewMode('preview');
     setIsPreviewMode(true);
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
-    const printRoot = document.getElementById('invoice-print-root');
+    const printRoot = document.querySelector<HTMLElement>('.printable-sheet') || document.getElementById('invoice-print-root');
     if (!printRoot) {
-      throw new Error('Invoice preview is not ready for PDF generation.');
+      throw new Error('Invoice preview is not ready for image capture.');
     }
 
     const html2pdfModule = await import('html2pdf.js');
@@ -732,17 +732,17 @@ export default function InvoiceGeneratorScreen({
 
     const opt = {
       margin: 0,
-      filename: `${(invoiceNo || 'invoice').replace(/[^a-z0-9._-]+/gi, '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' }
     };
 
-    const pdfBlob: Blob = await html2pdf().set(opt).from(printRoot).outputPdf('blob');
-    if (!(pdfBlob instanceof Blob) || pdfBlob.size === 0) {
-      throw new Error('PDF generation returned an empty file.');
-    }
-    return pdfBlob;
+    const canvas = await html2pdf().set(opt).from(printRoot).toCanvas().get('canvas');
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob: Blob | null) => {
+        if (blob && blob.size > 0) resolve(blob);
+        else reject(new Error('Invoice image conversion returned an empty blob.'));
+      }, 'image/png');
+    });
   };
 
   const printInvoiceSheets = () => {

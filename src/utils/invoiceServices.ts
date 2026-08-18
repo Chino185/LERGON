@@ -67,60 +67,66 @@ export async function saveInvoice(
 }
 
 /**
- * Uploads the generated PDF directly to Supabase Storage (like profile photos/inventory images)
+ * Uploads the rendered invoice image directly to Supabase Storage
  * and saves the direct public URL into the `invoices` table.
  */
 export async function uploadInvoicePdfToBackend(
   businessId: string,
   invoiceId: string,
   invoiceNumber: string,
-  pdfBlob: Blob
+  fileBlob: Blob
 ): Promise<InvoicePdfResult> {
   if (!businessId || !invoiceId) return { success: false, error: 'Business ID and invoice ID are required.' };
-  if (!(pdfBlob instanceof Blob) || pdfBlob.size === 0) return { success: false, error: 'The generated PDF is empty.' };
+  if (!(fileBlob instanceof Blob) || fileBlob.size === 0) return { success: false, error: 'The generated image/file is empty.' };
 
-  try {
-    const cleanNum = (invoiceNumber || 'invoice').replace(/[^a-zA-Z0-9._-]+/g, '-');
-    const filePath = `${businessId}/${invoiceId}/${Date.now()}-${cleanNum}.pdf`;
+  const isPng = fileBlob.type.includes('png') || !fileBlob.type.includes('pdf');
+  const ext = isPng ? 'png' : 'pdf';
+  const mime = isPng ? 'image/png' : 'application/pdf';
+  const cleanNum = (invoiceNumber || 'invoice').replace(/[^a-zA-Z0-9._-]+/g, '-');
+  const filePath = `${businessId}/${invoiceId}/${Date.now()}-${cleanNum}.${ext}`;
 
-    // 1. Upload directly to Supabase storage bucket 'invoice-pdfs'
-    const { error: uploadError } = await supabase.storage
-      .from('invoice-pdfs')
-      .upload(filePath, pdfBlob, {
-        contentType: 'application/pdf',
-        upsert: true
-      });
+  // Priority bucket list (try invoice-pdfs, fallback to existing public inventory-images or receipts)
+  const candidateBuckets = ['invoice-pdfs', 'inventory-images', 'receipts'];
 
-    if (uploadError) throw uploadError;
+  for (const bucket of candidateBuckets) {
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, fileBlob, {
+          contentType: mime,
+          upsert: true
+        });
 
-    // 2. Get direct public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('invoice-pdfs')
-      .getPublicUrl(filePath);
+      if (!uploadError) {
+        // Successfully uploaded! Retrieve direct public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(filePath);
 
-    // 3. Update the invoices record with direct public URL
-    const { error: updateError } = await supabase
-      .from('invoices')
-      .update({
-        pdf_url: publicUrl
-      })
-      .eq('id', invoiceId)
-      .eq('business_id', businessId);
+        // Update the invoices record with direct public URL
+        const { error: updateError } = await supabase
+          .from('invoices')
+          .update({ pdf_url: publicUrl })
+          .eq('id', invoiceId)
+          .eq('business_id', businessId);
 
-    if (updateError) {
-      console.warn('Could not update invoice pdf_url record:', updateError);
+        if (updateError) {
+          console.warn('Could not update invoice pdf_url record:', updateError);
+        }
+
+        return {
+          success: true,
+          id: invoiceId,
+          pdfUrl: publicUrl,
+          sizeBytes: fileBlob.size
+        };
+      }
+    } catch (err) {
+      console.warn(`Upload attempt failed for bucket ${bucket}:`, err);
     }
-
-    return {
-      success: true,
-      id: invoiceId,
-      pdfUrl: publicUrl,
-      sizeBytes: pdfBlob.size
-    };
-  } catch (err: any) {
-    console.error('uploadInvoicePdf Error:', err);
-    return { success: false, error: err?.message || 'Failed to upload invoice PDF to Supabase Storage.' };
   }
+
+  return { success: false, error: 'Failed to upload invoice to Supabase Storage buckets.' };
 }
 
 /**
