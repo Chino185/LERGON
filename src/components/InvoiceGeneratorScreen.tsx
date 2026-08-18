@@ -1455,12 +1455,15 @@ export default function InvoiceGeneratorScreen({
                   <span>{translate('page', config.languageCode)} {pageIndex + 1} {translate('of', config.languageCode)} {itemsPages.length}</span>
                 </div>
 
-                {/* Header Area */}
+                {/* Header Area: logo and business text use independent positioning layers. */}
                 {isFirstPage && (
-                  <div className="flex items-start gap-4 justify-between border-b-[5px] border-black pb-3 select-text">
-                    {/* Left Column: Logo */}
+                  <div
+                    className="relative w-full border-b-[5px] border-black pb-3 select-text"
+                    style={{ minHeight: `${Math.max(logoHeight + 12, 98)}px` }}
+                  >
+                    {/* Logo layer: does not participate in the text layout. */}
                     <div
-                      className="flex items-center justify-center p-0.5 bg-white shrink-0 overflow-hidden"
+                      className="absolute left-0 bottom-1 flex items-center justify-center p-0.5 bg-white overflow-hidden z-10"
                       style={{ width: `${logoWidth}px`, height: `${logoHeight}px` }}
                     >
                       {logoImage ? (
@@ -1481,8 +1484,8 @@ export default function InvoiceGeneratorScreen({
                       )}
                     </div>
 
-                    {/* Right Column: Title and Details */}
-                    <div className="flex-1 flex flex-col items-center text-center">
+                    {/* Text layer: always uses the full header width and remains centered. */}
+                    <div className="w-full flex flex-col items-center text-center">
                       <h1 className="text-xl sm:text-2xl font-extrabold tracking-wider text-black uppercase" style={{ fontFamily: 'Arial, sans-serif' }}>
                         {companyName}
                       </h1>
