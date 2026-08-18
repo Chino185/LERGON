@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Printer,
   Plus,
@@ -32,7 +32,7 @@ interface InvoiceGeneratorScreenProps {
   adjustments: StockAdjustment[];
   transactions: CreditTransaction[];
   config: BusinessConfig;
-  onPersistInvoice?: (payload: { invoiceNumber: string; billTo: string; lineItems: unknown[]; grandTotal: number }) => Promise<{ success: boolean; error?: string }>;
+  onPersistInvoice?: (payload: { invoiceNumber: string; billTo: string; grandTotal: number; pdfBlob: Blob; pdfFileName: string }) => Promise<{ success: boolean; error?: string }>;
 }
 
 interface DocRow {
@@ -101,15 +101,15 @@ export default function InvoiceGeneratorScreen({
   const [activePreset, setActivePreset] = useState<PresetType>('invoice_credit');
 
   // Page layout state
-  const [companyName, setCompanyName] = useState('JOLLIDUN ENTERPRISE');
-  const [companySubHeader, setCompanySubHeader] = useState('AMERICAN PLUMBING & HARDWARE STORE');
-  const [companyAddress, setCompanyAddress] = useState('ACHIMOTA-NEOPLAN, OPPOSITE LITTLE ANGEL\'S SCHOOL');
-  const [companyContact, setCompanyContact] = useState('TEL: 0244406305   EMAIL: kwelyfran@gmail.com');
-  const [professionalTag, setProfessionalTag] = useState('PROFESSIONAL PLUMBING AND HARDWARE STORE');
+  const [companyName, setCompanyName] = useState(() => config?.businessName || '');
+  const [companySubHeader, setCompanySubHeader] = useState('');
+  const [companyAddress, setCompanyAddress] = useState(() => config?.address || '');
+  const [companyContact, setCompanyContact] = useState(() => [config?.phone, config?.email].filter(Boolean).join('   '));
+  const [professionalTag, setProfessionalTag] = useState('');
   const [documentTopic, setDocumentTopic] = useState('PROFORMA INVOICE');
 
-  const [invoiceNo, setInvoiceNo] = useState('1112135636');
-  const [invoiceDate, setInvoiceDate] = useState('JUNE 10,2026');
+  const [invoiceNo, setInvoiceNo] = useState(() => `INV-${Date.now().toString().slice(-8)}`);
+  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
   const [billTo, setBillTo] = useState('');
   const [clientAddress, setClientAddress] = useState('');
 
@@ -117,6 +117,8 @@ export default function InvoiceGeneratorScreen({
   const [showMetaBlock, setShowMetaBlock] = useState(true);
   const [spacingScale, setSpacingScale] = useState<number>(3); // 1 to 5 scale for spacing
   const [successAnimation, setSuccessAnimation] = useState(false);
+  const [isPdfBusy, setIsPdfBusy] = useState(false);
+  const persistedInvoiceFingerprint = useRef<string | null>(null);
 
   // Customizable Logo state (Custom files only + size adjustment)
   const [logoImage, setLogoImage] = useState<string>(''); // base64 uploaded image string
@@ -187,148 +189,39 @@ export default function InvoiceGeneratorScreen({
     };
   }, [invoiceAccountId, creditAccounts, adjustments, transactions, selectedCurrency]);
 
-  // Load Preset Handler
+  // Load layout preset without inventing business or inventory records.
+  // Billable rows are always selected from the live inventory search widget.
   const handleLoadPreset = (preset: PresetType, selectedAccId?: string) => {
     setActivePreset(preset);
+    setCompanyName(config?.businessName || '');
+    setCompanyAddress(config?.address || '');
+    setCompanyContact([config?.phone, config?.email].filter(Boolean).join('   '));
+    setCompanySubHeader('');
+    setProfessionalTag('');
+    setDocumentTopic(preset === 'invoice_credit' ? 'PROFORMA INVOICE' : 'INVOICE');
+    setSelectedCurrency(config?.currencySymbol || '');
 
-    if (preset === 'invoice_credit') {
-      setCompanyName('JOLLIDUN ENTERPRISE');
-      setCompanySubHeader('AMERICAN PLUMBING & HARDWARE STORE');
-      setCompanyAddress('ACHIMOTA-NEOPLAN, OPPOSITE LITTLE ANGEL\'S SCHOOL');
-      setCompanyContact('TEL: 0244406305   EMAIL: kwelyfran@gmail.com');
-      setProfessionalTag('PROFESSIONAL PLUMBING AND HARDWARE STORE');
-      setDocumentTopic('PROFORMA INVOICE');
-      setInvoiceNo('1112135636');
-      setInvoiceDate('JUNE 10,2026');
-      setSelectedCurrency(config?.currencySymbol || 'GH₵');
+    setLogoWidth(preset === 'invoice_credit' ? 84 : 90);
+    setLogoHeight(preset === 'invoice_credit' ? 84 : 90);
+    setProfessionalAlign('left');
+    setProfessionalFontSize(12);
+    setProfessionalPaddingY(6);
+    setProfessionalWidthPct(100);
 
-      setLogoWidth(84);
-      setLogoHeight(84);
-      setProfessionalAlign('left');
-      setProfessionalFontSize(12);
-      setProfessionalPaddingY(6);
-      setProfessionalWidthPct(100);
-
-      if (selectedAccId) {
-        const acc = creditAccounts.find(a => a.id === selectedAccId);
-        if (acc) {
-          setBillTo(acc.name.toUpperCase());
-          setClientAddress(acc.email || 'ACCRA, GHANA');
-          setInvoiceDate(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
-
-          // Import active sales as rows
-          const relativeSales = adjustments.filter(adj => adj.creditAccountId === acc.id && adj.type === 'sale_out');
-          if (relativeSales.length > 0) {
-            const saleRows: DocRow[] = relativeSales.map((s, idx) => {
-              const invItem = inventory.find(i => i.id === s.itemId || i.name === s.itemName);
-              const qty = Math.abs(s.qtyChanged);
-              const rate = invItem ? invItem.unitPrice : 50; // default fallback
-
-              return {
-                id: `invoice-bill-${idx}-${Date.now()}`,
-                type: 'billable',
-                title: s.itemName.toUpperCase(),
-                qty,
-                rate,
-                sku: invItem?.sku || 'GEN-GOODS'
-              };
-            });
-            setRows(saleRows);
-            return;
-          }
-        }
+    if (selectedAccId) {
+      const acc = creditAccounts.find(a => a.id === selectedAccId);
+      if (acc) {
+        setBillTo(acc.name.toUpperCase());
+        setClientAddress(acc.email || '');
+        setInvoiceDate(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
+        return;
       }
-
-      // Default layout values matches image exactly!
-      setBillTo('');
-      setClientAddress('');
-      setRows([
-        {
-          id: 'bill-j-1',
-          type: 'billable',
-          title: '8MM NUTS',
-          qty: 200,
-          rate: 1.30,
-          sku: '8MM-NUT'
-        },
-        {
-          id: 'bill-j-2',
-          type: 'billable',
-          title: '8MM ANCHOR NUTS',
-          qty: 200,
-          rate: 3.00,
-          sku: '8MM-ANUT'
-        },
-        {
-          id: 'bill-j-3',
-          type: 'billable',
-          title: '10MM ANCHOR NUTS',
-          qty: 220,
-          rate: 3.50,
-          sku: '10MM-ANUT'
-        },
-        {
-          id: 'bill-j-4',
-          type: 'billable',
-          title: '10MM THREAD ROD',
-          qty: 40,
-          rate: 60.00,
-          sku: '10MM-T-ROD'
-        },
-        {
-          id: 'bill-j-5',
-          type: 'billable',
-          title: '10MM NUTS',
-          qty: 220,
-          rate: 1.50,
-          sku: '10MM-NUT'
-        },
-        {
-          id: 'bill-j-6',
-          type: 'billable',
-          title: '10MM WASHERS',
-          qty: 220,
-          rate: 1.50,
-          sku: '10MM-WASHER'
-        }
-      ]);
-    } else {
-      // Custom preset slate
-      setCompanyName('CUSTOM BUSINESS NAME');
-      setCompanySubHeader('BUSINESS DESCRIPTION OR STORE SLOGAN');
-      setCompanyAddress('CUSTOM PHYSICAL PLACE OR OFFICE BUILDING');
-      setCompanyContact('TEL: +0000000000   EMAIL: business@company.com');
-      setProfessionalTag('PROFESSIONAL BRAND SUB-LABEL DESIGNATION');
-      setDocumentTopic('CUSTOM INVOICE TITLE');
-      setInvoiceNo('99988877766');
-      setInvoiceDate('JUNE 15,2026');
-      setBillTo('SAMPLE CLIENT');
-      setClientAddress('SAMPLE RESIDENTIAL ROAD ADDR');
-      setSelectedCurrency('$');
-
-      setLogoWidth(90);
-      setLogoHeight(90);
-      setProfessionalAlign('left');
-      setProfessionalFontSize(12);
-      setProfessionalPaddingY(6);
-      setProfessionalWidthPct(100);
-      setRows([
-        {
-          id: 'custom-good-1',
-          type: 'billable',
-          title: 'DEVELOPMENT SERVICES',
-          qty: 1,
-          rate: 1500.00,
-          sku: 'DEV-01'
-        }
-      ]);
     }
-  };
 
-  // Initial load
-  useEffect(() => {
-    handleLoadPreset('invoice_credit');
-  }, []);
+    setBillTo('');
+    setClientAddress('');
+    setRows([]);
+  };
 
   // Autofill selector change
   const handleAccountAutofill = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -367,15 +260,17 @@ export default function InvoiceGeneratorScreen({
     setRows(prev => [...prev, newRow]);
   };
 
-  // Add billable item row
-  const handleAddBillableRow = (invItem?: InventoryItem, qty: number = 1) => {
+  // Add billable item row from the live inventory list only.
+  const handleAddBillableRow = (invItem: InventoryItem, qty: number = 1) => {
+    if (!invItem || qty <= 0) return;
+
     const newRow: DocRow = {
-      id: `row-added-bill-${Date.now()}`,
+      id: `row-added-bill-${invItem.id}-${Date.now()}`,
       type: 'billable',
-      title: invItem ? invItem.name.toUpperCase() : 'CUSTOM GOOD OR CREDIT ASSET',
-      qty: qty,
-      rate: invItem ? invItem.unitPrice : 25,
-      sku: invItem ? invItem.sku : 'SKU-000'
+      title: invItem.name.toUpperCase(),
+      qty,
+      rate: invItem.unitPrice,
+      sku: invItem.sku
     };
     setRows(prev => [...prev, newRow]);
 
@@ -385,8 +280,8 @@ export default function InvoiceGeneratorScreen({
   };
 
   // Initiate quantity modal prompt
-  const handleInitiateAddPrompt = (item?: InventoryItem) => {
-    setQtyModalItem(item || null);
+  const handleInitiateAddPrompt = (item: InventoryItem) => {
+    setQtyModalItem(item);
     setQtyInputValue('1');
     setQtyModalOpen(true);
   };
@@ -398,22 +293,19 @@ export default function InvoiceGeneratorScreen({
       return;
     }
 
-    if (qtyModalItem) {
-      const item = qtyModalItem;
-      const existingIdx = rows.findIndex(r => r.type === 'billable' && r.sku === item.sku);
-      if (existingIdx !== -1) {
-        const updatedRows = [...rows];
-        updatedRows[existingIdx] = {
-          ...updatedRows[existingIdx],
-          qty: (updatedRows[existingIdx].qty || 0) + qty
-        };
-        setRows(updatedRows);
-      } else {
-        handleAddBillableRow(item, qty);
-      }
+    if (!qtyModalItem) return;
+
+    const item = qtyModalItem;
+    const existingIdx = rows.findIndex(r => r.type === 'billable' && r.sku === item.sku);
+    if (existingIdx !== -1) {
+      const updatedRows = [...rows];
+      updatedRows[existingIdx] = {
+        ...updatedRows[existingIdx],
+        qty: (updatedRows[existingIdx].qty || 0) + qty
+      };
+      setRows(updatedRows);
     } else {
-      // Adding a blank custom line
-      handleAddBillableRow(undefined, qty);
+      handleAddBillableRow(item, qty);
     }
 
     setQtyModalOpen(false);
@@ -492,37 +384,164 @@ export default function InvoiceGeneratorScreen({
     return chunks;
   }, [billableItems]);
 
-  // Handle Web Native Printing
-  const handleTriggerPrint = () => {
+  const invoiceFingerprint = useMemo(() => JSON.stringify({
+    invoiceNo,
+    billTo,
+    clientAddress,
+    companyName,
+    companySubHeader,
+    companyAddress,
+    companyContact,
+    professionalTag,
+    documentTopic,
+    logoImage,
+    logoWidth,
+    logoHeight,
+    professionalAlign,
+    professionalFontSize,
+    professionalPaddingY,
+    professionalWidthPct,
+    showMetaBlock,
+    rows,
+    grandTotal: invoiceCalculatedTotal
+  }), [
+    invoiceNo,
+    billTo,
+    clientAddress,
+    companyName,
+    companySubHeader,
+    companyAddress,
+    companyContact,
+    professionalTag,
+    documentTopic,
+    logoImage,
+    logoWidth,
+    logoHeight,
+    professionalAlign,
+    professionalFontSize,
+    professionalPaddingY,
+    professionalWidthPct,
+    showMetaBlock,
+    rows,
+    invoiceCalculatedTotal
+  ]);
+
+  const buildInvoicePdf = async (): Promise<Blob> => {
+    const printableRoot = document.getElementById('invoice-print-root');
+    if (!printableRoot) throw new Error('Invoice preview is not ready for PDF generation.');
+
+    const originalStyles = {
+      overflow: printableRoot.style.overflow,
+      height: printableRoot.style.height,
+      maxHeight: printableRoot.style.maxHeight,
+      background: printableRoot.style.background
+    };
+
+    printableRoot.style.overflow = 'visible';
+    printableRoot.style.height = 'auto';
+    printableRoot.style.maxHeight = 'none';
+    printableRoot.style.background = '#ffffff';
+
     try {
-      window.focus();
-      window.print();
-    } catch (e) {
-      console.error(e);
+      const { default: html2pdf } = await import('html2pdf.js');
+      const fileName = `invoice-${invoiceNo.trim() || 'draft'}.pdf`;
+      const pdfBlob = await html2pdf()
+        .set({
+          margin: 0,
+          filename: fileName,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        })
+        .from(printableRoot)
+        .outputPdf('blob') as Blob;
+
+      if (!(pdfBlob instanceof Blob) || pdfBlob.size === 0) {
+        throw new Error('PDF generation returned an empty file.');
+      }
+      return pdfBlob;
+    } finally {
+      printableRoot.style.overflow = originalStyles.overflow;
+      printableRoot.style.height = originalStyles.height;
+      printableRoot.style.maxHeight = originalStyles.maxHeight;
+      printableRoot.style.background = originalStyles.background;
     }
   };
 
-  const handlePreviewAndPrint = async () => {
-    if (onPersistInvoice) {
-      const result = await onPersistInvoice({
-        invoiceNumber: invoiceNo,
-        billTo: billTo || 'Walk-in Customer',
-        lineItems: rows,
-        grandTotal: invoiceCalculatedTotal
-      });
-      if (!result.success) {
-        console.error('Invoice persistence failed:', result.error);
-      }
+  const persistGeneratedInvoice = async (pdfBlob: Blob) => {
+    if (!onPersistInvoice || persistedInvoiceFingerprint.current === invoiceFingerprint) return;
+
+    const result = await onPersistInvoice({
+      invoiceNumber: invoiceNo,
+      billTo: billTo || 'Walk-in Customer',
+      grandTotal: invoiceCalculatedTotal,
+      pdfBlob,
+      pdfFileName: `invoice-${invoiceNo.trim() || 'draft'}.pdf`
+    });
+
+    if (!result.success) {
+      console.error('Invoice PDF persistence failed:', result.error);
+      return;
     }
+
+    persistedInvoiceFingerprint.current = invoiceFingerprint;
+  };
+
+  const handlePreviewAndPrint = async () => {
+    if (isPdfBusy) return;
+    setIsPdfBusy(true);
     setViewMode('preview');
-    setTimeout(() => {
-      try {
-        window.focus();
-        window.print();
-      } catch (e) {
-        console.error(e);
-      }
-    }, 250);
+
+    try {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const pdfBlob = await buildInvoicePdf();
+      await persistGeneratedInvoice(pdfBlob);
+      setTimeout(() => {
+        try {
+          window.focus();
+          window.print();
+        } catch (e) {
+          console.error(e);
+        }
+      }, 250);
+    } catch (e) {
+      console.error('Invoice PDF generation failed:', e);
+      setTimeout(() => {
+        try {
+          window.focus();
+          window.print();
+        } catch (printError) {
+          console.error(printError);
+        }
+      }, 250);
+    } finally {
+      setIsPdfBusy(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (isPdfBusy) return;
+    setIsPdfBusy(true);
+    setViewMode('preview');
+
+    try {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const pdfBlob = await buildInvoicePdf();
+      await persistGeneratedInvoice(pdfBlob);
+
+      const downloadUrl = URL.createObjectURL(pdfBlob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = `invoice-${invoiceNo.trim() || 'draft'}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (e) {
+      console.error('Invoice PDF export failed:', e);
+    } finally {
+      setIsPdfBusy(false);
+    }
   };
 
   return (
@@ -677,8 +696,8 @@ export default function InvoiceGeneratorScreen({
                   type="button"
                   onClick={() => handleLoadPreset('invoice_credit')}
                   className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'invoice_credit'
-                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
-                      : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                    ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
+                    : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                     }`}
                 >
                   <div className="flex justify-between items-start w-full">
@@ -692,8 +711,8 @@ export default function InvoiceGeneratorScreen({
                   type="button"
                   onClick={() => handleLoadPreset('custom')}
                   className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'custom'
-                      ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
-                      : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                    ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
+                    : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                     }`}
                 >
                   <div className="flex justify-between items-start w-full">
@@ -846,7 +865,7 @@ export default function InvoiceGeneratorScreen({
                     type="text"
                     value={companyName}
                     onChange={(val) => setCompanyName(val.toUpperCase())}
-                    placeholder="e.g. JOLLIDUN ENTERPRISE"
+                    placeholder="e.g. Your business name"
                     className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
                   />
                 </div>
@@ -903,8 +922,8 @@ export default function InvoiceGeneratorScreen({
                         type="button"
                         onClick={() => setProfessionalAlign(align)}
                         className={`py-1.5 px-2 text-[8px] font-black rounded-full uppercase transition cursor-pointer ${professionalAlign === align
-                            ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
-                            : 'finnova-card text-slate-600 hover:text-slate-900'
+                          ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
+                          : 'finnova-card text-slate-600 hover:text-slate-900'
                           }`}
                       >
                         {translate(align, config.languageCode)}
@@ -1123,7 +1142,7 @@ export default function InvoiceGeneratorScreen({
                           {translate('no matching inventory goods found', config.languageCode)}
                         </p>
                         <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-bold font-jakarta">
-                          {translate('you can still add items manually using "add custom line" below!', config.languageCode)}
+                          {translate('search the live inventory list above to add an item to this invoice.', config.languageCode)}
                         </p>
                       </div>
                     );
@@ -1206,14 +1225,7 @@ export default function InvoiceGeneratorScreen({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleInitiateAddPrompt()}
-                  className="neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white font-extrabold font-jakarta uppercase px-3.5 py-1.5 text-[9.5px] cursor-pointer flex items-center gap-1 rounded-xl shadow-sm hover:scale-[1.02] active:scale-[0.98] transition"
-                >
-                  <Plus size={11} />
-                  <span>{translate('add custom line', config.languageCode)}</span>
-                </button>
+
               </div>
 
               {/* Added items list mapping */}
@@ -1224,7 +1236,7 @@ export default function InvoiceGeneratorScreen({
                       {translate('no items added to invoice yet', config.languageCode)}
                     </p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto leading-normal font-bold font-jakarta">
-                      {translate('search and click on stock goods in the panel above to populate goods, or click on "add custom line" to draft manually.', config.languageCode)}
+                      {translate('search and click on live inventory goods in the panel above to populate this invoice.', config.languageCode)}
                     </p>
                   </div>
                 ) : (
@@ -1392,8 +1404,9 @@ export default function InvoiceGeneratorScreen({
 
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <button
-              onClick={handleTriggerPrint}
-              className="text-xs neumorphic-btn-dark px-6 py-2.5 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider"
+              onClick={handleExportPdf}
+              disabled={isPdfBusy}
+              className="text-xs neumorphic-btn-dark px-6 py-2.5 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Printer size={14} />
               <span>{translate('export as pdf', config.languageCode)}</span>
@@ -1402,7 +1415,7 @@ export default function InvoiceGeneratorScreen({
         </div>
 
         {/* The Digital Page Desktop canvas board */}
-        <div className={`flex-1 overflow-auto px-2 py-6 finnova-card rounded-3xl flex flex-col items-center gap-6 [scrollbar-width:thin] ${isPreviewMode ? 'p-12 bg-slate-300' : ''
+        <div id="invoice-print-root" className={`flex-1 overflow-auto px-2 py-6 finnova-card rounded-3xl flex flex-col items-center gap-6 [scrollbar-width:thin] ${isPreviewMode ? 'p-12 bg-slate-300' : ''
           }`}>
 
           {itemsPages.map((pageItems, pageIndex) => {
@@ -1731,8 +1744,8 @@ export default function InvoiceGeneratorScreen({
                         type="button"
                         onClick={() => setQtyInputValue(String(presetVal))}
                         className={`py-2 rounded-xl text-xs font-extrabold transition cursor-pointer text-center font-jakarta ${isSelected
-                            ? 'neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white border border-slate-700/60 shadow-md scale-105'
-                            : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                          ? 'neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white border border-slate-700/60 shadow-md scale-105'
+                          : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                           }`}
                       >
                         {presetVal}
