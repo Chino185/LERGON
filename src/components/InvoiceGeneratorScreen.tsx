@@ -18,7 +18,8 @@ import {
   Undo2,
   Info,
   Upload,
-  Search
+  Search,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction } from '../types';
@@ -453,82 +454,369 @@ export default function InvoiceGeneratorScreen({
     setIsPreviewMode(false);
   };
 
+  const renderSheetToCanvas = async (sheetEl: HTMLElement): Promise<HTMLCanvasElement> => {
+    const width = 794; // Standard A4 at 96 DPI (210mm)
+    const height = 1123; // Standard A4 at 96 DPI (297mm)
+    const scale = 2; // 2x scale for crisp 192 DPI output
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D context not available');
+
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    const clone = sheetEl.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.no-print').forEach((node) => node.remove());
+    clone.style.zoom = '1';
+    clone.style.transform = 'none';
+    clone.style.width = `${width}px`;
+    clone.style.minHeight = `${height}px`;
+    clone.style.maxHeight = `${height}px`;
+    clone.style.height = `${height}px`;
+    clone.style.padding = '40px 48px';
+    clone.style.margin = '0';
+    clone.style.boxSizing = 'border-box';
+    clone.style.background = '#ffffff';
+    clone.style.color = '#000000';
+    clone.style.border = 'none';
+    clone.style.boxShadow = 'none';
+
+    const styleRules = `
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        color: #000000;
+        font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .printable-sheet {
+        width: ${width}px;
+        height: ${height}px;
+        min-height: ${height}px;
+        max-height: ${height}px;
+        padding: 40px 48px;
+        background: #ffffff;
+        color: #000000;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-family: inherit;
+      }
+      th, td {
+        border: 1px solid #000000;
+        padding: 4px 8px;
+        vertical-align: middle;
+      }
+      .bg-black { background-color: #000000 !important; color: #ffffff !important; }
+      .bg-white { background-color: #ffffff !important; }
+      .bg-slate-100 { background-color: #f1f5f9 !important; }
+      .text-white { color: #ffffff !important; }
+      .text-black { color: #000000 !important; }
+      .text-slate-900 { color: #0f172a !important; }
+      .text-slate-500 { color: #64748b !important; }
+      .border-black { border-color: #000000 !important; }
+      .border-slate-300 { border-color: #cbd5e1 !important; }
+      .border { border: 1px solid #000000 !important; }
+      .border-b { border-bottom: 1px solid #000000 !important; }
+      .border-b-\\[5px\\] { border-bottom: 5px solid #000000 !important; }
+      .border-t { border-top: 1px solid #000000 !important; }
+      .border-2 { border: 2px solid #000000 !important; }
+      .border-r-2 { border-right: 2px solid #000000 !important; }
+      .grid { display: grid; }
+      .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .gap-4 { gap: 16px; }
+      .flex { display: flex; }
+      .flex-col { flex-direction: column; }
+      .items-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .justify-end { justify-content: flex-end; }
+      .justify-center { justify-content: center; }
+      .justify-start { justify-content: flex-start; }
+      .text-center { text-align: center; }
+      .text-left { text-align: left; }
+      .text-right { text-align: right; }
+      .font-extrabold, .font-black { font-weight: 800; }
+      .font-bold { font-weight: 700; }
+      .font-medium { font-weight: 500; }
+      .uppercase { text-transform: uppercase; }
+      .w-full { width: 100%; }
+      .h-full { height: 100%; }
+      .shrink-0 { flex-shrink: 0; }
+      .whitespace-nowrap { white-space: nowrap; }
+      .whitespace-pre-wrap { white-space: pre-wrap; }
+      .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .relative { position: relative; }
+      .absolute { position: absolute; }
+      .mt-auto { margin-top: auto; }
+      .rounded-lg { border-radius: 8px; }
+      .rounded-xl { border-radius: 12px; }
+      .rounded-2xl { border-radius: 16px; }
+      .rounded-full { border-radius: 9999px; }
+      .p-0\\.5 { padding: 2px; }
+      .p-2 { padding: 8px; }
+      .p-10 { padding: 40px; }
+      .pb-3 { padding-bottom: 12px; }
+      .pt-1 { padding-top: 4px; }
+      .pt-2 { padding-top: 8px; }
+      .px-2 { padding-left: 8px; padding-right: 8px; }
+      .px-3 { padding-left: 12px; padding-right: 12px; }
+      .px-4 { padding-left: 16px; padding-right: 16px; }
+      .px-5 { padding-left: 20px; padding-right: 20px; }
+      .py-0\\.5 { padding-top: 2px; padding-bottom: 2px; }
+      .py-1 { padding-top: 4px; padding-bottom: 4px; }
+      .py-1\\.5 { padding-top: 6px; padding-bottom: 6px; }
+      .my-1 { margin-top: 4px; margin-bottom: 4px; }
+      .mt-0\\.5 { margin-top: 2px; }
+      .mb-1 { margin-bottom: 4px; }
+      .mb-3 { margin-bottom: 12px; }
+      .min-h-\\[44px\\] { min-height: 44px; }
+      .min-w-\\[130px\\] { min-width: 130px; }
+      .text-\\[7\\.5px\\] { font-size: 7.5px; }
+      .text-\\[8\\.5px\\] { font-size: 8.5px; }
+      .text-\\[9px\\] { font-size: 9px; }
+      .text-\\[9\\.5px\\] { font-size: 9.5px; }
+      .text-\\[10px\\] { font-size: 10px; }
+      .text-\\[10\\.5px\\] { font-size: 10.5px; }
+      .text-\\[11px\\] { font-size: 11px; }
+      .text-xs { font-size: 12px; }
+      .text-\\[13px\\] { font-size: 13px; }
+      .text-\\[13\\.5px\\] { font-size: 13.5px; }
+      .text-xl { font-size: 20px; }
+      .text-2xl { font-size: 24px; }
+      .leading-tight { line-height: 1.25; }
+      .leading-snug { line-height: 1.375; }
+      .leading-relaxed { line-height: 1.625; }
+      .tracking-wide { letter-spacing: 0.025em; }
+      .tracking-wider { letter-spacing: 0.05em; }
+      .tracking-widest { letter-spacing: 0.1em; }
+      .space-y-4 > * + * { margin-top: 16px; }
+      .space-y-2 > * + * { margin-top: 8px; }
+      .space-y-0\\.5 > * + * { margin-top: 2px; }
+      .object-contain { object-fit: contain; }
+      .underline { text-decoration: underline; }
+    `;
+
+    const serializedHtml = new XMLSerializer().serializeToString(clone);
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+        <foreignObject width="100%" height="100%">
+          <div xmlns="http://www.w3.org/1999/xhtml">
+            <style>${styleRules}</style>
+            ${serializedHtml}
+          </div>
+        </foreignObject>
+      </svg>
+    `;
+
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        resolve(canvas);
+      };
+      img.onerror = (e) => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to render invoice preview to canvas: ' + (e instanceof Error ? e.message : 'Unknown image error')));
+      };
+      img.src = url;
+    });
+  };
+
   const buildInvoicePdf = async (): Promise<Blob> => {
-    const printableRoot = document.getElementById('invoice-print-root');
+    setViewMode('preview');
+    setIsPreviewMode(true);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
     const printableSheets = Array.from(document.querySelectorAll<HTMLElement>('.printable-sheet'));
-    if (!printableRoot || printableSheets.length === 0) {
+    if (printableSheets.length === 0) {
       throw new Error('Invoice preview is not ready for PDF generation.');
     }
 
-    const captureRoot = document.createElement('div');
-    captureRoot.id = 'invoice-pdf-capture-root';
-    captureRoot.style.position = 'absolute';
-    captureRoot.style.left = '0';
-    captureRoot.style.top = '0';
-    captureRoot.style.width = '210mm';
-    captureRoot.style.margin = '0';
-    captureRoot.style.padding = '0';
-    captureRoot.style.background = '#ffffff';
-    captureRoot.style.color = '#000000';
-    captureRoot.style.display = 'block';
-    captureRoot.style.pointerEvents = 'none';
-    captureRoot.setAttribute('aria-hidden', 'true');
-
-    printableSheets.forEach((sheet) => {
-      const clonedSheet = sheet.cloneNode(true) as HTMLElement;
-      clonedSheet.classList.remove('shadow-xl', 'transition-all', 'select-all', 'space-y-4');
-      clonedSheet.style.zoom = '1';
-      clonedSheet.style.transform = 'none';
-      clonedSheet.style.width = '210mm';
-      clonedSheet.style.maxWidth = '210mm';
-      clonedSheet.style.minHeight = '297mm';
-      clonedSheet.style.height = '297mm';
-      clonedSheet.style.margin = '0';
-      clonedSheet.style.padding = '15mm';
-      clonedSheet.style.background = '#ffffff';
-      clonedSheet.style.color = '#000000';
-      clonedSheet.style.boxSizing = 'border-box';
-      clonedSheet.querySelectorAll('.no-print').forEach((node) => node.remove());
-      captureRoot.appendChild(clonedSheet);
+    const { jsPDF } = await import('jspdf');
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true
     });
 
-    document.body.appendChild(captureRoot);
-
-    try {
-      const html2pdfModule = await import('html2pdf.js');
-      const moduleCandidate = (html2pdfModule as { default?: unknown }).default ?? html2pdfModule;
-      const html2pdf = typeof moduleCandidate === 'function'
-        ? moduleCandidate
-        : (moduleCandidate as { default?: unknown }).default;
-      if (typeof html2pdf !== 'function') {
-        throw new Error('The html2pdf.js module did not expose a callable PDF generator.');
+    for (let i = 0; i < printableSheets.length; i++) {
+      if (i > 0) {
+        pdf.addPage('a4', 'portrait');
       }
-
-      const fileName = `invoice-${invoiceNo.trim() || 'draft'}.pdf`;
-      const pdfBlob = await html2pdf()
-        .set({
-          margin: 0,
-          filename: fileName,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#ffffff',
-            logging: false,
-            windowWidth: 794,
-            windowHeight: 1123
-          }
-        })
-        .from(captureRoot)
-        .outputPdf('blob') as Blob;
-
-      if (!(pdfBlob instanceof Blob) || pdfBlob.size === 0) {
-        throw new Error('PDF generation returned an empty file.');
-      }
-      return pdfBlob;
-    } finally {
-      clearPdfArtifacts();
+      const canvas = await renderSheetToCanvas(printableSheets[i]);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
     }
+
+    const pdfBlob = pdf.output('blob');
+    if (!(pdfBlob instanceof Blob) || pdfBlob.size === 0) {
+      throw new Error('PDF generation returned an empty file.');
+    }
+    return pdfBlob;
+  };
+
+  const printInvoiceSheets = () => {
+    setViewMode('preview');
+    setIsPreviewMode(true);
+
+    setTimeout(() => {
+      const printableSheets = Array.from(document.querySelectorAll<HTMLElement>('.printable-sheet'));
+      if (printableSheets.length === 0) return;
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentWindow?.document;
+      if (!iframeDoc) return;
+
+      const sheetsHtml = printableSheets.map(sheet => {
+        const clone = sheet.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('.no-print').forEach(el => el.remove());
+        clone.style.zoom = '1';
+        clone.style.transform = 'none';
+        return clone.outerHTML;
+      }).join('');
+
+      iframeDoc.open();
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${invoiceNo || 'Invoice'}</title>
+            <style>
+              @page {
+                size: A4 portrait;
+                margin: 0;
+              }
+              * {
+                box-sizing: border-box;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                background: #ffffff;
+                color: #000000;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              }
+              .printable-sheet {
+                width: 210mm;
+                min-height: 297mm;
+                height: 297mm;
+                max-width: 210mm;
+                padding: 15mm;
+                margin: 0 auto;
+                background: #ffffff;
+                color: #000000;
+                box-sizing: border-box;
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                page-break-after: always;
+                break-after: page;
+              }
+              .printable-sheet:last-of-type {
+                page-break-after: auto;
+                break-after: auto;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+              }
+              th, td {
+                border: 1px solid #000000;
+                padding: 4px 8px;
+              }
+              .bg-black { background-color: #000000 !important; color: #ffffff !important; }
+              .bg-white { background-color: #ffffff !important; }
+              .bg-slate-100 { background-color: #f1f5f9 !important; }
+              .text-white { color: #ffffff !important; }
+              .text-black { color: #000000 !important; }
+              .text-slate-900 { color: #0f172a !important; }
+              .text-slate-500 { color: #64748b !important; }
+              .border-black { border-color: #000000 !important; }
+              .border-slate-300 { border-color: #cbd5e1 !important; }
+              .border { border: 1px solid #000000 !important; }
+              .border-b { border-bottom: 1px solid #000000 !important; }
+              .border-b-\\[5px\\] { border-bottom: 5px solid #000000 !important; }
+              .border-t { border-top: 1px solid #000000 !important; }
+              .border-2 { border: 2px solid #000000 !important; }
+              .border-r-2 { border-right: 2px solid #000000 !important; }
+              .grid { display: grid; }
+              .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+              .gap-4 { gap: 16px; }
+              .flex { display: flex; }
+              .flex-col { flex-direction: column; }
+              .items-center { align-items: center; }
+              .justify-between { justify-content: space-between; }
+              .justify-end { justify-content: flex-end; }
+              .justify-center { justify-content: center; }
+              .justify-start { justify-content: flex-start; }
+              .text-center { text-align: center; }
+              .text-left { text-align: left; }
+              .text-right { text-align: right; }
+              .font-extrabold, .font-black { font-weight: 800; }
+              .uppercase { text-transform: uppercase; }
+              .w-full { width: 100%; }
+              .h-full { height: 100%; }
+              .shrink-0 { flex-shrink: 0; }
+              .whitespace-nowrap { white-space: nowrap; }
+              .whitespace-pre-wrap { white-space: pre-wrap; }
+              .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+              .relative { position: relative; }
+              .absolute { position: absolute; }
+              .mt-auto { margin-top: auto; }
+              .rounded-lg { border-radius: 8px; }
+              .rounded-xl { border-radius: 12px; }
+              .rounded-2xl { border-radius: 16px; }
+              .rounded-full { border-radius: 9999px; }
+              .space-y-4 > * + * { margin-top: 16px; }
+              .space-y-2 > * + * { margin-top: 8px; }
+              .space-y-0\\.5 > * + * { margin-top: 2px; }
+            </style>
+          </head>
+          <body>
+            ${sheetsHtml}
+          </body>
+        </html>
+      `);
+      iframeDoc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          iframe.remove();
+        }, 2500);
+      }, 300);
+    }, 150);
   };
 
   const persistGeneratedInvoice = async (pdfBlob: Blob) => {
@@ -569,44 +857,52 @@ export default function InvoiceGeneratorScreen({
     setIsPreviewMode(true);
   };
 
+  const handleDownloadPdf = async () => {
+    if (isPdfBusy) return;
+    setIsPdfBusy(true);
+
+    try {
+      const pdfBlob = await buildInvoicePdf();
+      downloadPdfBlob(pdfBlob);
+      setSuccessAnimation(true);
+      setTimeout(() => setSuccessAnimation(false), 2500);
+
+      void persistGeneratedInvoice(pdfBlob).catch((error) => {
+        console.error('Invoice PDF persistence failed after download:', error);
+      });
+    } catch (e) {
+      console.error('Invoice PDF export failed:', e);
+      alert('Could not generate PDF: ' + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setIsPdfBusy(false);
+    }
+  };
+
+  const handlePrintOnly = () => {
+    printInvoiceSheets();
+  };
+
   const handleExportPdf = async () => {
     if (isPdfBusy) return;
     setIsPdfBusy(true);
-    setViewMode('preview');
-    setIsPreviewMode(true);
 
     try {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       const pdfBlob = await buildInvoicePdf();
       downloadPdfBlob(pdfBlob);
+      setSuccessAnimation(true);
+      setTimeout(() => setSuccessAnimation(false), 2500);
 
-      // Saving to Supabase is best effort and must never prevent local download or printing.
       void persistGeneratedInvoice(pdfBlob).catch((error) => {
         console.error('Invoice PDF persistence failed after download:', error);
       });
 
-      // Print the exact settled preview in the current window, isolated from the app shell.
-      window.setTimeout(() => {
-        setInvoicePrintContext(true);
-        const handleAfterPrint = () => {
-          setInvoicePrintContext(false);
-          clearPdfArtifacts();
-          window.removeEventListener('afterprint', handleAfterPrint);
-        };
-        window.addEventListener('afterprint', handleAfterPrint, { once: true });
-        try {
-          window.focus();
-          window.print();
-        } catch (error) {
-          console.error('Invoice system print failed:', error);
-          window.removeEventListener('afterprint', handleAfterPrint);
-          setInvoicePrintContext(false);
-        }
-      }, 150);
+      // Also trigger isolated print preview
+      setTimeout(() => {
+        printInvoiceSheets();
+      }, 400);
     } catch (e) {
-      setInvoicePrintContext(false);
-      clearPdfArtifacts();
       console.error('Invoice PDF export failed:', e);
+      alert('Could not generate PDF: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setIsPdfBusy(false);
     }
@@ -658,13 +954,10 @@ export default function InvoiceGeneratorScreen({
             background: #ffffff !important;
           }
 
-          /* Lock layout sheet to standard physical A4 paper dimensions and pin to top */
+          /* Lock layout sheet to standard physical A4 paper dimensions */
           .printable-sheet {
             display: flex !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
+            position: relative !important;
             width: 210mm !important;
             max-width: 210mm !important;
             height: 297mm !important;
@@ -683,12 +976,9 @@ export default function InvoiceGeneratorScreen({
             break-after: page !important;
           }
 
-          /* Force first printable sheet to start immediately at top 0 of Page 1 */
-          .printable-sheet:first-of-type {
-            page-break-before: avoid !important;
-            break-before: avoid !important;
-            top: 0 !important;
-            margin-top: 0 !important;
+          .printable-sheet:last-of-type {
+            page-break-after: auto !important;
+            break-after: auto !important;
           }
 
           .printable-sheet * {
@@ -1507,12 +1797,22 @@ export default function InvoiceGeneratorScreen({
 
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <button
-              onClick={handleExportPdf}
+              type="button"
+              onClick={handleDownloadPdf}
               disabled={isPdfBusy}
-              className="text-xs neumorphic-btn-dark px-6 py-2.5 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
+              className="text-xs neumorphic-btn-dark px-5 py-2.5 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed shadow-md hover:brightness-110 active:scale-95 transition-all"
+            >
+              <Download size={14} />
+              <span>{isPdfBusy ? translate('generating pdf...', config.languageCode) : translate('download pdf', config.languageCode)}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handlePrintOnly}
+              disabled={isPdfBusy}
+              className="text-xs neumorphic-inset px-4 py-2.5 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider text-slate-900 hover:bg-slate-200/70 active:scale-95 transition-all"
             >
               <Printer size={14} />
-              <span>{translate('export as pdf and print', config.languageCode)}</span>
+              <span>{translate('print', config.languageCode)}</span>
             </button>
           </div>
         </div>
