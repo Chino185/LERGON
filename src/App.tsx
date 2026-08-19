@@ -187,6 +187,7 @@ export default function App() {
   const [currentOrgId, setCurrentOrgId] = useState<string>('');
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [authBootstrapReady, setAuthBootstrapReady] = useState<boolean>(false);
   const [currentUserUid, setCurrentUserUid] = useState<string>('');
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [backendNotifications, setBackendNotifications] = useState<BackendNotification[]>([]);
@@ -1015,6 +1016,7 @@ export default function App() {
     let profileChannel: any = null;
 
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setAuthBootstrapReady(true);
       if (session?.user) {
         const user = session.user;
         console.log('[Supabase Auth Listener] Active session for:', user.email, 'UID:', user.id);
@@ -2373,7 +2375,14 @@ export default function App() {
 
   return (
     <>
-      {!isLoggedIn ? (
+      {!authBootstrapReady ? (
+        <div className="min-h-screen bg-[#ebf0f7] dark:bg-[#0A0E1A] flex items-center justify-center text-slate-700 dark:text-slate-200">
+          <div className="flex items-center gap-2 text-sm font-extrabold">
+            <Loader2 size={18} className="animate-spin text-sky-500" />
+            Loading your workspace...
+          </div>
+        </div>
+      ) : !isLoggedIn ? (
         <div className="relative min-h-screen bg-slate-100 dark:bg-[#0A0E1A] text-slate-900 dark:text-white font-sans overflow-x-hidden flex flex-col selection:bg-blue-500/30 transition-colors duration-700">
           {/* Custom Cosmic Canvas Scroll Scrubbing Background */}
           <LandingPageBackground currentBg={landingBg} onToggleBg={setLandingBg} isDarkMode={isLandingDark} />
