@@ -497,6 +497,15 @@ export function subscribeToActiveAttendantInvite(
   };
 
   void fetchActiveInvite();
+
+  const refreshWhenVisible = () => {
+    if (document.visibilityState === 'visible') {
+      void fetchActiveInvite();
+    }
+  };
+  window.addEventListener('focus', refreshWhenVisible);
+  document.addEventListener('visibilitychange', refreshWhenVisible);
+
   const channel = supabase
     .channel(`invite_codes_${businessId}`)
     .on(
@@ -506,9 +515,12 @@ export function subscribeToActiveAttendantInvite(
     )
     .subscribe();
 
-  return () => { supabase.removeChannel(channel); };
+  return () => {
+    window.removeEventListener('focus', refreshWhenVisible);
+    document.removeEventListener('visibilitychange', refreshWhenVisible);
+    supabase.removeChannel(channel);
+  };
 }
-
 export async function validateAttendantInvite(
   inviteCode: string
 ): Promise<{ success: boolean; businessId?: string; businessName?: string; expiresAt?: string; error?: string }> {
