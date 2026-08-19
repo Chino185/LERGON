@@ -444,6 +444,10 @@ export default function InventoryScreen({
   const handleCreateCategory = async (catName: string) => {
     const trimmed = sanitizeTextInput(catName, 60).trim();
     if (!trimmed) return;
+    if (!businessId) {
+      setItemSaveError('Business ID is unavailable. Please sign in again before adding a category.');
+      return;
+    }
     if (businessCategories.some(category => category.toLowerCase() === trimmed.toLowerCase())) {
       setItemCategory(businessCategories.find(category => category.toLowerCase() === trimmed.toLowerCase()) || trimmed);
       setNewCategoryInput('');
@@ -453,19 +457,21 @@ export default function InventoryScreen({
 
     const previous = businessCategories;
     const updated = [...businessCategories, trimmed];
+    setItemSaveError(null);
+
+    const result = await saveBusinessCategories(businessId, updated);
+    if (!result.success) {
+      setBusinessCategories(previous);
+      setNewCategoryInput(trimmed);
+      setIsAddingNewCategory(true);
+      setItemSaveError(result.error || 'Failed to save custom category. Apply the custom-categories migration and try again.');
+      return;
+    }
+
     setBusinessCategories(updated);
     setItemCategory(trimmed);
     setNewCategoryInput('');
     setIsAddingNewCategory(false);
-
-    if (businessId) {
-      const result = await saveBusinessCategories(businessId, updated);
-      if (!result.success) {
-        setBusinessCategories(previous);
-        setItemCategory(previous[0] || '');
-        setItemSaveError(result.error || 'Failed to save custom category.');
-      }
-    }
   };
 
   const handleDeleteCategory = async (catToDelete: string, e: React.MouseEvent) => {

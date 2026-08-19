@@ -762,12 +762,16 @@ export async function saveBusinessCategories(
       new Set(categories.map(c => sanitizeTextInput(c, 60).trim()).filter(Boolean))
     );
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('businesses')
       .update({ categories: cleanCategories })
-      .eq('id', businessId);
-
+      .eq('id', businessId)
+      .select('id')
+      .maybeSingle();
     if (error) throw error;
+    if (!data) {
+      return { success: false, error: 'Category update was not saved. Confirm the custom-categories migration is applied and that you are the business Administrator.' };
+    }
     return { success: true };
   } catch (err: any) {
     console.error('saveBusinessCategories Error:', err);
