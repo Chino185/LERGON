@@ -102,8 +102,7 @@ import {
   updateBusinessCurrency,
   subscribeToBusinessCurrency,
   updateUserPhone,
-  updateUserTheme,
-  subscribeToActiveAttendantInvite
+  updateUserTheme
 } from './utils/authServices';
 
 import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems, subscribeToStockAdjustments, submitRestockRequest, verifyRestockRequestTransaction, recordStockAdjustmentTransaction, subscribeToRestockRequests, createAttendantInvite } from './utils/inventoryServices';
@@ -1181,23 +1180,6 @@ export default function App() {
       if (profileChannel) supabase.removeChannel(profileChannel);
     };
   }, []);
-
-  // The invite PIN is backend-owned. Re-fetch it on login/refresh and listen
-  // for redemption or expiry-related row changes so stale local invite state
-  // cannot keep the Systems page locked to an old code.
-  useEffect(() => {
-    if (!isLoggedIn || currentUserRole !== 2 || !currentOrgId) {
-      return;
-    }
-
-    return subscribeToActiveAttendantInvite(currentOrgId, (invite) => {
-      setOrganizations(previousOrganizations => previousOrganizations.map(org => (
-        org.id === currentOrgId
-          ? { ...org, activeInvite: invite || undefined }
-          : org
-      )));
-    });
-  }, [isLoggedIn, currentUserRole, currentOrgId]);
 
   // Restore per-user notification read state from the current tenant.
   // The local cache prevents a refresh-time unread flash while the backend read keys load.
