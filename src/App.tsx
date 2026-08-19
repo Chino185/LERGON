@@ -142,6 +142,28 @@ const CREDIT_ACCOUNTS_KEY = 'velo_ic_accounts';
 const TRANSACTIONS_KEY = 'velo_ic_transactions';
 const PENDING_RESTOCKS_KEY = 'velo_ic_pending_restocks';
 const NOTIFICATION_READ_CACHE_PREFIX = 'lergon_notification_reads';
+const ACTIVE_SCREEN_STORAGE_KEY = 'lergon_active_screen';
+const VALID_ACTIVE_SCREENS = new Set([
+  'dashboard',
+  'notifications',
+  'inventory',
+  'credit',
+  'transactions',
+  'report',
+  'invoice',
+  'activity_log',
+  'settings'
+]);
+
+const getInitialActiveScreen = (): string => {
+  if (typeof window === 'undefined') return 'dashboard';
+  try {
+    const savedScreen = window.localStorage.getItem(ACTIVE_SCREEN_STORAGE_KEY);
+    return savedScreen && VALID_ACTIVE_SCREENS.has(savedScreen) ? savedScreen : 'dashboard';
+  } catch {
+    return 'dashboard';
+  }
+};
 
 const getNotificationReadCacheKey = (businessId: string, userUid: string): string =>
   `${NOTIFICATION_READ_CACHE_PREFIX}:${businessId}:${userUid}`;
@@ -151,7 +173,7 @@ const cleanPhoneForWhatsApp = (num: string): string => {
 };
 
 export default function App() {
-  const [activeScreen, setActiveScreen] = useState<string>('dashboard');
+  const [activeScreen, setActiveScreen] = useState<string>(getInitialActiveScreen);
   const [initialOpenAddModal, setInitialOpenAddModal] = useState<boolean>(false);
   const [landingBg, setLandingBg] = useState<'cloudinary_video' | 'dark_portal' | 'twilight_cyber'>('cloudinary_video');
 
@@ -529,6 +551,11 @@ export default function App() {
     setSuccess(null);
     setActiveView('signin');
     setActiveScreen('dashboard');
+    try {
+      window.localStorage.removeItem(ACTIVE_SCREEN_STORAGE_KEY);
+    } catch (error) {
+      console.warn('[Navigation] Unable to clear saved active screen:', error);
+    }
     await logoutUser();
   };
 
@@ -1209,6 +1236,15 @@ export default function App() {
 
     void markNotificationsAsRead(currentUserUid, normalizedIds, currentOrgId);
   };
+
+  useEffect(() => {
+    if (!isLoggedIn || !VALID_ACTIVE_SCREENS.has(activeScreen)) return;
+    try {
+      window.localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, activeScreen);
+    } catch (error) {
+      console.warn('[Navigation] Unable to save active screen:', error);
+    }
+  }, [activeScreen, isLoggedIn]);
 
   // Sync role & screen state
   useEffect(() => {
