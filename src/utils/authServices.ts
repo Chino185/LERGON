@@ -39,8 +39,10 @@ export async function registerUser(
   try {
     const cleanEmail = email.trim().toLowerCase();
     const role = metadata?.role || 'admin';
-    const displayUsername = metadata?.name || cleanEmail.split('@')[0];
-    const businessName = metadata?.businessName || `${displayUsername}'s Shop`;
+    const displayUsername = metadata && Object.prototype.hasOwnProperty.call(metadata, 'name')
+      ? (metadata.name || '')
+      : cleanEmail.split('@')[0];
+    const businessName = metadata?.businessName || `${displayUsername || cleanEmail.split('@')[0]}'s Shop`;
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: cleanEmail,

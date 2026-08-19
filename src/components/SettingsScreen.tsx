@@ -602,7 +602,7 @@ export default function SettingsScreen({
 
   const currentOrg = organizations?.find(o => o.id === currentOrgId);
   const initialUserName = isAttendant
-    ? (currentOrg?.attendantName || 'Samuel Zar')
+    ? (currentOrg?.attendantName || '')
     : (currentOrg?.adminName || config.ownerName || 'Administrator');
   const initialUserPhoto = isAttendant
     ? (currentOrg?.attendantPhoto || '')
@@ -630,6 +630,10 @@ export default function SettingsScreen({
   const [currencyCode, setCurrencyCode] = useState(config.currency);
   const [currencySymbol, setCurrencySymbol] = useState(config.currencySymbol || '$');
   const [countryVal, setCountryVal] = useState(config.country || 'United States');
+  const selectedDialCode = COUNTRIES_AND_CURRENCIES.find(c => c.country === countryVal)?.dialCode || '';
+  const phoneInputValue = selectedDialCode && busPhone.trim().startsWith(selectedDialCode)
+    ? busPhone.trim().slice(selectedDialCode.length).trim()
+    : busPhone;
   const [profilePhoto, setProfilePhoto] = useState(initialUserPhoto);
   // Holds the raw File pending upload to Supabase Storage. profilePhoto
   // above is just the local preview (existing backend URL, or a blob
@@ -1303,12 +1307,21 @@ export default function SettingsScreen({
                     <label className="block font-semibold text-gray-700 mb-1">
                       Contact Number
                     </label>
-                    <input
-                      type="text"
-                      value={busPhone}
-                      onChange={(e) => setBusPhone(e.target.value)}
-                      className="w-full rounded-lg border p-2.5 font-mono border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
-                    />
+                    <div className="flex items-center rounded-lg border border-gray-300 bg-white focus-within:ring-1 focus-within:ring-indigo-500 overflow-hidden">
+                      <span className="px-3 py-2.5 font-mono font-bold text-slate-700 bg-slate-100 border-r border-gray-300 select-none">
+                        {selectedDialCode || '+'}
+                      </span>
+                      <input
+                        type="tel"
+                        value={phoneInputValue}
+                        onChange={(e) => {
+                          const nationalNumber = e.target.value.replace(/[^0-9\s()-]/g, '');
+                          setBusPhone(selectedDialCode ? `${selectedDialCode}${nationalNumber}` : nationalNumber);
+                        }}
+                        placeholder="Contact number"
+                        className="min-w-0 flex-1 p-2.5 font-mono bg-transparent text-gray-900 focus:outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
 

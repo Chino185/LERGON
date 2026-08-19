@@ -729,7 +729,7 @@ export default function App() {
 
   const activeOrg = organizations.find(o => o.id === currentOrgId);
   const activeUserName = currentUserRole === 5
-    ? (activeOrg?.attendantName || 'Samuel Zar')
+    ? (activeOrg?.attendantName || 'Attendant')
     : (activeOrg?.adminName || config.ownerName || 'Administrator');
   const activeUserPhoto = currentUserRole === 5
     ? (activeOrg?.attendantPhoto || '')
@@ -931,7 +931,7 @@ export default function App() {
     console.log('[Attendant Signup] Attempting registration for:', cleanEmail, 'Business Name:', validatedJoinOrg.name);
     const authRes = await registerUser(cleanEmail, cleanPass, {
       role: 'attendant',
-      name: validatedJoinOrg.name,
+      name: '',
       inviteCode: inviteCodeInput.trim()
     });
 
@@ -1053,7 +1053,7 @@ export default function App() {
               adminEmail: roleStr === 'admin' ? (user.email || localOrg?.adminEmail) : localOrg?.adminEmail,
               attendantEmail: roleStr === 'attendant' ? (user.email || localOrg?.attendantEmail) : localOrg?.attendantEmail,
               adminName: roleStr === 'admin' ? (profileData.display_username || localOrg?.adminName || 'Administrator') : localOrg?.adminName,
-              attendantName: roleStr === 'attendant' ? (profileData.display_username || localOrg?.attendantName || 'Attendant') : localOrg?.attendantName,
+              attendantName: roleStr === 'attendant' ? (profileData.display_username || localOrg?.attendantName || '') : localOrg?.attendantName,
               adminPhoto: localOrg?.adminPhoto,
               attendantPhoto: localOrg?.attendantPhoto,
               country: businessData?.base_country || localOrg?.country,
