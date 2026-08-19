@@ -704,7 +704,21 @@ export function subscribeToBusinessCategories(
     return () => { };
   }
 
+  const cacheKey = `business_categories_${businessId}`;
+
   const fetchCategories = async () => {
+    // 1. Initial optimistic load from localStorage
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          onUpdate(parsed);
+        }
+      }
+    } catch { }
+
+    // 2. Fetch from Supabase
     try {
       const { data, error } = await supabase
         .from('businesses')
@@ -713,13 +727,13 @@ export function subscribeToBusinessCategories(
         .maybeSingle();
 
       if (!error && data?.categories && Array.isArray(data.categories)) {
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(data.categories));
+        } catch { }
         onUpdate(data.categories);
-      } else {
-        onUpdate([]);
       }
     } catch (err) {
       console.warn('Could not fetch business categories:', err);
-      onUpdate([]);
     }
   };
 
@@ -737,6 +751,9 @@ export function subscribeToBusinessCategories(
       },
       (payload: any) => {
         if (payload.new?.categories && Array.isArray(payload.new.categories)) {
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(payload.new.categories));
+          } catch { }
           onUpdate(payload.new.categories);
         }
       }
@@ -761,16 +778,20 @@ export async function saveBusinessCategories(
       new Set(categories.map(c => sanitizeTextInput(c, 60).trim()).filter(Boolean))
     );
 
-    if (cleanCategories.length === 0) {
-      return { success: false, error: 'At least one category is required.' };
-    }
+    // Save to local cache immediately
+    try {
+      localStorage.setItem(`business_categories_${businessId}`, JSON.stringify(cleanCategories));
+    } catch { }
 
     const { error } = await supabase
       .from('businesses')
       .update({ categories: cleanCategories })
       .eq('id', businessId);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase categories update error:', error);
+      return { success: false, error: error.message };
+    }
     return { success: true };
   } catch (err: any) {
     console.error('saveBusinessCategories Error:', err);

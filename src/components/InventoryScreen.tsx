@@ -445,16 +445,14 @@ export default function InventoryScreen({
   const handleCreateCategory = async (catName: string) => {
     const trimmed = catName.trim();
     if (!trimmed) return;
-    if (!businessCategories.includes(trimmed)) {
-      const updated = [...businessCategories, trimmed];
-      setBusinessCategories(updated);
-      if (businessId) {
-        void saveBusinessCategories(businessId, updated);
-      }
-    }
+    const updated = Array.from(new Set([...businessCategories, trimmed]));
+    setBusinessCategories(updated);
     setItemCategory(trimmed);
     setNewCategoryInput('');
     setIsAddingNewCategory(false);
+    if (businessId) {
+      void saveBusinessCategories(businessId, updated);
+    }
   };
 
   const handleDeleteCategory = async (catToDelete: string, e: React.MouseEvent) => {
@@ -1763,7 +1761,11 @@ export default function InventoryScreen({
                               />
                               <button
                                 type="button"
-                                onClick={() => void handleCreateCategory(newCategoryInput)}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  void handleCreateCategory(newCategoryInput);
+                                }}
                                 disabled={!newCategoryInput.trim()}
                                 className="px-2.5 py-1.5 rounded-xl bg-sky-500 text-white text-[11px] font-black hover:bg-sky-600 active:scale-95 transition disabled:opacity-40 cursor-pointer shrink-0"
                               >
