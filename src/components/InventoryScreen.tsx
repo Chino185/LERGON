@@ -28,7 +28,8 @@ import {
   CheckCircle2,
   Loader2,
   AlertCircle,
-  ImagePlus
+  ImagePlus,
+  Camera
 } from 'lucide-react';
 import { InventoryItem, StockAdjustment, BusinessConfig, PendingRestock } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -425,6 +426,7 @@ export default function InventoryScreen({
   const [itemImagePreview, setItemImagePreview] = useState('');
   const [itemOriginalImageUrl, setItemOriginalImageUrl] = useState('');
   const itemImageInputRef = useRef<HTMLInputElement>(null);
+  const itemCameraInputRef = useRef<HTMLInputElement>(null);
   // Loading & Error Feedback states for Save Product action
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [itemSaveError, setItemSaveError] = useState<string | null>(null);
@@ -456,9 +458,8 @@ export default function InventoryScreen({
   const handleClearSelectedImage = () => {
     setItemImageFile(null);
     setItemImagePreview(itemOriginalImageUrl);
-    if (itemImageInputRef.current) {
-      itemImageInputRef.current.value = '';
-    }
+    if (itemImageInputRef.current) itemImageInputRef.current.value = '';
+    if (itemCameraInputRef.current) itemCameraInputRef.current.value = '';
   };
 
   useEffect(() => {
@@ -617,6 +618,7 @@ export default function InventoryScreen({
     setItemOriginalImageUrl('');
     setItemImagePreview('');
     if (itemImageInputRef.current) itemImageInputRef.current.value = '';
+    if (itemCameraInputRef.current) itemCameraInputRef.current.value = '';
     setItemSaveError(null);
     setIsSavingItem(false);
     setShowAddEditModal(true);
@@ -639,6 +641,7 @@ export default function InventoryScreen({
     setItemOriginalImageUrl(item.imageUrl || '');
     setItemImagePreview(item.imageUrl || '');
     if (itemImageInputRef.current) itemImageInputRef.current.value = '';
+    if (itemCameraInputRef.current) itemCameraInputRef.current.value = '';
     setItemSaveError(null);
     setIsSavingItem(false);
     setShowAddEditModal(true);
@@ -1773,7 +1776,23 @@ export default function InventoryScreen({
                       onChange={(e) => handleImageFileChange(e.target.files?.[0])}
                       className="block w-full text-xs text-slate-600 dark:text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-xs file:font-extrabold file:text-white hover:file:bg-sky-600 file:cursor-pointer"
                     />
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Upload an image up to 5 MB. The image is saved to this business inventory record.</p>
+                    <input
+                      ref={itemCameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleImageFileChange(e.target.files?.[0])}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => itemCameraInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-[11px] font-extrabold text-white hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 cursor-pointer"
+                    >
+                      <Camera size={13} />
+                      Take photo
+                    </button>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Upload an image up to 5 MB or take a photo with your device camera.</p>
                     {itemImageFile && (
                       <button
                         type="button"
