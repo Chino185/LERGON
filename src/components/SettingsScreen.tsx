@@ -1256,8 +1256,8 @@ export default function SettingsScreen({
                     value={busName}
                     onChange={(e) => setBusName(e.target.value)}
                     className={`w-full rounded-lg border p-2.5 font-medium ${userRole === 5
-                      ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none'
-                      : 'border-gray-300 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
+                      ? 'neumorphic-inset border-slate-200 bg-[#e2e8f0]/70 dark:bg-[#25272c] text-slate-500 dark:text-slate-400 cursor-not-allowed select-none'
+                      : 'neumorphic-inset border-white/80 dark:border-slate-700 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
                       }`}
                   />
                   <p className="text-[10px] text-gray-400 mt-1">
@@ -1275,7 +1275,7 @@ export default function SettingsScreen({
                     required
                     value={ownName}
                     onChange={(e) => setOwnName(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 p-2.5 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium"
+                    className="w-full rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2.5 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium"
                   />
                   <p className="text-[10px] text-gray-400 mt-1">
                     The active name printed as operator/administrator on reports and audit ledgers.
@@ -1307,8 +1307,8 @@ export default function SettingsScreen({
                     <label className="block font-semibold text-gray-700 mb-1">
                       Contact Number
                     </label>
-                    <div className="flex items-center rounded-lg border border-gray-300 bg-white focus-within:ring-1 focus-within:ring-indigo-500 overflow-hidden">
-                      <span className="px-3 py-2.5 font-mono font-bold text-slate-700 bg-slate-100 border-r border-gray-300 select-none">
+                    <div className="flex items-center rounded-xl neumorphic-inset border border-white/80 dark:border-slate-700 bg-[#ebf0f7] dark:bg-[#202225] focus-within:ring-1 focus-within:ring-indigo-500 overflow-hidden">
+                      <span className="px-3 py-2.5 font-mono font-bold text-slate-700 dark:text-slate-200 bg-[#e2e8f0]/80 dark:bg-[#25272c] border-r border-slate-300/70 dark:border-slate-700 select-none">
                         {selectedDialCode || '+'}
                       </span>
                       <input
@@ -1319,7 +1319,7 @@ export default function SettingsScreen({
                           setBusPhone(selectedDialCode ? `${selectedDialCode}${nationalNumber}` : nationalNumber);
                         }}
                         placeholder="Contact number"
-                        className="min-w-0 flex-1 p-2.5 font-mono bg-transparent text-gray-900 focus:outline-none"
+                        className="min-w-0 flex-1 p-2.5 font-mono bg-transparent text-slate-900 dark:text-white focus:outline-none"
                       />
                     </div>
                   </div>
@@ -1730,7 +1730,7 @@ export default function SettingsScreen({
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-3 shadow-xs mb-4 text-slate-800"
+                  className="p-4 neumorphic-card bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/60 rounded-2xl text-xs space-y-3 mb-4 text-slate-800 dark:text-amber-100"
                 >
                   <div className="flex items-start gap-2 text-amber-950 font-semibold">
                     <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
@@ -1771,7 +1771,7 @@ export default function SettingsScreen({
                           setTempPasswordFeedback(null);
                         }}
                         placeholder="e.g. 5566 or temp99"
-                        className="flex-1 rounded-lg border border-amber-350 p-2 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-amber-500 text-xs"
+                        className="flex-1 rounded-xl neumorphic-inset border border-amber-300/80 dark:border-amber-800 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-amber-500 text-xs"
                       />
                       <button
                         type="button"
@@ -1781,7 +1781,7 @@ export default function SettingsScreen({
                           setTempPasswordInput(rand);
                           setTempPasswordFeedback(null);
                         }}
-                        className="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold rounded-lg text-xs transition border border-amber-350 cursor-pointer"
+                        className="px-3 py-2 neumorphic-btn bg-amber-100/70 dark:bg-amber-950/30 hover:bg-amber-200/70 text-amber-900 dark:text-amber-100 font-semibold rounded-xl text-xs transition border border-amber-300/80 dark:border-amber-800 cursor-pointer"
                       >
                         Generate PIN
                       </button>
@@ -1819,7 +1819,7 @@ export default function SettingsScreen({
                             setTempPasswordInput('');
                           }
                         }}
-                        className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-lg transition text-xs shadow-xs cursor-pointer"
+                        className="flex items-center gap-1 neumorphic-btn bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs cursor-pointer"
                       >
                         <Check size={13} /> Set & Send Temporary Passcode
                       </button>
@@ -1851,7 +1851,7 @@ export default function SettingsScreen({
                       required
                       value={currentPwd}
                       onChange={e => setCurrentPwd(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono"
+                      className="w-full rounded-xl neumorphic-inset border border-white/80 dark:border-slate-700 p-2.5 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white text-xs font-mono"
                       placeholder="Enter current password"
                     />
                   </div>
@@ -1862,14 +1862,14 @@ export default function SettingsScreen({
                       required
                       value={newPwd}
                       onChange={e => setNewPwd(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 p-2.5 bg-white text-gray-900 text-xs font-mono"
+                      className="w-full rounded-xl neumorphic-inset border border-white/80 dark:border-slate-700 p-2.5 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white text-xs font-mono"
                       placeholder="Enter new password (min 6 characters)"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={isChangingPwd}
-                    className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl text-xs transition cursor-pointer"
+                    className="px-5 py-2.5 neumorphic-btn bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl text-xs transition cursor-pointer"
                   >
                     {isChangingPwd ? 'Updating Password...' : 'Update Password'}
                   </button>

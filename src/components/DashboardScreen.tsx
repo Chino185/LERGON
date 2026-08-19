@@ -747,7 +747,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-xl shadow-lg border text-xs font-bold ${feedback.type === 'success'
+            className={`fixed top-4 right-4 z-50 max-w-[calc(100vw-2rem)] flex items-center gap-2 px-4 py-2 rounded-xl neumorphic-card border text-xs font-bold ${feedback.type === 'success'
               ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
               : 'bg-rose-50 text-rose-800 border-rose-100'
               }`}
@@ -1194,7 +1194,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                       <button
                         type="button"
                         onClick={() => setSliderIndex((prev) => (prev > 0 ? prev - 1 : inventory.length - 1))}
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-full p-2 transition duration-200 cursor-pointer focus:outline-hidden hover:scale-110 active:scale-95 z-10 shadow-md border border-slate-700/50"
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 neumorphic-circle bg-slate-900/80 hover:bg-slate-900 text-white rounded-full p-2 transition duration-200 cursor-pointer focus:outline-hidden hover:scale-110 active:scale-95 z-10 border border-slate-700/50"
                         title="Previous Product"
                       >
                         <ChevronLeft size={16} />
@@ -1203,7 +1203,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                       <button
                         type="button"
                         onClick={() => setSliderIndex((prev) => (prev + 1) % inventory.length)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-full p-2 transition duration-200 cursor-pointer focus:outline-hidden hover:scale-110 active:scale-95 z-10 shadow-md border border-slate-700/50"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 neumorphic-circle bg-slate-900/80 hover:bg-slate-900 text-white rounded-full p-2 transition duration-200 cursor-pointer focus:outline-hidden hover:scale-110 active:scale-95 z-10 border border-slate-700/50"
                         title="Next Product"
                       >
                         <ChevronRight size={16} />
@@ -1279,7 +1279,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               );
             })() : (
               <div className="py-12 text-center text-xs">
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-full max-w-max mx-auto text-slate-400 mb-2">
+                <div className="p-3 neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 border border-white/70 dark:border-slate-700/70 rounded-full max-w-max mx-auto text-slate-500 dark:text-slate-400 mb-2">
                   <ImageIcon size={22} className="mx-auto text-slate-450 animate-none" />
                 </div>
                 <p className="text-gray-400 font-bold italic">No inventory items available to review.</p>
@@ -1314,10 +1314,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="relative finnova-card rounded-3xl border border-slate-700/60 dark:border-slate-800 w-full max-w-md flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-white z-10 font-jakarta"
+              className="relative neumorphic-card rounded-3xl border border-white/90 dark:border-slate-700/80 w-full max-w-md flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-white z-10 font-jakarta"
             >
               {/* Header */}
-              <div className="p-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-100/70 dark:bg-slate-900/60">
+              <div className="p-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between neumorphic-inset rounded-none bg-[#ebf0f7]/70 dark:bg-[#202225]/70">
                 <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-950 dark:text-white flex items-center gap-2 font-jakarta">
                   <MaterialIcon name="payments" className="text-emerald-600 dark:text-emerald-400 text-base" /> Repayment Record
                 </h3>
@@ -1396,7 +1396,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
 
                     {/* LIVE AUTOCOMPLETE RECORD SUGGESTIONS */}
                     {isAccountDropdownOpen && accountQuery.trim().length > 0 && (
-                      <div className="absolute z-30 w-full mt-1.5 finnova-card rounded-2xl border border-slate-700/60 dark:border-slate-800 shadow-2xl max-h-48 overflow-y-auto text-xs py-1.5 space-y-1 backdrop-blur-md">
+                      <div className="absolute z-30 w-full mt-1.5 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl max-h-48 overflow-y-auto text-xs py-1.5 space-y-1 backdrop-blur-md">
                         {filteredDropdownAccounts.length > 0 ? (
                           filteredDropdownAccounts.map(acc => (
                             <button
@@ -1501,10 +1501,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 15 }}
               transition={{ type: "spring", duration: 0.45, bounce: 0.1 }}
-              className="relative finnova-card rounded-3xl w-full max-w-6xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-white border border-slate-700/60"
+              className="relative neumorphic-card rounded-3xl w-full max-w-6xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-white border border-white/90 dark:border-slate-700/80"
             >
               {/* Modal Header Banner */}
-              <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 p-5 shrink-0">
+              <div className="neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 border-b border-slate-200/80 dark:border-slate-800 p-5 shrink-0 rounded-none">
                 <div className="flex justify-between items-start gap-3">
                   <div>
                     <span className="text-[9.5px] font-extrabold font-jakarta px-3 py-1 rounded-full uppercase tracking-wider neumorphic-btn text-slate-900 dark:text-white border border-slate-700/60">
@@ -1541,7 +1541,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               </div>
 
               {/* Sub-Header Actions: Product filtering */}
-              <div className="border-b border-slate-200/80 dark:border-slate-800 px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 bg-slate-50/60 dark:bg-slate-900/60">
+              <div className="border-b border-slate-200/80 dark:border-slate-800 px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 rounded-none">
                 <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-jakarta">
                   Product Profit & Performance Ledger
                 </span>
@@ -1568,10 +1568,10 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               </div>
 
               {/* Scrollable table container */}
-              <div className="grow overflow-y-auto p-4 min-h-0 bg-slate-50/30 dark:bg-slate-950/40">
+              <div className="grow overflow-y-auto p-4 min-h-0 neumorphic-inset bg-[#ebf0f7]/30 dark:bg-[#202225]/40 rounded-none">
                 {/* Aggregated product profitability table */}
                 {filteredAggregatedSoldItems.length > 0 ? (
-                  <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
+                  <div className="neumorphic-card border border-white/90 dark:border-slate-700/80 rounded-2xl overflow-hidden bg-[#ebf0f7]/70 dark:bg-[#202225]/70">
                     <table className="w-full border-collapse text-left text-xs font-jakarta">
                       <thead>
                         <tr className="neumorphic-table-header text-[10px] select-none">
@@ -1635,7 +1635,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                     </table>
                   </div>
                 ) : (
-                  <div className="text-center py-10 bg-white border border-slate-150 rounded-xl shadow-4xs">
+                  <div className="text-center py-10 neumorphic-card border border-white/90 dark:border-slate-700/80 rounded-2xl">
                     <TrendingUp size={24} className="mx-auto text-slate-300" />
                     <p className="text-[11px] text-slate-550 font-semibold mt-2">No product sales matches categorized</p>
                     <p className="text-[9.5px] text-slate-400">Search logic found zero matches for product categorization.</p>
@@ -1691,7 +1691,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               </div>
 
               {/* Mobile Segmented Tab bar */}
-              <div className="flex xl:hidden border-b border-slate-150 bg-slate-100/60 p-1.5 shrink-0 gap-1.5">
+              <div className="flex xl:hidden border-b border-slate-200/60 dark:border-slate-700/60 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-1.5 shrink-0 gap-1.5 rounded-none">
                 <button
                   type="button"
                   onClick={() => setActiveMobileTab('picker')}
@@ -1729,7 +1729,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               </div>
 
               {/* Master Dual-Column Landscape Container */}
-              <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 xl:overflow-hidden min-h-0 bg-slate-50/20">
+              <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 xl:overflow-hidden min-h-0 neumorphic-inset bg-[#ebf0f7]/20 dark:bg-[#202225]/30 rounded-none">
                 {/* LEFT COLUMN: Product Discovery & Quick Pick */}
                 <div className={`col-span-1 xl:col-span-6 flex flex-col h-full min-h-0 border-r border-slate-200/60 bg-[#ebf0f7] ${activeMobileTab === 'picker' ? 'flex' : 'hidden xl:flex'
                   }`}>

@@ -499,8 +499,8 @@ export default function CreditScreen({
                 <button
                   onClick={() => { setActiveTab('receivable'); setStatusFilter('all'); }}
                   className={`text-xs font-bold px-4 py-1.5 rounded-full transition cursor-pointer ${activeTab === 'receivable'
-                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
+                    : 'neumorphic-btn text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white'
                     }`}
                 >
                   Customer Debtors
@@ -508,8 +508,8 @@ export default function CreditScreen({
                 <button
                   onClick={() => { setActiveTab('payable'); setStatusFilter('all'); }}
                   className={`text-xs font-bold px-4 py-1.5 rounded-full transition cursor-pointer ${activeTab === 'payable'
-                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
+                    : 'neumorphic-btn text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white'
                     }`}
                 >
                   Supplier Accounts
@@ -525,8 +525,8 @@ export default function CreditScreen({
                   type="button"
                   onClick={() => setStatusFilter(f)}
                   className={`text-[11px] px-3.5 py-1.5 rounded-full font-bold transition cursor-pointer select-none ${statusFilter === f
-                      ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
-                      : 'finnova-card text-slate-600 hover:text-slate-900'
+                    ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
+                    : 'finnova-card text-slate-600 hover:text-slate-900'
                     }`}
                 >
                   {f === 'all' ? 'Active Profiles' : 'Settled (Audit)'}
@@ -611,8 +611,8 @@ export default function CreditScreen({
                                       {g.itemName} <span className="text-slate-400 font-mono text-[9px] font-normal">x{g.originalQuantity}</span>
                                     </span>
                                     <span className={`text-[8.5px] font-bold px-1 rounded-sm ${g.status === 'sold'
-                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                                        : 'bg-amber-50 text-amber-700 border border-amber-100'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                      : 'bg-amber-50 text-amber-700 border border-amber-100'
                                       }`}>
                                       {g.status === 'sold' ? 'Sold' : formatMoney(g.outstandingValue)}
                                     </span>
@@ -625,8 +625,8 @@ export default function CreditScreen({
                       </td>
                       <td className="py-2.5 px-2">
                         <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${acc.type === 'receivable'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-100/50'
-                            : 'bg-purple-50 text-purple-700 border border-purple-100/50'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-100/50'
+                          : 'bg-purple-50 text-purple-700 border border-purple-100/50'
                           }`}>
                           {acc.type === 'receivable' ? 'Customer' : 'Supplier'}
                         </span>
@@ -713,12 +713,12 @@ export default function CreditScreen({
               </tbody>
             </table>
           </div>        {/* Mobile View Card list */}
-          <div className="block lg:hidden divide-y divide-gray-100 text-gray-950 p-2">
+          <div className="block lg:hidden divide-y divide-slate-200/60 dark:divide-slate-700/60 text-slate-900 dark:text-white p-2 neumorphic-inset bg-[#ebf0f7]/50 dark:bg-[#202225]/50">
             {filteredAccounts.map(acc => {
               const itemsForAcc = getProfileGoodsLedger(acc);
 
               return (
-                <div key={acc.id} className="py-4 px-2 space-y-3">
+                <div key={acc.id} className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 p-4 space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -729,8 +729,8 @@ export default function CreditScreen({
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${acc.type === 'receivable'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-100/50'
-                            : 'bg-purple-50 text-purple-700 border border-purple-100/50'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-100/50'
+                          : 'bg-purple-50 text-purple-700 border border-purple-100/50'
                           }`}>
                           {acc.type === 'receivable' ? 'Customer Receivable' : 'Supplier Payable'}
                         </span>
@@ -746,14 +746,14 @@ export default function CreditScreen({
                       </div>
                     </div>
                     <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide shrink-0 ${acc.status === 'settled'
-                        ? 'bg-emerald-100 text-emerald-850'
-                        : 'bg-amber-100 text-amber-800'
+                      ? 'bg-emerald-100 text-emerald-850'
+                      : 'bg-amber-100 text-amber-800'
                       }`}>
                       {acc.status.replace('_', ' ')}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-[10px]">
+                  <div className="grid grid-cols-2 gap-2 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-2.5 rounded-xl border border-white/70 dark:border-slate-700/70 text-[10px]">
                     <div>
                       <span className="block text-gray-500 text-[9px] uppercase">Original Ledger</span>
                       <strong className="text-gray-900 text-xs">{formatMoney(acc.totalAmount)}</strong>
@@ -782,7 +782,7 @@ export default function CreditScreen({
 
                   {/* Mobile Credited Items */}
                   {itemsForAcc.length > 0 && (
-                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-200/40 text-[10px] space-y-1">
+                    <div className="neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-2 rounded-xl border border-white/70 dark:border-slate-700/70 text-[10px] space-y-1">
                       <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">{`Credited Products (${itemsForAcc.length}):`}</span>
                       <div className="divide-y divide-gray-100 max-h-[110px] overflow-y-auto pr-1">
                         {itemsForAcc.map(g => (
@@ -791,8 +791,8 @@ export default function CreditScreen({
                               {g.itemName} <span className="text-gray-400 font-mono text-[9px]">x{g.originalQuantity}</span>
                             </span>
                             <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded-sm border ${g.status === 'sold'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                                : 'bg-amber-50 text-amber-800 border-amber-100'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                              : 'bg-amber-50 text-amber-800 border-amber-100'
                               }`}>
                               {g.status === 'sold' ? 'Sold' : formatMoney(g.outstandingValue)}
                             </span>
@@ -809,7 +809,7 @@ export default function CreditScreen({
                         <button
                           type="button"
                           onClick={() => handleOpenTxn(acc.id)}
-                          className="flex-1 min-h-[44px] bg-slate-100 text-emerald-700 rounded-lg flex items-center justify-center gap-1.5 font-bold text-xs hover:bg-emerald-50 cursor-pointer"
+                          className="flex-1 min-h-[44px] neumorphic-btn text-emerald-700 dark:text-emerald-300 rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs hover:text-emerald-800 dark:hover:text-emerald-200 cursor-pointer"
                         >
                           <Coins size={14} /> Record Payment
                         </button>
@@ -817,14 +817,14 @@ export default function CreditScreen({
                           <button
                             type="button"
                             onClick={() => { setReminderAcc(acc); setShowReminderModal(true); }}
-                            className="w-12 min-h-[44px] bg-indigo-50 text-indigo-750 rounded-lg flex items-center justify-center hover:bg-indigo-100 cursor-pointer"
+                            className="w-12 min-h-[44px] neumorphic-btn text-indigo-700 dark:text-indigo-300 rounded-xl flex items-center justify-center hover:text-indigo-900 dark:hover:text-indigo-200 cursor-pointer"
                           >
                             <MessageSquare size={16} />
                           </button>
                         )}
                       </>
                     ) : (
-                      <div className="flex-1 flex items-center justify-center min-h-[44px] text-xs text-emerald-700 bg-emerald-50 font-semibold rounded-lg">
+                      <div className="flex-1 flex items-center justify-center min-h-[44px] text-xs text-emerald-700 dark:text-emerald-300 neumorphic-inset font-semibold rounded-xl">
                         Fully Settled Ledger Profile
                       </div>
                     )}
@@ -897,8 +897,8 @@ export default function CreditScreen({
                               type="button"
                               onClick={() => setAccType('receivable')}
                               className={`py-2 text-center rounded-lg font-extrabold transition cursor-pointer text-xs ${accType === 'receivable'
-                                  ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-xs'
-                                  : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold'
+                                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-xs'
+                                : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold'
                                 }`}
                             >
                               Customer Receivable
@@ -907,8 +907,8 @@ export default function CreditScreen({
                               type="button"
                               onClick={() => setAccType('payable')}
                               className={`py-2 text-center rounded-lg font-extrabold transition cursor-pointer text-xs ${accType === 'payable'
-                                  ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-xs'
-                                  : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold'
+                                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-xs'
+                                : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold'
                                 }`}
                             >
                               Supplier Payable
@@ -988,8 +988,8 @@ export default function CreditScreen({
                           onDragLeave={handleDragLeave}
                           onDrop={handleDrop}
                           className={`border-2 border-dashed rounded-2xl p-4 text-center transition neumorphic-inset ${isDragging
-                              ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-950/40'
-                              : 'border-slate-300/80 dark:border-slate-800 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-700 dark:text-slate-300'
+                            ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-950/40'
+                            : 'border-slate-300/80 dark:border-slate-800 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-700 dark:text-slate-300'
                             }`}
                         >
                           <label className="flex flex-col items-center justify-center cursor-pointer select-none">
@@ -1324,8 +1324,8 @@ export default function CreditScreen({
                           setTxnNotes(currentAcc && currentAcc.type === 'receivable' ? 'Received full repayment.' : 'Paid full supplier balance.');
                         }}
                         className={`py-2 px-1 rounded-md border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'full'
-                            ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
-                            : 'border-slate-200 hover:border-slate-350 text-slate-700 bg-slate-50/20'
+                          ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
+                          : 'border-slate-200 hover:border-slate-350 text-slate-700 bg-slate-50/20'
                           }`}
                       >
                         Full Payment
@@ -1337,8 +1337,8 @@ export default function CreditScreen({
                           setTxnNotes(currentAcc && currentAcc.type === 'receivable' ? 'Received partial repayment.' : 'Paid partial supplier balance.');
                         }}
                         className={`py-2 px-1 rounded-md border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'partial'
-                            ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
-                            : 'border-slate-200 hover:border-slate-350 text-slate-705 bg-slate-50/20'
+                          ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
+                          : 'border-slate-200 hover:border-slate-350 text-slate-705 bg-slate-50/20'
                           }`}
                       >
                         Partial Payment
@@ -1364,8 +1364,8 @@ export default function CreditScreen({
                       disabled={paymentOption === 'full'}
                       onChange={(e) => setTxnAmount(e.target.value === '' ? '' : Number(e.target.value))}
                       className={`w-full rounded-lg border p-2.5 font-mono text-sm font-semibold ${paymentOption === 'full'
-                          ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
-                          : 'bg-white text-gray-900 border-gray-300 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
+                        ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
+                        : 'bg-white text-gray-900 border-gray-300 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
                         }`}
                     />
                   </div>
@@ -1380,8 +1380,8 @@ export default function CreditScreen({
                           type="button"
                           onClick={() => setTxnPaymentMethod(method)}
                           className={`py-1.5 text-center rounded-md font-semibold transition cursor-pointer text-[10px] ${txnPaymentMethod === method
-                              ? 'bg-white text-indigo-700 shadow-xs'
-                              : 'text-gray-500 hover:text-gray-800'
+                            ? 'bg-white text-indigo-700 shadow-xs'
+                            : 'text-gray-500 hover:text-gray-800'
                             }`}
                         >
                           {method}
@@ -1407,8 +1407,8 @@ export default function CreditScreen({
                           onDragLeave={handleTxnDragLeave}
                           onDrop={handleTxnDrop}
                           className={`border-2 border-dashed rounded-lg p-4 text-center transition ${isTxnDragging
-                              ? 'border-indigo-500 bg-indigo-50/50'
-                              : 'border-slate-300 hover:border-slate-400 bg-slate-50/50 bg-white'
+                            ? 'border-indigo-500 bg-indigo-50/50'
+                            : 'border-slate-300 hover:border-slate-400 bg-slate-50/50 bg-white'
                             }`}
                         >
                           <label className="flex flex-col items-center justify-center cursor-pointer select-none">
@@ -1490,8 +1490,8 @@ export default function CreditScreen({
                       type="submit"
                       disabled={isSubmitDisabled}
                       className={`px-5 py-2.5 font-semibold rounded-lg text-xs transition ${isSubmitDisabled
-                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300/50'
-                          : 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white hover:opacity-95 cursor-pointer animate-shake font-bold'
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300/50'
+                        : 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white hover:opacity-95 cursor-pointer animate-shake font-bold'
                         }`}
                       title={isSubmitDisabled ? 'Please complete all required fields and upload proof' : 'Confirm Logs'}
                     >
@@ -1742,7 +1742,7 @@ export default function CreditScreen({
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden text-gray-950 text-xs"
+            className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl w-full max-w-md overflow-hidden text-slate-900 dark:text-white text-xs"
           >
             {/* Header */}
             <div className="bg-slate-900 p-4 text-white flex justify-between items-center shrink-0">
@@ -1765,7 +1765,7 @@ export default function CreditScreen({
                 Generate and copy a professional reminder notice to text David or send right to Sarah via WhatsApp or cellular networks:
               </p>
 
-              <div className="bg-slate-50 border p-4.5 rounded-lg space-y-2 font-mono whitespace-pre-wrap text-[11px] text-gray-800 select-all leading-relaxed relative">
+              <div className="neumorphic-inset border border-white/70 dark:border-slate-700/70 p-4.5 rounded-xl space-y-2 font-mono whitespace-pre-wrap text-[11px] text-slate-700 dark:text-slate-200 select-all leading-relaxed relative">
                 {generateReminderText(reminderAcc)}
               </div>
 
@@ -1805,7 +1805,7 @@ export default function CreditScreen({
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-xl shadow-xl w-full max-w-xl overflow-hidden text-gray-950 flex flex-col max-h-[85vh]"
+            className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl w-full max-w-xl overflow-hidden text-slate-900 dark:text-white flex flex-col max-h-[85vh]"
           >
             {/* Header */}
             <div className="bg-slate-900 p-4 text-white flex justify-between items-center shrink-0">
@@ -1825,7 +1825,7 @@ export default function CreditScreen({
 
             {/* Body */}
             <div className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
-              <div className="bg-slate-50 border p-3.5 rounded-lg flex items-center justify-between gap-3">
+              <div className="neumorphic-inset border border-white/70 dark:border-slate-700/70 p-3.5 rounded-xl flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <span className="text-gray-400 text-[10px] block font-semibold uppercase">Profile Holder:</span>
                   <strong className="text-gray-900 text-sm block truncate max-w-[280px]">{receiptAccount.name}</strong>
@@ -1863,7 +1863,7 @@ export default function CreditScreen({
               </div>
             </div>
 
-            <div className="p-4 border-t text-right bg-slate-50">
+            <div className="p-4 border-t border-slate-200/60 dark:border-slate-700/60 text-right neumorphic-inset rounded-none">
               <button
                 onClick={() => { setShowReceiptModal(false); setReceiptAccount(null); }}
                 className="px-4.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg cursor-pointer text-xs"
@@ -1881,7 +1881,7 @@ export default function CreditScreen({
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-xl shadow-xl w-full max-w-xl overflow-hidden text-gray-950 flex flex-col max-h-[85vh]"
+            className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl w-full max-w-xl overflow-hidden text-slate-900 dark:text-white flex flex-col max-h-[85vh]"
           >
             {/* Header */}
             <div className="bg-slate-900 p-4 text-white flex justify-between items-center shrink-0">
@@ -1901,7 +1901,7 @@ export default function CreditScreen({
 
             {/* Body */}
             <div className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
-              <div className="bg-slate-50 border p-3.5 rounded-lg flex items-center justify-between gap-3">
+              <div className="neumorphic-inset border border-white/70 dark:border-slate-700/70 p-3.5 rounded-xl flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <span className="text-gray-400 text-[10px] block font-semibold uppercase">Profile Link:</span>
                   <strong className="text-gray-900 text-sm block truncate max-w-[280px]">{activeProof.accountName}</strong>
@@ -1939,7 +1939,7 @@ export default function CreditScreen({
               </div>
             </div>
 
-            <div className="p-4 border-t text-right bg-slate-50">
+            <div className="p-4 border-t border-slate-200/60 dark:border-slate-700/60 text-right neumorphic-inset rounded-none">
               <button
                 onClick={() => { setShowProofModal(false); setActiveProof(null); }}
                 className="px-4.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg cursor-pointer text-xs"

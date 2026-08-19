@@ -328,7 +328,7 @@ export default function NotificationsScreen({
           <div className="border-b border-slate-200/50 pb-3 shrink-0">
             <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 neumorphic-circle text-slate-800 flex items-center justify-center font-bold">
+                <div className="w-8 h-8 neumorphic-circle text-slate-800 dark:text-white flex items-center justify-center font-bold">
                   <Bell size={16} className="text-slate-800" />
                 </div>
                 <div>
@@ -336,7 +336,7 @@ export default function NotificationsScreen({
                   <p className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider">Real-time system-generated triggers</p>
                 </div>
               </div>
-              <div className="text-[10px] font-extrabold text-slate-900 neumorphic-btn px-3 py-1 rounded-full font-sans">
+              <div className="text-[10px] font-extrabold text-slate-900 dark:text-white neumorphic-btn px-3 py-1 rounded-full font-sans">
                 {filteredNotifications.length} items
               </div>
             </div>
@@ -347,9 +347,9 @@ export default function NotificationsScreen({
                 <button
                   key={f}
                   onClick={() => setActiveFilter(f)}
-                  className={`px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider rounded-xl transition cursor-pointer ${activeFilter === f
-                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-sm'
-                      : 'neumorphic-btn text-slate-800 hover:text-black'
+                  className={`px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider rounded-xl transition cursor-pointer neumorphic-btn ${activeFilter === f
+                    ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-sm'
+                    : 'text-slate-800 dark:text-white hover:text-black dark:hover:text-white'
                     }`}
                 >
                   {f === 'all' ? 'All Logs' : f}
@@ -374,12 +374,12 @@ export default function NotificationsScreen({
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.18 }}
                       className={`relative overflow-hidden finnova-card p-4 rounded-2xl transition duration-200 border ${isRead
-                          ? 'opacity-70 border-slate-200 dark:border-slate-800'
-                          : isError
-                            ? 'border-red-300 dark:border-red-900/60 shadow-md'
-                            : isSuccess
-                              ? 'border-emerald-300 dark:border-emerald-900/60 shadow-md'
-                              : 'border-red-300 dark:border-red-900/60 shadow-md'
+                        ? 'opacity-70 border-slate-200 dark:border-slate-800'
+                        : isError
+                          ? 'border-red-300 dark:border-red-900/60 shadow-md'
+                          : isSuccess
+                            ? 'border-emerald-300 dark:border-emerald-900/60 shadow-md'
+                            : 'border-red-300 dark:border-red-900/60 shadow-md'
                         }`}
                     >
                       <div className="flex items-start gap-3.5">
@@ -443,7 +443,7 @@ export default function NotificationsScreen({
                                       window.open(`https://wa.me/${cleanPh}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
                                     }
                                   }}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold cursor-pointer transition select-none shadow-sm font-jakarta"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 neumorphic-btn bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold cursor-pointer transition select-none shadow-sm font-jakarta"
                                   title="Send WhatsApp Alert"
                                 >
                                   <span>WhatsApp 💬</span>
@@ -453,7 +453,7 @@ export default function NotificationsScreen({
                               {/* Navigate to page button */}
                               <button
                                 onClick={() => onNavigate(notif.targetScreen, notif.targetTab)}
-                                className="neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white px-3 py-1.5 rounded-lg text-xs font-extrabold hover:scale-[1.02] active:scale-[0.98] transition cursor-pointer flex items-center gap-1.5 font-jakarta"
+                                className="neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white px-3 py-1.5 rounded-xl text-xs font-extrabold hover:scale-[1.02] active:scale-[0.98] transition cursor-pointer flex items-center gap-1.5 font-jakarta"
                               >
                                 <span>Go to {notif.targetScreen}</span>
                                 <ArrowRight size={12} />
@@ -463,7 +463,7 @@ export default function NotificationsScreen({
                               {!isRead && (
                                 <button
                                   onClick={(e) => markAsRead(notif.id, e)}
-                                  className="neumorphic-btn bg-white text-slate-900 dark:bg-slate-900 dark:text-white px-3 py-1.5 rounded-lg text-xs font-extrabold hover:text-red-600 dark:hover:text-red-400 transition cursor-pointer font-jakarta"
+                                  className="neumorphic-btn bg-[#ebf0f7] text-slate-900 dark:bg-[#202225] dark:text-white px-3 py-1.5 rounded-xl text-xs font-extrabold hover:text-red-600 dark:hover:text-red-400 transition cursor-pointer font-jakarta"
                                 >
                                   Dismiss
                                 </button>
@@ -479,7 +479,7 @@ export default function NotificationsScreen({
               </AnimatePresence>
 
               {filteredNotifications.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400 neumorphic-card rounded-2xl p-8 border border-white/90 shadow-sm">
+                <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400 neumorphic-card rounded-2xl p-8 border border-white/90 dark:border-slate-700/80">
                   <div className="w-12 h-12 neumorphic-circle text-slate-800 flex items-center justify-center mb-3">
                     <MaterialIcon name="check_circle" size={24} className="text-slate-800" />
                   </div>

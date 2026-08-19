@@ -740,8 +740,8 @@ export default function TransactionsScreen({
             type="button"
             onClick={() => handleTabChange('inventory')}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === 'inventory'
-                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
+              : 'neumorphic-btn text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white'
               }`}
           >
             <MaterialIcon name="inventory_2" size={16} />
@@ -753,8 +753,8 @@ export default function TransactionsScreen({
             type="button"
             onClick={() => handleTabChange('sale_credit')}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === 'sale_credit'
-                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
+              : 'neumorphic-btn text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white'
               }`}
           >
             <MaterialIcon name="receipt_long" size={16} />
@@ -766,8 +766,8 @@ export default function TransactionsScreen({
             type="button"
             onClick={() => handleTabChange('credit')}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === 'credit'
-                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
+              : 'neumorphic-btn text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white'
               }`}
           >
             <MaterialIcon name="payments" size={16} />
@@ -780,8 +780,8 @@ export default function TransactionsScreen({
               type="button"
               onClick={() => handleTabChange('payable')}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === 'payable'
-                  ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
+                : 'neumorphic-btn text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white'
                 }`}
             >
               <MaterialIcon name="description" size={16} />
@@ -798,7 +798,7 @@ export default function TransactionsScreen({
           <button
             type="button"
             onClick={handleExportCSV}
-            className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 hover:opacity-95 rounded-lg transition cursor-pointer shadow-xs"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 neumorphic-btn hover:opacity-95 rounded-xl transition cursor-pointer shadow-xs"
           >
             <FileDown size={14} className="text-white shrink-0" />
             <span className="text-white font-extrabold">
@@ -1076,16 +1076,16 @@ export default function TransactionsScreen({
             </div>
 
             {/* Mobile View list Card style */}
-            <div className="block lg:hidden text-slate-800 space-y-4">
+            <div className="block lg:hidden text-slate-900 dark:text-white space-y-4 p-2 neumorphic-inset bg-[#ebf0f7]/50 dark:bg-[#202225]/50">
               {filteredAdjustments.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
+                <div className="py-12 text-center text-slate-400 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80">
                   <ClipboardList className="mx-auto text-slate-300 mb-2" size={32} />
                   <p className="font-medium text-xs">No stock adjustment entries found.</p>
                 </div>
               ) : (
                 groupItemsByMonth<StockAdjustment>(filteredAdjustments).map((group) => (
-                  <div key={group.monthLabel} className="space-y-1 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-                    <div className="bg-slate-100/60 border-b border-slate-150 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                  <div key={group.monthLabel} className="space-y-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 overflow-hidden">
+                    <div className="neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 border-b border-slate-200/60 dark:border-slate-700/60 px-4 py-2 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider select-none">
                       {group.monthLabel}
                     </div>
                     <div className="divide-y divide-slate-150/70">
@@ -1164,7 +1164,7 @@ export default function TransactionsScreen({
                                 {badgeText}
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 bg-slate-50 border border-slate-100/60 p-2.5 rounded-lg text-[10px]">
+                            <div className="grid grid-cols-2 gap-2 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 border border-white/70 dark:border-slate-700/70 p-2.5 rounded-xl text-[10px]">
                               <div>
                                 <span className="block text-slate-400 text-[9px] uppercase font-semibold font-mono">Qty Moved</span>
                                 <span className={`text-xs font-black font-mono ${textClass}`}>{qtyPrefix}{qtyVal}</span>
@@ -1193,7 +1193,7 @@ export default function TransactionsScreen({
                                       setCorrectedQty(adj.qtyChanged);
                                       setCorrectionNotes('');
                                     }}
-                                    className="w-full flex justify-center items-center gap-1.5 bg-indigo-600 text-white font-bold text-[10px] uppercase tracking-wider py-1.5 rounded-lg shadow-xs hover:shadow-md transition"
+                                    className="w-full flex justify-center items-center gap-1.5 neumorphic-btn bg-indigo-600 text-white font-bold text-[10px] uppercase tracking-wider py-1.5 rounded-xl shadow-xs hover:shadow-md transition"
                                   >
                                     <Edit3 size={11} /> Correct Qty
                                   </button>
@@ -1207,7 +1207,7 @@ export default function TransactionsScreen({
                                     setFlaggingAdjId(adj.id);
                                     setFlagComment('');
                                   }}
-                                  className="w-full flex justify-center items-center bg-slate-100 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 text-slate-655 py-1.5 rounded-lg border border-slate-200 transition cursor-pointer select-none"
+                                  className="w-full flex justify-center items-center neumorphic-btn hover:text-amber-700 dark:hover:text-amber-300 text-slate-700 dark:text-slate-300 py-1.5 rounded-xl border border-white/80 dark:border-slate-700 transition cursor-pointer select-none"
                                   title="Flag Mistake"
                                 >
                                   <Flag size={13} className="fill-slate-400 hover:fill-amber-500 transition-colors mr-1" />
@@ -1371,16 +1371,16 @@ export default function TransactionsScreen({
               </div>
 
               {/* Mobile View list Card style */}
-              <div className="block lg:hidden text-slate-800 space-y-4">
+              <div className="block lg:hidden text-slate-900 dark:text-white space-y-4 p-2 neumorphic-inset bg-[#ebf0f7]/50 dark:bg-[#202225]/50">
                 {filteredSaleCreditAdjustments.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
+                  <div className="py-12 text-center text-slate-400 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80">
                     <Receipt className="mx-auto mb-2 text-slate-300" size={32} />
                     No cash sales ledger logs found matching criteria.
                   </div>
                 ) : (
                   groupItemsByMonth<StockAdjustment>(filteredSaleCreditAdjustments).map((group) => (
                     <div key={group.monthLabel} className="space-y-1 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-                      <div className="bg-slate-100/60 border-b border-slate-150 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                      <div className="neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 border-b border-slate-200/60 dark:border-slate-700/60 px-4 py-2 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider select-none">
                         {group.monthLabel}
                       </div>
                       <div className="divide-y divide-slate-150/70">
@@ -1438,7 +1438,7 @@ export default function TransactionsScreen({
                                   {badgeText}
                                 </span>
                               </div>
-                              <div className="grid grid-cols-3 gap-2 bg-slate-50 border border-slate-100/60 p-2.5 rounded-lg text-[10px] text-center">
+                              <div className="grid grid-cols-3 gap-2 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 border border-white/70 dark:border-slate-700/70 p-2.5 rounded-xl text-[10px] text-center">
                                 <div>
                                   <span className="block text-slate-400 text-[9px] uppercase font-semibold font-mono">Qty</span>
                                   <strong className="text-slate-900 font-mono text-xs">{Math.abs(adj.qtyChanged)} pcs</strong>
@@ -1459,7 +1459,7 @@ export default function TransactionsScreen({
                                 </div>
                               )}
                               {adj.notes && (
-                                <div className="text-[10px] text-slate-500 bg-slate-50/50 p-2 rounded border border-slate-100/50 italic">
+                                <div className="text-[10px] text-slate-600 dark:text-slate-300 neumorphic-inset bg-[#ebf0f7]/50 dark:bg-[#202225]/50 p-2 rounded-xl border border-white/60 dark:border-slate-700/60 italic">
                                   Description: {adj.notes}
                                 </div>
                               )}
@@ -1487,7 +1487,7 @@ export default function TransactionsScreen({
                                       setFlaggingAdjId(adj.id);
                                       setFlagComment('');
                                     }}
-                                    className="w-full flex justify-center items-center bg-slate-100 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 text-slate-655 py-1.5 rounded-lg border border-slate-200 transition cursor-pointer select-none"
+                                    className="w-full flex justify-center items-center neumorphic-btn hover:text-amber-700 dark:hover:text-amber-300 text-slate-700 dark:text-slate-300 py-1.5 rounded-xl border border-white/80 dark:border-slate-700 transition cursor-pointer select-none"
                                     title="Flag Mistake"
                                   >
                                     <Flag size={13} className="fill-slate-400 hover:fill-amber-500 transition-colors mr-1" />
@@ -1665,16 +1665,16 @@ export default function TransactionsScreen({
             </div>
 
             {/* Mobile View list Card style */}
-            <div className="block lg:hidden text-slate-800 space-y-4">
+            <div className="block lg:hidden text-slate-900 dark:text-white space-y-4 p-2 neumorphic-inset bg-[#ebf0f7]/50 dark:bg-[#202225]/50">
               {filteredTransactions.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
+                <div className="py-12 text-center text-slate-400 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80">
                   <ClipboardList className="mx-auto text-slate-300 mb-2" size={32} />
                   <p className="font-medium text-xs">No client records found.</p>
                 </div>
               ) : (
                 groupItemsByMonth<CreditTransaction>(filteredTransactions).map((group) => (
-                  <div key={group.monthLabel} className="space-y-1 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-                    <div className="bg-slate-100/60 border-b border-slate-150 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                  <div key={group.monthLabel} className="space-y-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 overflow-hidden">
+                    <div className="neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 border-b border-slate-200/60 dark:border-slate-700/60 px-4 py-2 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider select-none">
                       {group.monthLabel}
                     </div>
                     <div className="divide-y divide-slate-150/70">
@@ -1709,7 +1709,7 @@ export default function TransactionsScreen({
                                 {tx.type === 'pay' ? 'Repayment' : 'Credit Granted'}
                               </span>
                             </div>
-                            <div className="grid grid-cols-3 gap-2 bg-slate-50 border border-slate-100/60 p-2.5 rounded-lg text-[10px] text-center">
+                            <div className="grid grid-cols-3 gap-2 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 border border-white/70 dark:border-slate-700/70 p-2.5 rounded-xl text-[10px] text-center">
                               <div>
                                 <span className="block text-slate-400 text-[9px] uppercase font-semibold font-mono">Method</span>
                                 <span className="inline-block px-1.5 py-0.5 mt-0.5 rounded text-[8.5px] font-bold uppercase bg-indigo-50 border border-indigo-100 text-indigo-700">
@@ -1740,7 +1740,7 @@ export default function TransactionsScreen({
                               </div>
                             )}
                             {tx.notes && (
-                              <div className="text-[10px] text-slate-500 bg-slate-50/50 p-2 rounded border border-slate-100/50 italic">
+                              <div className="text-[10px] text-slate-600 dark:text-slate-300 neumorphic-inset bg-[#ebf0f7]/50 dark:bg-[#202225]/50 p-2 rounded-xl border border-white/60 dark:border-slate-700/60 italic">
                                 Comments: {tx.notes}
                               </div>
                             )}
@@ -1768,7 +1768,7 @@ export default function TransactionsScreen({
                                     setFlaggingTxId(tx.id);
                                     setTxFlagComment('');
                                   }}
-                                  className="w-full flex justify-center items-center bg-slate-100 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 text-slate-655 py-1.5 rounded-lg border border-slate-200 transition cursor-pointer select-none"
+                                  className="w-full flex justify-center items-center neumorphic-btn hover:text-amber-700 dark:hover:text-amber-300 text-slate-700 dark:text-slate-300 py-1.5 rounded-xl border border-white/80 dark:border-slate-700 transition cursor-pointer select-none"
                                   title="Flag Mistake"
                                 >
                                   <Flag size={13} className="fill-slate-400 hover:fill-amber-500 transition-colors mr-1" />
@@ -1945,16 +1945,16 @@ export default function TransactionsScreen({
             </div>
 
             {/* Mobile View list Card style */}
-            <div className="block lg:hidden text-slate-800 space-y-4">
+            <div className="block lg:hidden text-slate-900 dark:text-white space-y-4 p-2 neumorphic-inset bg-[#ebf0f7]/50 dark:bg-[#202225]/50">
               {filteredPayableTransactions.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
+                <div className="py-12 text-center text-slate-400 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80">
                   <ClipboardList className="mx-auto text-slate-300 mb-2" size={32} />
                   <p className="font-medium text-xs">No supplier entries found.</p>
                 </div>
               ) : (
                 groupItemsByMonth<CreditTransaction>(filteredPayableTransactions).map((group) => (
-                  <div key={group.monthLabel} className="space-y-1 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-                    <div className="bg-slate-100/60 border-b border-slate-150 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                  <div key={group.monthLabel} className="space-y-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 overflow-hidden">
+                    <div className="neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 border-b border-slate-200/60 dark:border-slate-700/60 px-4 py-2 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider select-none">
                       {group.monthLabel}
                     </div>
                     <div className="divide-y divide-slate-150/70">
@@ -1989,7 +1989,7 @@ export default function TransactionsScreen({
                                 {tx.type === 'pay' ? 'We Paid Supplier' : 'Debt Added'}
                               </span>
                             </div>
-                            <div className="grid grid-cols-3 gap-2 bg-slate-50 border border-slate-100/60 p-2.5 rounded-lg text-[10px] text-center">
+                            <div className="grid grid-cols-3 gap-2 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 border border-white/70 dark:border-slate-700/70 p-2.5 rounded-xl text-[10px] text-center">
                               <div>
                                 <span className="block text-slate-400 text-[9px] uppercase font-semibold font-mono">Method</span>
                                 <span className="inline-block px-1.5 py-0.5 mt-0.5 rounded text-[8.5px] font-bold uppercase bg-indigo-50 border border-indigo-100 text-indigo-700">
@@ -2020,7 +2020,7 @@ export default function TransactionsScreen({
                               </div>
                             )}
                             {tx.notes && (
-                              <div className="text-[10px] text-slate-500 bg-slate-50/50 p-2 rounded border border-slate-100/50 italic">
+                              <div className="text-[10px] text-slate-600 dark:text-slate-300 neumorphic-inset bg-[#ebf0f7]/50 dark:bg-[#202225]/50 p-2 rounded-xl border border-white/60 dark:border-slate-700/60 italic">
                                 Comments: {tx.notes}
                               </div>
                             )}
@@ -2048,7 +2048,7 @@ export default function TransactionsScreen({
                                     setFlaggingTxId(tx.id);
                                     setTxFlagComment('');
                                   }}
-                                  className="w-full flex justify-center items-center bg-slate-100 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 text-slate-655 py-1.5 rounded-lg border border-slate-200 transition cursor-pointer select-none"
+                                  className="w-full flex justify-center items-center neumorphic-btn hover:text-amber-700 dark:hover:text-amber-300 text-slate-700 dark:text-slate-300 py-1.5 rounded-xl border border-white/80 dark:border-slate-700 transition cursor-pointer select-none"
                                   title="Flag Mistake"
                                 >
                                   <Flag size={13} className="fill-slate-400 hover:fill-amber-500 transition-colors mr-1" />
@@ -2146,8 +2146,8 @@ export default function TransactionsScreen({
                       setTxnNotes('Full payment of outstanding dues.');
                     }}
                     className={`py-2 px-1 rounded-md border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'full'
-                        ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
-                        : 'border-slate-200 hover:border-slate-350 text-slate-750 bg-slate-50/20'
+                      ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
+                      : 'border-slate-200 hover:border-slate-350 text-slate-750 bg-slate-50/20'
                       }`}
                   >
                     Full Payment
@@ -2159,8 +2159,8 @@ export default function TransactionsScreen({
                       setTxnNotes('Partial payment of outstanding dues.');
                     }}
                     className={`py-2 px-1 rounded-md border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'partial'
-                        ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
-                        : 'border-slate-200 hover:border-slate-350 text-slate-750 bg-slate-50/20'
+                      ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
+                      : 'border-slate-200 hover:border-slate-350 text-slate-750 bg-slate-50/20'
                       }`}
                   >
                     Partial Payment
@@ -2185,8 +2185,8 @@ export default function TransactionsScreen({
                   disabled={paymentOption === 'full' && !!selectedAccId}
                   onChange={(e) => setTxnAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
                   className={`w-full rounded-md border p-2.5 font-mono text-sm ${paymentOption === 'full' && !!selectedAccId
-                      ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200 font-semibold'
-                      : 'bg-white text-gray-900 border-gray-300 focus:outline'
+                    ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200 font-semibold'
+                    : 'bg-white text-gray-900 border-gray-300 focus:outline'
                     }`}
                 />
               </div>
@@ -2204,8 +2204,8 @@ export default function TransactionsScreen({
                         if (method === 'Cash') setTxnProof(null);
                       }}
                       className={`py-2 px-1 rounded-md border text-center font-semibold transition cursor-pointer ${txnPaymentMethod === method
-                          ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold'
-                          : 'border-slate-200 hover:border-slate-350 text-slate-750 bg-slate-50/20'
+                        ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold'
+                        : 'border-slate-200 hover:border-slate-350 text-slate-750 bg-slate-50/20'
                         }`}
                     >
                       {method}
@@ -2229,8 +2229,8 @@ export default function TransactionsScreen({
                       onDragLeave={handleTxnDragLeave}
                       onDrop={handleTxnDrop}
                       className={`border-2 border-dashed rounded-lg p-4 text-center transition ${isTxnDragging
-                          ? 'border-indigo-500 bg-indigo-50/50'
-                          : 'border-slate-300 hover:border-slate-400 bg-slate-50/50 bg-white'
+                        ? 'border-indigo-500 bg-indigo-50/50'
+                        : 'border-slate-300 hover:border-slate-400 bg-slate-50/50 bg-white'
                         }`}
                     >
                       <label className="flex flex-col items-center justify-center cursor-pointer select-none">
@@ -2310,8 +2310,8 @@ export default function TransactionsScreen({
                   type="submit"
                   disabled={selectedAccId === '' || txnAmount === '' || (txnPaymentMethod === 'Mobile Money' && !txnProof)}
                   className={`px-4 py-2 rounded-md font-semibold transition ${selectedAccId === '' || txnAmount === '' || (txnPaymentMethod === 'Mobile Money' && !txnProof)
-                      ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
-                      : 'neumorphic-btn text-slate-800 dark:text-white cursor-pointer'
+                    ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
+                    : 'neumorphic-btn text-slate-800 dark:text-white cursor-pointer'
                     }`}
                 >
                   {recModalType === 'receivable' ? 'Record Repayment' : 'Record Payment'}
@@ -2388,8 +2388,8 @@ export default function TransactionsScreen({
                   type="submit"
                   disabled={!flagComment.trim()}
                   className={`px-5 py-2.5 rounded-xl font-extrabold text-xs transition ${!flagComment.trim()
-                      ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
-                      : 'neumorphic-btn bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white hover:text-sky-700 dark:hover:text-sky-300 cursor-pointer border border-white/80 dark:border-slate-700'
+                    ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
+                    : 'neumorphic-btn bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white hover:text-sky-700 dark:hover:text-sky-300 cursor-pointer border border-white/80 dark:border-slate-700'
                     }`}
                 >
                   Flag Transaction
@@ -2491,8 +2491,8 @@ export default function TransactionsScreen({
                   type="submit"
                   disabled={correctedQty === '' || !correctionNotes.trim()}
                   className={`px-4 py-2 rounded-md font-semibold text-[11px] transition ${correctedQty === '' || !correctionNotes.trim()
-                      ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
-                      : 'neumorphic-btn text-slate-800 dark:text-white cursor-pointer'
+                    ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
+                    : 'neumorphic-btn text-slate-800 dark:text-white cursor-pointer'
                     }`}
                 >
                   Save Correction & Resolve
@@ -2569,8 +2569,8 @@ export default function TransactionsScreen({
                   type="submit"
                   disabled={!txFlagComment.trim()}
                   className={`px-5 py-2.5 rounded-xl font-extrabold text-xs transition ${!txFlagComment.trim()
-                      ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
-                      : 'neumorphic-btn bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white hover:text-sky-700 dark:hover:text-sky-300 cursor-pointer border border-white/80 dark:border-slate-700'
+                    ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
+                    : 'neumorphic-btn bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white hover:text-sky-700 dark:hover:text-sky-300 cursor-pointer border border-white/80 dark:border-slate-700'
                     }`}
                 >
                   Flag Repayment
@@ -2672,8 +2672,8 @@ export default function TransactionsScreen({
                   type="submit"
                   disabled={correctedTxAmount === '' || !txCorrectionNotes.trim()}
                   className={`px-4 py-2 rounded-md font-semibold text-[11px] transition ${correctedTxAmount === '' || !txCorrectionNotes.trim()
-                      ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
-                      : 'neumorphic-btn text-slate-800 dark:text-white cursor-pointer'
+                    ? 'neumorphic-inset bg-slate-200/70 dark:bg-slate-900/70 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-white/80 dark:border-slate-700'
+                    : 'neumorphic-btn text-slate-800 dark:text-white cursor-pointer'
                     }`}
                 >
                   Save Correction & Resolve

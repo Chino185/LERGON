@@ -564,7 +564,7 @@ export default function ReportScreen({
           <button
             type="button"
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 neumorphic-btn text-slate-900 rounded-full px-4.5 py-2 text-xs font-extrabold hover:text-black transition cursor-pointer"
+            className="flex items-center gap-1.5 neumorphic-btn text-slate-900 dark:text-white rounded-full px-4.5 py-2 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer"
           >
             {copiedCSV ? <Check size={14} /> : <FileSpreadsheet size={14} />}
             {copiedCSV ? 'Excel Downloaded!' : 'Export Financial Excel'}
@@ -573,7 +573,7 @@ export default function ReportScreen({
       </div>
 
       {/* Segment Tabs (Finnova Pill Navbar Track) */}
-      <div className="pill-nav-track inline-flex flex-wrap items-center gap-1.5 p-1.5">
+      <div className="pill-nav-track inline-flex flex-wrap items-center gap-1.5 p-1.5 max-w-full">
         {[
           { id: 'overview', label: 'Financial Summary', icon: <MaterialIcon name="pie_chart" size={16} /> },
           ...(userRole === 2 ? [{ id: 'profit', label: 'Monthly/Weekly Profits', icon: <MaterialIcon name="calendar_month" size={16} /> }] : []),
@@ -587,7 +587,7 @@ export default function ReportScreen({
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${activeTab === tab.id
               ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              : 'neumorphic-btn text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white'
               }`}
           >
             {tab.icon}

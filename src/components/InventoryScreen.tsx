@@ -169,7 +169,7 @@ function RestockVerificationRow({
                 placeholder="Counted pcs"
                 value={adminQty}
                 onChange={(e) => setAdminQty(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-28 rounded-lg border border-slate-300 p-2 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs text-center"
+                className="w-28 rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs text-center"
               />
             </div>
 
@@ -180,7 +180,7 @@ function RestockVerificationRow({
                 placeholder="e.g. Broken packages found"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-48 rounded-lg border border-slate-300 p-2 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs"
+                className="w-48 rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs"
               />
             </div>
 
@@ -256,7 +256,7 @@ function RestockVerificationRow({
               placeholder="Correct quantity pcs"
               value={resolvedQty}
               onChange={(e) => setResolvedQty(e.target.value === '' ? '' : Number(e.target.value))}
-              className="w-full rounded-lg border border-slate-300 p-2 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs"
+              className="w-full rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs"
             />
           </div>
 
@@ -268,7 +268,7 @@ function RestockVerificationRow({
               placeholder="e.g. Attendant entered wrong product box size"
               value={resolutionNotes}
               onChange={(e) => setResolutionNotes(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 p-2 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs"
+              className="w-full rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs"
             />
           </div>
 
@@ -1160,7 +1160,7 @@ export default function InventoryScreen({
                       animate={{ opacity: 1, y: 4, scale: 1 }}
                       exit={{ opacity: 0, y: -6, scale: 0.96 }}
                       transition={{ duration: 0.15, ease: 'easeOut' }}
-                      className="absolute right-0 top-full mt-1.5 w-60 rounded-2xl bg-[#ebf0f7] p-2 shadow-xl border border-white/90 z-50 overflow-hidden font-sans"
+                      className="absolute right-0 top-full mt-1.5 w-[min(15rem,calc(100vw-1.5rem))] rounded-2xl neumorphic-card p-2 shadow-xl border border-white/90 dark:border-slate-700/80 z-50 overflow-hidden font-sans"
                       style={{ boxShadow: '6px 6px 18px #cbd3e1, -6px -6px 18px #ffffff' }}
                     >
                       <div className="max-h-60 overflow-y-auto space-y-1 p-0.5">
@@ -1354,13 +1354,13 @@ export default function InventoryScreen({
             </div>
 
             {/* Mobile View list Card style */}
-            <div className="block lg:hidden bg-slate-50/75 p-3.5 space-y-4">
+            <div className="block lg:hidden neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-3.5 space-y-4">
               {sortedItems.map(item => {
                 const isOver = item.quantity <= item.reorderPoint;
                 const isZero = item.quantity === 0;
 
                 return (
-                  <div key={item.id} className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-4 space-y-3.5 transition hover:shadow-sm">
+                  <div key={item.id} className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 p-4 space-y-3.5 transition">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0">
                         <span className="bg-indigo-50 text-indigo-700 text-[9px] px-2 py-0.5 rounded font-extrabold uppercase tracking-wide">
@@ -1387,7 +1387,7 @@ export default function InventoryScreen({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 bg-slate-50/50 p-3 rounded-lg border border-slate-100/80 text-[10px]">
+                    <div className="grid grid-cols-3 gap-2 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-3 rounded-xl border border-white/70 dark:border-slate-700/70 text-[10px]">
                       <div>
                         <span className="block text-gray-400 text-[8px] uppercase tracking-wider font-semibold">{translate('qty in hand', config.languageCode)}</span>
                         <strong className={`block text-xs mt-0.5 ${isZero ? 'text-rose-600' : isOver ? 'text-amber-500' : 'text-gray-900'}`}>{item.quantity} pcs</strong>
@@ -1448,7 +1448,7 @@ export default function InventoryScreen({
                         <button
                           type="button"
                           onClick={() => handleDeleteCheck(item.id, item.name)}
-                          className="w-12 min-h-[44px] bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-xl flex items-center justify-center transition cursor-pointer"
+                          className="w-12 min-h-[44px] neumorphic-btn text-slate-900 dark:text-white hover:text-slate-950 dark:hover:text-white rounded-xl flex items-center justify-center transition cursor-pointer"
                           title={translate('retire item', config.languageCode)}
                         >
                           <Trash2 size={14} />
@@ -1588,7 +1588,7 @@ export default function InventoryScreen({
                   type="button"
                   onClick={handleExportDamagesCSV}
                   disabled={filteredDamagedLogs.length === 0}
-                  className="flex items-center gap-1.5 bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold disabled:opacity-50 disabled:cursor-not-allowed rounded-full px-4.5 py-2 text-xs hover:opacity-95 transition cursor-pointer shadow-md shadow-sky-500/25 shrink-0"
+                  className="flex items-center gap-1.5 neumorphic-btn bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold disabled:opacity-50 disabled:cursor-not-allowed rounded-full px-4.5 py-2 text-xs hover:opacity-95 transition cursor-pointer shadow-md shadow-sky-500/25 shrink-0"
                 >
                   <FileDown size={14} className="text-white shrink-0" />
                   <span className="text-white font-black">{translate('export audit excel', config.languageCode)}</span>
@@ -1796,10 +1796,10 @@ export default function InventoryScreen({
             {activePendingRestocks && activePendingRestocks.filter(r => r.status === 'resolved' || r.status === 'approved').length > 0 && (
               <div className="pt-6 border-t border-slate-100">
                 <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider mb-3">Validation History (Latest Resolved)</h4>
-                <div className="overflow-x-auto bg-white border border-slate-200 rounded-lg">
+                <div className="overflow-x-auto neumorphic-card border border-white/90 dark:border-slate-700/80 rounded-2xl">
                   <table className="w-full text-left text-[11px] border-collapse">
                     <thead>
-                      <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 font-bold">
+                      <tr className="neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 text-slate-600 dark:text-slate-300 border-b border-slate-200/60 dark:border-slate-700/60 font-bold">
                         <th className="p-3">Item Name</th>
                         <th className="p-3 text-center">Attendant Qty</th>
                         <th className="p-3 text-center">Admin Qty</th>

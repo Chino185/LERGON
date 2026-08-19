@@ -492,7 +492,7 @@ export default function ActivityLogScreen({
             type="button"
             onClick={handleExportCSV}
             disabled={filteredActivities.length === 0}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 hover:opacity-95 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-black px-5 py-2.5 rounded-full transition shadow-md shadow-sky-500/25 cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 neumorphic-btn bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 hover:opacity-95 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-black px-5 py-2.5 rounded-full transition shadow-md shadow-sky-500/25 cursor-pointer"
           >
             <FileDown size={14} />
             <span>Export Excel</span>
@@ -584,7 +584,7 @@ export default function ActivityLogScreen({
                     type="date"
                     value={customStartDate}
                     onChange={e => setCustomStartDate(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs px-3 py-2.5 rounded-xl focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 transition"
+                    className="w-full neumorphic-inset bg-[#ebf0f7] dark:bg-[#202225] border border-white/80 dark:border-slate-700 text-slate-900 dark:text-white text-xs px-3 py-2.5 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 transition"
                   />
                 </div>
                 <div className="space-y-1">
@@ -593,7 +593,7 @@ export default function ActivityLogScreen({
                     type="date"
                     value={customEndDate}
                     onChange={e => setCustomEndDate(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs px-3 py-2.5 rounded-xl focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 transition"
+                    className="w-full neumorphic-inset bg-[#ebf0f7] dark:bg-[#202225] border border-white/80 dark:border-slate-700 text-slate-900 dark:text-white text-xs px-3 py-2.5 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 transition"
                   />
                 </div>
               </motion.div>
@@ -770,11 +770,11 @@ export default function ActivityLogScreen({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-              className="relative w-full max-w-md bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-white/80 dark:border-slate-800 overflow-hidden neumorphic-card"
+              className="relative w-full max-w-md neumorphic-card bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-white/90 dark:border-slate-700/80 overflow-hidden"
             >
 
               {/* Modal Header */}
-              <div className="bg-slate-100/90 dark:bg-[#0f172a] px-5 py-4 text-slate-900 dark:text-white flex items-center justify-between select-none border-b border-slate-200/80 dark:border-slate-800">
+              <div className="neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 px-5 py-4 text-slate-900 dark:text-white flex items-center justify-between select-none border-b border-slate-200/80 dark:border-slate-700/60 rounded-none">
                 <div className="flex items-center gap-2">
                   <Shield className="text-sky-600 dark:text-sky-400 animate-pulse" size={16} />
                   <div>
@@ -810,11 +810,11 @@ export default function ActivityLogScreen({
 
                 {/* Details Section */}
                 <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div className="bg-slate-50 p-2.5 rounded-lg">
+                  <div className="neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-2.5 rounded-xl">
                     <span className="text-[9px] font-bold text-slate-400 block uppercase">PERFORMED BY</span>
                     <strong className="text-slate-800 mt-0.5 block">{selectedActivity.performedBy}</strong>
                   </div>
-                  <div className="bg-slate-50 p-2.5 rounded-lg text-right">
+                  <div className="neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-2.5 rounded-xl text-right">
                     <span className="text-[9px] font-bold text-slate-400 block uppercase">ASSOCIATED VALUE</span>
                     <strong className="text-emerald-700 font-mono mt-0.5 block font-bold">{formatMoney(selectedActivity.amount)}</strong>
                   </div>
@@ -882,7 +882,7 @@ export default function ActivityLogScreen({
                 {/* Notes Block */}
                 <div className="border-t border-gray-100 pt-3 space-y-1">
                   <span className="text-[9px] font-bold text-slate-400 block uppercase">Clerk logs notes</span>
-                  <div className="bg-gray-50 border border-gray-150 rounded-xl p-3 text-xs text-gray-700 whitespace-pre-wrap leading-relaxed italic">
+                  <div className="neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 border border-white/70 dark:border-slate-700/70 rounded-xl p-3 text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed italic">
                     "{selectedActivity.notes}"
                   </div>
                 </div>
@@ -906,11 +906,11 @@ export default function ActivityLogScreen({
               </div>
 
               {/* Interactive bottom bar */}
-              <div className="bg-slate-50 px-5 py-3.5 border-t border-gray-100 text-right">
+              <div className="neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 px-5 py-3.5 border-t border-slate-200/60 dark:border-slate-700/60 text-right rounded-none">
                 <button
                   type="button"
                   onClick={() => setSelectedActivity(null)}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                  className="px-4 py-2 neumorphic-btn bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white text-xs font-bold rounded-xl transition cursor-pointer"
                 >
                   Acknowledge Clear
                 </button>
