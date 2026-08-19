@@ -689,3 +689,91 @@ export async function createAttendantInvite(
     return { success: false, error: err?.message || 'Failed to create attendant invite.' };
   }
 }
+
+export const DEFAULT_BUSINESS_CATEGORIES: string[] = [];
+
+/**
+ * Subscribes to live category changes for the business from the businesses table.
+ */
+export function subscribeToBusinessCategories(
+  businessId: string,
+  onUpdate: (categories: string[]) => void
+): () => void {
+  if (!businessId) {
+    onUpdate([]);
+    return () => { };
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('categories')
+        .eq('id', businessId)
+        .maybeSingle();
+
+      if (!error && data?.categories && Array.isArray(data.categories)) {
+        onUpdate(data.categories);
+      } else {
+        onUpdate([]);
+      }
+    } catch (err) {
+      console.warn('Could not fetch business categories:', err);
+      onUpdate([]);
+    }
+  };
+
+  void fetchCategories();
+
+  const channel = supabase
+    .channel(`business_categories_${businessId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'businesses',
+        filter: `id=eq.${businessId}`
+      },
+      (payload: any) => {
+        if (payload.new?.categories && Array.isArray(payload.new.categories)) {
+          onUpdate(payload.new.categories);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Saves/updates the list of custom categories for the business.
+ */
+export async function saveBusinessCategories(
+  businessId: string,
+  categories: string[]
+): Promise<{ success: boolean; error?: string }> {
+  if (!businessId) return { success: false, error: 'Business ID is required.' };
+  try {
+    const cleanCategories = Array.from(
+      new Set(categories.map(c => sanitizeTextInput(c, 60).trim()).filter(Boolean))
+    );
+
+    if (cleanCategories.length === 0) {
+      return { success: false, error: 'At least one category is required.' };
+    }
+
+    const { error } = await supabase
+      .from('businesses')
+      .update({ categories: cleanCategories })
+      .eq('id', businessId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('saveBusinessCategories Error:', err);
+    return { success: false, error: err?.message || 'Failed to update custom categories.' };
+  }
+}

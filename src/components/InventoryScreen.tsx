@@ -38,6 +38,9 @@ import {
   subscribeToDamageReports,
   subscribeToRestockRequests,
   reportDamagedStockTransaction,
+  subscribeToBusinessCategories,
+  saveBusinessCategories,
+  DEFAULT_BUSINESS_CATEGORIES,
   DamageReport
 } from '../utils/inventoryServices';
 import { sanitizeTextInput } from '../utils/securityValidation';
@@ -406,8 +409,11 @@ export default function InventoryScreen({
   // Form states for Add/Edit
   const [itemName, setItemName] = useState('');
   const [itemSku, setItemSku] = useState('');
-  const [itemCategory, setItemCategory] = useState('Electronics');
+  const [itemCategory, setItemCategory] = useState('');
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [businessCategories, setBusinessCategories] = useState<string[]>([]);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [itemQty, setItemQty] = useState<number | ''>('');
   const [itemCost, setItemCost] = useState<number | ''>('');
   const [itemPrice, setItemPrice] = useState<number | ''>('');
@@ -420,6 +426,50 @@ export default function InventoryScreen({
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [itemSaveError, setItemSaveError] = useState<string | null>(null);
 
+  // Subscribe to live custom categories from Supabase
+  useEffect(() => {
+    if (!businessId) return;
+    const unsubscribe = subscribeToBusinessCategories(businessId, (cats) => {
+      setBusinessCategories(cats || []);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [businessId]);
+
+  const allAvailableCategories = useMemo(() => {
+    const fromItems = activeInventory.map(item => item.category?.trim()).filter(Boolean);
+    return Array.from(new Set([...businessCategories, ...fromItems]));
+  }, [businessCategories, activeInventory]);
+
+  const handleCreateCategory = async (catName: string) => {
+    const trimmed = catName.trim();
+    if (!trimmed) return;
+    if (!businessCategories.includes(trimmed)) {
+      const updated = [...businessCategories, trimmed];
+      setBusinessCategories(updated);
+      if (businessId) {
+        void saveBusinessCategories(businessId, updated);
+      }
+    }
+    setItemCategory(trimmed);
+    setNewCategoryInput('');
+    setIsAddingNewCategory(false);
+  };
+
+  const handleDeleteCategory = async (catToDelete: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = businessCategories.filter(c => c !== catToDelete);
+    if (updated.length === 0) return;
+    setBusinessCategories(updated);
+    if (businessId) {
+      void saveBusinessCategories(businessId, updated);
+    }
+    if (itemCategory === catToDelete) {
+      setItemCategory(updated[0] || 'Others');
+    }
+  };
+
   const { formatAmount, convertFromBase, convertToBase } = useCurrency();
   // Round a converted currency amount to 2 decimal places so the edit form
   // always shows the same figure as the inventory table (which is formatted
@@ -431,7 +481,7 @@ export default function InventoryScreen({
   };
 
   // 1. Gather Unique Categories for lookup dropdown
-  const categoriesList = ['All', ...Array.from(new Set(activeInventory.map(item => item.category)))];
+  const categoriesList = ['All', ...allAvailableCategories];
 
   // 2. Filter logic
   const filteredItems = activeInventory.filter(item => {
@@ -486,7 +536,7 @@ export default function InventoryScreen({
     setEditingItemId(null);
     setItemName('');
     setItemSku(`SKU-${Math.floor(Math.random() * 90000) + 10000}`);
-    setItemCategory('Electronics');
+    setItemCategory(allAvailableCategories[0] || 'Electronics');
     setItemQty(5);
     setItemCost(roundMoney(convertFromBase(10)));
     setItemPrice(roundMoney(convertFromBase(20)));
@@ -1638,39 +1688,112 @@ export default function InventoryScreen({
                   <div className="relative">
                     <button
                       type="button"
-                      onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                      onClick={() => {
+                        const willOpen = !isCategoryDropdownOpen;
+                        setIsCategoryDropdownOpen(willOpen);
+                        if (willOpen && allAvailableCategories.length === 0) {
+                          setIsAddingNewCategory(true);
+                        }
+                      }}
                       className="w-full rounded-xl neumorphic-inset p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white font-extrabold text-left flex items-center justify-between cursor-pointer border border-white/80 dark:border-slate-800 shadow-sm"
                     >
-                      <span>{itemCategory}</span>
-                      <ChevronDown size={14} className={`transition-transform duration-200 text-sky-500 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+                      <span className="truncate">{itemCategory || translate('select category', config.languageCode)}</span>
+                      <ChevronDown size={14} className={`transition-transform duration-200 text-sky-500 shrink-0 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
 
                     {isCategoryDropdownOpen && (
-                      <div className="absolute z-50 mt-1.5 w-full rounded-2xl neumorphic-card p-2 bg-[#ebf0f7] dark:bg-[#1e2124] border border-white/90 dark:border-slate-700/80 shadow-2xl space-y-1 animate-fade-in max-h-56 overflow-y-auto">
-                        {[
-                          { value: 'Electronics', label: translate('electronics', config.languageCode) },
-                          { value: 'Apparel', label: translate('apparel', config.languageCode) },
-                          { value: 'Home & Office', label: translate('home & office', config.languageCode) },
-                          { value: 'Food & Beverage', label: translate('food & beverage', config.languageCode) || 'Food & Beverage' },
-                          { value: 'Health & Beauty', label: translate('health & beauty', config.languageCode) || 'Health & Beauty' },
-                          { value: 'Others', label: translate('others', config.languageCode) || 'Others' }
-                        ].map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => {
-                              setItemCategory(opt.value);
-                              setIsCategoryDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${itemCategory === opt.value
-                              ? 'neumorphic-inset bg-gradient-to-r from-sky-500 to-blue-600 text-white font-black shadow-inner'
-                              : 'hover:bg-white/60 dark:hover:bg-slate-800/60 text-slate-800 dark:text-slate-200'
-                              }`}
-                          >
-                            <span>{opt.label}</span>
-                            {itemCategory === opt.value && <Check size={12} className="text-white" />}
-                          </button>
-                        ))}
+                      <div className="absolute z-50 mt-1.5 w-full rounded-2xl neumorphic-card p-2.5 bg-[#ebf0f7] dark:bg-[#1e2124] border border-white/90 dark:border-slate-700/80 shadow-2xl space-y-1.5 animate-fade-in max-h-64 flex flex-col">
+                        <div className="flex-1 overflow-y-auto space-y-1 pr-1 [scrollbar-width:thin] max-h-40">
+                          {allAvailableCategories.length === 0 ? (
+                            <div className="py-3 px-2 text-center text-slate-500 dark:text-slate-400">
+                              <p className="text-xs font-bold">{translate('no custom categories yet', config.languageCode) || 'No categories created yet.'}</p>
+                              <p className="text-[10px] text-slate-400 font-medium">{translate('add your first category below', config.languageCode) || 'Create your business category below'}</p>
+                            </div>
+                          ) : (
+                            allAvailableCategories.map((catName) => (
+                              <div
+                                key={catName}
+                                className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between group cursor-pointer ${itemCategory === catName
+                                  ? 'neumorphic-inset bg-gradient-to-r from-sky-500 to-blue-600 text-white font-black shadow-inner'
+                                  : 'hover:bg-white/60 dark:hover:bg-slate-800/60 text-slate-800 dark:text-slate-200'
+                                  }`}
+                                onClick={() => {
+                                  setItemCategory(catName);
+                                  setIsCategoryDropdownOpen(false);
+                                }}
+                              >
+                                <span className="truncate">{translate(catName.toLowerCase(), config.languageCode) || catName}</span>
+                                <div className="flex items-center gap-1.5">
+                                  {itemCategory === catName && <Check size={13} className="text-white shrink-0" />}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteCategory(catName, e)}
+                                    className={`p-1 rounded-lg opacity-0 group-hover:opacity-100 transition hover:bg-red-500 hover:text-white ${itemCategory === catName ? 'text-white/80' : 'text-slate-400 hover:text-white'
+                                      }`}
+                                    title={translate('delete category', config.languageCode)}
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {/* Add New Custom Category row */}
+                        <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80">
+                          {isAddingNewCategory ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                autoFocus
+                                value={newCategoryInput}
+                                onChange={(e) => setNewCategoryInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    void handleCreateCategory(newCategoryInput);
+                                  } else if (e.key === 'Escape') {
+                                    setIsAddingNewCategory(false);
+                                    setNewCategoryInput('');
+                                  }
+                                }}
+                                placeholder={translate('category name...', config.languageCode)}
+                                className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-sky-400/80 focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void handleCreateCategory(newCategoryInput)}
+                                disabled={!newCategoryInput.trim()}
+                                className="px-2.5 py-1.5 rounded-xl bg-sky-500 text-white text-[11px] font-black hover:bg-sky-600 active:scale-95 transition disabled:opacity-40 cursor-pointer shrink-0"
+                              >
+                                {translate('add', config.languageCode)}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddingNewCategory(false);
+                                  setNewCategoryInput('');
+                                }}
+                                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsAddingNewCategory(true);
+                              }}
+                              className="w-full py-1.5 px-3 rounded-xl border border-dashed border-sky-500/50 hover:border-sky-500 text-sky-600 dark:text-sky-400 text-xs font-extrabold flex items-center justify-center gap-1.5 hover:bg-sky-500/10 active:scale-95 transition cursor-pointer"
+                            >
+                              <Plus size={13} />
+                              <span>{translate('add custom category', config.languageCode)}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
