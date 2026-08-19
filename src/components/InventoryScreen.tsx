@@ -448,7 +448,7 @@ export default function InventoryScreen({
     const image = new Image();
     image.onload = () => {
       URL.revokeObjectURL(objectUrl);
-      const maxDimension = 1600;
+      const maxDimension = 1200;
       const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
       if (scale === 1 && file.size <= 1.5 * 1024 * 1024) {
         resolve(file);
@@ -469,7 +469,7 @@ export default function InventoryScreen({
           return;
         }
         resolve(new File([blob], `inventory-image-${Date.now()}.jpg`, { type: 'image/jpeg' }));
-      }, 'image/jpeg', 0.82);
+      }, 'image/jpeg', 0.76);
     };
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl);
@@ -489,6 +489,8 @@ export default function InventoryScreen({
       return;
     }
     setItemSaveError(null);
+    setItemImageFile(file);
+    setItemImagePreview(URL.createObjectURL(file));
     setIsPreparingImage(true);
     try {
       const preparedFile = await compressInventoryImage(file);
