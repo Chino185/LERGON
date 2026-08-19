@@ -509,7 +509,7 @@ export default function Navigation({
                 setIsNotificationOpen(false);
                 setIsDropdownOpen(false);
               }}
-              className="xl:hidden p-2 text-slate-700 hover:text-slate-900 neumorphic-btn cursor-pointer"
+              className="xl:hidden p-2 text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-white neumorphic-btn cursor-pointer"
               aria-label="Toggle navigation menu"
             >
               {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -584,7 +584,7 @@ export default function Navigation({
                 setActiveScreen('notifications');
                 setIsDropdownOpen(false);
               }}
-              className="relative w-9 h-9 neumorphic-circle flex items-center justify-center text-slate-700 hover:text-indigo-600 cursor-pointer transition"
+              className="relative w-9 h-9 neumorphic-circle flex items-center justify-center text-slate-700 dark:text-white hover:text-indigo-600 dark:hover:text-sky-300 cursor-pointer transition"
             >
               <Bell size={16} />
               {unreadNotificationCount > 0 && (
@@ -605,7 +605,7 @@ export default function Navigation({
                 }}
                 className="flex items-center p-0.5 rounded-full transition cursor-pointer"
               >
-                <div className="w-9 h-9 neumorphic-circle flex items-center justify-center text-slate-900 font-extrabold text-xs uppercase select-none overflow-hidden">
+                <div className="w-9 h-9 neumorphic-circle flex items-center justify-center text-slate-900 dark:text-white font-extrabold text-xs uppercase select-none overflow-hidden">
                   {displayPhoto ? (
                     <img
                       src={displayPhoto}
@@ -628,11 +628,11 @@ export default function Navigation({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -8 }}
                     transition={{ duration: 0.12, ease: 'easeOut' }}
-                    className="z-50 absolute right-0 top-full mt-2 w-60 neumorphic-card rounded-2xl border border-white/90 shadow-2xl overflow-hidden text-slate-900 animate-fade-in"
+                    className="z-50 absolute right-0 top-full mt-2 w-[min(15rem,calc(100vw-1.5rem))] neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
                   >
                     {/* Dropdown Header Info block */}
-                    <div className="p-5 border-b border-slate-200/50 flex flex-col items-center text-center">
-                      <div className="w-14 h-14 neumorphic-circle text-slate-900 font-extrabold text-lg flex items-center justify-center select-none mb-2.5 overflow-hidden border border-white/90">
+                    <div className="p-5 border-b border-slate-200/50 dark:border-slate-700/60 flex flex-col items-center text-center bg-[#ebf0f7]/60 dark:bg-[#202225]/60">
+                      <div className="w-14 h-14 neumorphic-circle text-slate-900 dark:text-white font-extrabold text-lg flex items-center justify-center select-none mb-2.5 overflow-hidden border border-white/90 dark:border-slate-700/80">
                         {displayPhoto ? (
                           <img
                             src={displayPhoto}
@@ -645,14 +645,14 @@ export default function Navigation({
                         )}
                       </div>
                       <div className="w-full">
-                        <p className="font-extrabold text-sm text-slate-900 truncate">
+                        <p className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
                           {displayName}
                         </p>
-                        <p className="text-[10px] font-medium text-slate-500 truncate mt-0.5">
+                        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-300 truncate mt-0.5">
                           {config.email || 'No email registered'}
                         </p>
                         <div className="mt-2.5 text-center">
-                          <span className="inline-block text-[9.5px] font-extrabold neumorphic-inset text-slate-800 px-3 py-1 rounded-full border border-white/50 shadow-2xs">
+                          <span className="inline-block text-[9.5px] font-extrabold neumorphic-inset text-slate-800 dark:text-white px-3 py-1 rounded-full border border-white/50 dark:border-slate-700/80 shadow-2xs">
                             {config.currency} ({config.currencySymbol})
                           </span>
                         </div>
@@ -660,14 +660,14 @@ export default function Navigation({
                     </div>
 
                     {/* Operational Settings options */}
-                    <div className="p-2.5 space-y-2 bg-[#ebf0f7]/50 border-t border-slate-200/50">
+                    <div className="p-2.5 space-y-2 bg-[#ebf0f7]/50 dark:bg-[#202225]/50 border-t border-slate-200/50 dark:border-slate-700/60">
                       <button
                         type="button"
                         id="dropdown-settings"
                         onClick={() => handleDropdownItemClick('settings')}
-                        className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-slate-900 neumorphic-btn hover:text-black transition cursor-pointer text-left select-none border border-white/80"
+                        className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80"
                       >
-                        <MaterialIcon name="settings" size={16} className="text-slate-800" />
+                        <MaterialIcon name="settings" size={16} className="text-slate-800 dark:text-slate-200" />
                         <span>{translate('settings', config.languageCode)}</span>
                       </button>
 
@@ -678,9 +678,9 @@ export default function Navigation({
                           setIsDropdownOpen(false);
                           onLogout();
                         }}
-                        className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-slate-900 neumorphic-btn hover:text-black transition cursor-pointer text-left select-none border border-white/80"
+                        className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80"
                       >
-                        <MaterialIcon name="logout" size={16} className="text-slate-800" />
+                        <MaterialIcon name="logout" size={16} className="text-slate-800 dark:text-slate-200" />
                         <span>{translate('logOut', config.languageCode)}</span>
                       </button>
                     </div>
@@ -699,19 +699,19 @@ export default function Navigation({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -8 }}
                 transition={{ duration: 0.12, ease: 'easeOut' }}
-                className="xl:hidden z-50 absolute left-4 right-4 top-14 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-slate-800 animate-fade-in"
+                className="xl:hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
               >
-                <div className="p-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                  <span className="font-bold text-[10px] uppercase tracking-wider text-slate-500">Navigation Menu</span>
+                <div className="p-3.5 neumorphic-inset rounded-none border-0 border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
+                  <span className="font-bold text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300">Navigation Menu</span>
                   <button
                     type="button"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-200 transition cursor-pointer"
+                    className="w-7 h-7 neumorphic-circle flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
                   >
                     <X size={14} />
                   </button>
                 </div>
-                <div className="py-1 max-h-[60vh] overflow-y-auto">
+                <div className="p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain touch-pan-y">
                   {navItems.map(item => {
                     const isActive = activeScreen === item.id;
                     return (
@@ -722,13 +722,13 @@ export default function Navigation({
                           setActiveScreen(item.id);
                           setIsMobileMenuOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between px-4 py-3.5 text-xs font-bold transition cursor-pointer text-left border-l-4 ${isActive
-                          ? 'bg-indigo-50/75 text-indigo-700 border-indigo-500 font-extrabold'
-                          : 'text-slate-700 hover:bg-slate-50 border-transparent'
+                        className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 text-xs font-bold transition cursor-pointer text-left rounded-xl border ${isActive
+                          ? 'neumorphic-btn text-sky-700 dark:text-sky-300 border-sky-300/80 dark:border-sky-500/50 font-extrabold'
+                          : 'neumorphic-btn text-slate-700 dark:text-slate-300 border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
                           }`}
                       >
                         <div className="flex items-center gap-3.5">
-                          <MaterialIcon name={item.materialIcon} size={20} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
+                          <MaterialIcon name={item.materialIcon} size={20} className={isActive ? 'text-sky-600 dark:text-sky-300' : 'text-slate-500 dark:text-slate-400'} />
                           <span>{item.name}</span>
                         </div>
                         {item.id === 'notifications' && unreadNotificationCount > 0 && (
@@ -755,19 +755,19 @@ export default function Navigation({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -8 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="z-50 absolute right-0 top-11 xl:top-15 mt-1 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800 animate-fade-in"
+                className="z-50 absolute right-0 top-11 xl:top-15 mt-1 w-80 max-w-[calc(100vw-1.5rem)] neumorphic-card rounded-2xl shadow-2xl border border-white/90 dark:border-slate-700/80 overflow-hidden text-slate-900 dark:text-white animate-fade-in"
               >
                 {/* Header Title with Counts */}
-                <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+                <div className="px-4 py-3 neumorphic-inset rounded-none border-0 border-b border-slate-200/60 dark:border-slate-700/60 text-slate-900 dark:text-white flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Bell size={14} className="text-indigo-400 animate-swing" />
+                    <Bell size={14} className="text-sky-600 dark:text-sky-300 animate-swing" />
                     <span className="font-bold text-xs tracking-tight">{translate('systemNotificationCenter', config.languageCode)}</span>
                   </div>
                   {unreadCriticalCount > 0 || unreadActivityCount > 0 ? (
                     <button
                       type="button"
                       onClick={markAllAsRead}
-                      className="bg-slate-800 hover:bg-slate-705 active:bg-slate-700 text-slate-100 text-[8px] font-extrabold px-2 py-0.5 rounded-md border border-slate-700 transition cursor-pointer font-bold uppercase tracking-wider select-none"
+                      className="neumorphic-btn text-slate-800 dark:text-white text-[8px] font-extrabold px-2 py-1 rounded-full border border-white/80 dark:border-slate-700 transition cursor-pointer font-bold uppercase tracking-wider select-none"
                     >
                       Mark all read
                     </button>
@@ -777,13 +777,13 @@ export default function Navigation({
                 </div>
 
                 {/* Tabs Selector */}
-                <div className="flex border-b border-slate-100 bg-slate-50 p-1">
+                <div className="flex gap-1 border-b border-slate-200/60 dark:border-slate-700/60 bg-[#ebf0f7]/70 dark:bg-[#202225]/70 p-2">
                   <button
                     type="button"
                     onClick={() => setNotificationTab('critical')}
                     className={`flex-1 py-1.5 text-center text-[10px] font-bold rounded-md uppercase tracking-wider transition ${notificationTab === 'critical'
-                      ? 'bg-white text-indigo-700 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-850'
+                      ? 'neumorphic-btn text-sky-700 dark:text-sky-300'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
                       }`}
                   >
                     {translate('alerts', config.languageCode)} <span className="text-red-600 font-black">({unreadCriticalCount})</span>
@@ -792,8 +792,8 @@ export default function Navigation({
                     type="button"
                     onClick={() => setNotificationTab('activities')}
                     className={`flex-1 py-1.5 text-center text-[10px] font-bold rounded-md uppercase tracking-wider transition ${notificationTab === 'activities'
-                      ? 'bg-white text-indigo-700 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-850'
+                      ? 'neumorphic-btn text-sky-700 dark:text-sky-300'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
                       }`}
                   >
                     {translate('liveActivities', config.languageCode)} <span className="text-red-600 font-black">({unreadActivityCount})</span>
@@ -801,7 +801,7 @@ export default function Navigation({
                 </div>
 
                 {/* Notification List Container */}
-                <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
+                <div className="max-h-72 overflow-y-auto divide-y divide-slate-200/70 dark:divide-slate-700/70 text-xs bg-[#ebf0f7]/60 dark:bg-[#202225]/60">
                   {notificationTab === 'critical' ? (
                     criticalNotifications.length > 0 ? (
                       criticalNotifications.map((notif) => {
@@ -811,7 +811,7 @@ export default function Navigation({
                         return (
                           <div
                             key={notif.id}
-                            className={`w-full text-left px-4 py-2.5 transition flex items-start gap-2.5 border-b border-slate-100 relative ${isRead ? 'bg-slate-50/50 hover:bg-slate-50/80 opacity-60' : 'bg-white hover:bg-slate-50/70'
+                            className={`w-full text-left px-4 py-2.5 transition flex items-start gap-2.5 border-b border-slate-200/60 dark:border-slate-700/60 relative ${isRead ? 'bg-[#e2e8f0]/50 dark:bg-[#25272c]/50 hover:bg-[#e2e8f0]/80 dark:hover:bg-[#2f3136]/80 opacity-60' : 'bg-[#ebf0f7]/60 dark:bg-[#2b2d31]/60 hover:bg-[#f4f7fb]/80 dark:hover:bg-[#303238]/80'
                               }`}
                           >
                             <div
@@ -834,14 +834,14 @@ export default function Navigation({
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`font-bold text-[11px] leading-tight ${isRead ? 'text-slate-500' : isError ? 'text-red-700' : isSuccess ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                <p className={`font-bold text-[11px] leading-tight ${isRead ? 'text-slate-500 dark:text-slate-400' : isError ? 'text-red-700 dark:text-red-300' : isSuccess ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
                                   {notif.title}
                                 </p>
-                                <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                                <p className="text-[10px] text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
                                   {notif.description}
                                 </p>
                                 <div className="flex items-center gap-1.5 mt-1.5 text-[8.5px] text-slate-400 font-semibold font-mono">
-                                  <span className="uppercase text-[8px] bg-slate-100 px-1 rounded text-slate-500">
+                                  <span className="uppercase text-[8px] neumorphic-inset px-1 rounded text-slate-600 dark:text-slate-300">
                                     {notif.category}
                                   </span>
                                   <span>•</span>
@@ -897,7 +897,7 @@ export default function Navigation({
                         return (
                           <div
                             key={evt.id}
-                            className={`w-full text-left px-4 py-2.5 transition flex items-start gap-2.5 border-b border-slate-100 relative ${isRead ? 'bg-slate-50/50 hover:bg-slate-50/80 opacity-60' : 'bg-white hover:bg-slate-50/70'
+                            className={`w-full text-left px-4 py-2.5 transition flex items-start gap-2.5 border-b border-slate-200/60 dark:border-slate-700/60 relative ${isRead ? 'bg-[#e2e8f0]/50 dark:bg-[#25272c]/50 hover:bg-[#e2e8f0]/80 dark:hover:bg-[#2f3136]/80 opacity-60' : 'bg-[#ebf0f7]/60 dark:bg-[#2b2d31]/60 hover:bg-[#f4f7fb]/80 dark:hover:bg-[#303238]/80'
                               }`}
                           >
                             <button
@@ -959,11 +959,11 @@ export default function Navigation({
                 </div>
 
                 {/* Footer link to easily look at full log feed */}
-                <div className="bg-slate-50 border-t border-slate-100 p-2 text-center">
+                <div className="neumorphic-inset rounded-none border-0 border-t border-slate-200/60 dark:border-slate-700/60 p-2 text-center">
                   <button
                     type="button"
                     onClick={() => handleNotificationItemClick('transactions')}
-                    className="text-[9.5px] font-black uppercase text-indigo-600 hover:text-indigo-800 tracking-wider cursor-pointer"
+                    className="text-[9.5px] font-black uppercase text-sky-700 dark:text-sky-300 hover:text-sky-900 dark:hover:text-white tracking-wider cursor-pointer"
                   >
                     {translate('viewFullAuditLedger', config.languageCode)} →
                   </button>
