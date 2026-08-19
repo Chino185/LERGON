@@ -586,8 +586,8 @@ export default function ReportScreen({
             type="button"
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${activeTab === tab.id
-                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
           >
             {tab.icon}
@@ -1313,7 +1313,7 @@ export default function ReportScreen({
                                 {adj.itemName}
                                 <span className="block text-[10px] text-slate-400 font-mono font-normal">ID: {adj.itemId}</span>
                               </td>
-                              <td className="p-3 text-right font-mono text-red-600 font-bold whitespace-nowrap">
+                              <td className="p-3 text-right font-mono text-slate-900 dark:text-white font-bold whitespace-nowrap">
                                 -{Math.abs(adj.qtyChanged)} pieces
                               </td>
                               {userRole === 2 && (
