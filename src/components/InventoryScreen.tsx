@@ -452,6 +452,7 @@ export default function InventoryScreen({
       setItemCategory(businessCategories.find(category => category.toLowerCase() === trimmed.toLowerCase()) || trimmed);
       setNewCategoryInput('');
       setIsAddingNewCategory(false);
+      setIsCategoryDropdownOpen(false);
       return;
     }
 
@@ -472,6 +473,7 @@ export default function InventoryScreen({
     setItemCategory(trimmed);
     setNewCategoryInput('');
     setIsAddingNewCategory(false);
+    setIsCategoryDropdownOpen(false);
   };
 
   const handleDeleteCategory = async (catToDelete: string, e: React.MouseEvent) => {
@@ -1799,13 +1801,17 @@ export default function InventoryScreen({
                                   }
                                 }}
                                 placeholder={translate('category name...', config.languageCode)}
-                                className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-sky-400/80 focus:outline-none"
+                                className="flex-1 min-w-0 w-0 text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-sky-400/80 focus:outline-none"
                               />
                               <button
                                 type="button"
-                                onClick={() => void handleCreateCategory(newCategoryInput)}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  void handleCreateCategory(newCategoryInput);
+                                }}
                                 disabled={!newCategoryInput.trim()}
-                                className="px-2.5 py-1.5 rounded-xl bg-sky-500 text-white text-[11px] font-black hover:bg-sky-600 active:scale-95 transition disabled:opacity-40 cursor-pointer shrink-0"
+                                className="flex-none min-w-[52px] px-2.5 py-1.5 rounded-xl bg-sky-500 text-white text-[11px] font-black hover:bg-sky-600 active:scale-95 transition disabled:opacity-40 cursor-pointer"
                               >
                                 {translate('add', config.languageCode)}
                               </button>
