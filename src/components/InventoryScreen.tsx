@@ -58,6 +58,7 @@ interface InventoryScreenProps {
   onUpdateItem: (id: string, updates: Partial<InventoryItem>) => Promise<{ success: boolean; error?: string }> | any;
   onDeleteItem: (id: string) => void;
   onLogAdjustment: (itemId: string, qtyChanged: number, type: StockAdjustment['type'], notes: string) => void | Promise<{ success: boolean; error?: string }>;
+  onDamageReported?: (itemId: string, quantityDamaged: number) => void;
   userRole?: number;
   pendingRestocks?: PendingRestock[];
   onVerifyRestock?: (id: string, adminQty: number, notes?: string, forceResolveValue?: number) => 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error';
@@ -303,6 +304,7 @@ export default function InventoryScreen({
   onUpdateItem,
   onDeleteItem,
   onLogAdjustment,
+  onDamageReported,
   userRole,
   pendingRestocks = [],
   onVerifyRestock,
@@ -922,8 +924,9 @@ export default function InventoryScreen({
       return;
     }
 
-    // The atomic RPC already decremented stock and recorded the damage report;
-    // realtime subscriptions refresh inventory and audit state.
+    // Reconcile the initiating screen immediately; realtime remains authoritative
+    // for other open sessions and later confirms the same backend quantity.
+    onDamageReported?.(damageItemId, qty);
     setShowDamageModal(false);
   };
 

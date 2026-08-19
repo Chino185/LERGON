@@ -1606,6 +1606,18 @@ export default function App() {
     }));
   };
 
+  const handleDamageReported = (itemId: string, quantityDamaged: number) => {
+    setInventory(previousInventory => previousInventory.map(item => (
+      item.id === itemId
+        ? {
+          ...item,
+          quantity: Math.max(0, item.quantity - quantityDamaged),
+          lastUpdated: new Date().toISOString()
+        }
+        : item
+    )));
+  };
+
   const handleDeleteItem = async (id: string) => {
     const deleted = await deleteInventoryItem(currentOrgId, id);
     if (!deleted) {
@@ -3562,6 +3574,7 @@ export default function App() {
                 onUpdateItem={handleUpdateItem}
                 onDeleteItem={handleDeleteItem}
                 onLogAdjustment={handleLogAdjustment}
+                onDamageReported={handleDamageReported}
                 userRole={currentUserRole || undefined}
                 pendingRestocks={pendingRestocks}
                 onVerifyRestock={handleVerifyRestock}
