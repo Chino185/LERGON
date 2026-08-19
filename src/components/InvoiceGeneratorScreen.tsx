@@ -19,18 +19,11 @@ import {
   Info,
   Upload,
   Search,
-  History,
   X,
   ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, SavedInvoice } from '../types';
-import {
-  SaveInvoicePayload,
-  fetchInvoicesFromSupabase,
-  deleteInvoiceFromSupabase,
-  subscribeToInvoices
-} from '../utils/invoiceServices';
+import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction } from '../types';
 import { translate } from '../utils/translations';
 import MaterialIcon from './MaterialIcon';
 import NeumorphicSelect, { NeumorphicSelectOption } from './NeumorphicSelect';
@@ -43,7 +36,6 @@ interface InvoiceGeneratorScreenProps {
   config: BusinessConfig;
   currentOrgId?: string;
   currentUserUid?: string;
-  onPersistInvoice?: (payload: SaveInvoicePayload) => Promise<{ success: boolean; id?: string; error?: string }>;
 }
 
 interface DocRow {
@@ -106,8 +98,7 @@ export default function InvoiceGeneratorScreen({
   transactions = [],
   config,
   currentOrgId,
-  currentUserUid,
-  onPersistInvoice
+  currentUserUid
 }: InvoiceGeneratorScreenProps) {
   // Preset types
   type PresetType = 'invoice_credit' | 'custom';
@@ -146,58 +137,6 @@ export default function InvoiceGeneratorScreen({
   // Sub-heading tag line customization (left aligned by default + size/width/height controls)
   const [professionalAlign, setProfessionalAlign] = useState<'left' | 'center' | 'right'>('left');
   const [professionalFontSize, setProfessionalFontSize] = useState<number>(13); // text size in px
-
-  // Saved Invoices History state
-  const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [historySearchQuery, setHistorySearchQuery] = useState('');
-  const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!currentOrgId) return;
-
-    // Initial fetch
-    void fetchInvoicesFromSupabase(currentOrgId).then(setSavedInvoices);
-
-    // Live Real-Time Postgres subscription
-    const unsubscribe = subscribeToInvoices(currentOrgId, (updatedInvoices) => {
-      setSavedInvoices(updatedInvoices);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [currentOrgId]);
-
-  const filteredSavedInvoices = useMemo(() => {
-    if (!historySearchQuery.trim()) return savedInvoices;
-    const q = historySearchQuery.toLowerCase();
-    return savedInvoices.filter(inv =>
-      (inv.invoice_number || '').toLowerCase().includes(q) ||
-      (inv.bill_to || '').toLowerCase().includes(q)
-    );
-  }, [savedInvoices, historySearchQuery]);
-
-  const handleLoadSavedInvoice = (inv: SavedInvoice) => {
-    setInvoiceNo(inv.invoice_number || `INV-${Date.now().toString().slice(-8)}`);
-    setBillTo(inv.bill_to || '');
-    if (Array.isArray(inv.line_items) && inv.line_items.length > 0) {
-      setRows(inv.line_items as DocRow[]);
-    }
-    setIsHistoryModalOpen(false);
-    setViewMode('preview');
-    setIsPreviewMode(true);
-  };
-
-  const handleDeleteSavedInvoice = async (invoiceId: string) => {
-    if (!currentOrgId || deletingInvoiceId) return;
-    setDeletingInvoiceId(invoiceId);
-    const res = await deleteInvoiceFromSupabase(invoiceId, currentOrgId);
-    if (res.success) {
-      setSavedInvoices(prev => prev.filter(i => i.id !== invoiceId));
-    }
-    setDeletingInvoiceId(null);
-  };
   const [professionalPaddingY, setProfessionalPaddingY] = useState<number>(6); // controls tagline padding/height in px
   const [professionalWidthPct, setProfessionalWidthPct] = useState<number>(100); // controls tagline wrapper width %
 
@@ -664,51 +603,6 @@ export default function InvoiceGeneratorScreen({
     }, 150);
   };
 
-  const persistGeneratedInvoice = async (): Promise<string | null> => {
-    if (!onPersistInvoice) return null;
-
-    try {
-      let invoiceId = persistedInvoiceId.current;
-      if (persistedInvoiceFingerprint.current !== invoiceFingerprint || !invoiceId) {
-        const result = await onPersistInvoice({
-          invoiceNumber: invoiceNo,
-          billTo: billTo || 'Walk-in Customer',
-          grandTotal: invoiceCalculatedTotal,
-          lineItems: rows,
-          metadata: {
-            companyName,
-            companySubHeader,
-            companyAddress,
-            companyContact,
-            invoiceDate,
-            documentTopic,
-            paymentBankName,
-            paymentAccountNumber,
-            paymentBranch,
-            logoImage
-          }
-        });
-
-        if (!result.success || !result.id) {
-          console.error('Invoice persistence failed:', result.error || 'No invoice ID was returned.');
-          return null;
-        }
-
-        invoiceId = result.id;
-        persistedInvoiceId.current = result.id;
-        persistedInvoiceFingerprint.current = invoiceFingerprint;
-      }
-
-      if (currentOrgId) {
-        void fetchInvoicesFromSupabase(currentOrgId).then(setSavedInvoices);
-      }
-      return invoiceId;
-    } catch (err) {
-      console.error('Invoice persistence error:', err);
-      return null;
-    }
-  };
-
   const handleShowPreview = () => {
     clearPdfArtifacts();
     setIsPdfBusy(false);
@@ -719,9 +613,6 @@ export default function InvoiceGeneratorScreen({
   const handlePrintInvoice = () => {
     setViewMode('preview');
     setIsPreviewMode(true);
-
-    // Save structured invoice metadata to database
-    void persistGeneratedInvoice();
 
     window.setTimeout(() => {
       window.focus();
@@ -858,20 +749,6 @@ export default function InvoiceGeneratorScreen({
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() => setIsHistoryModalOpen(true)}
-              className="w-full sm:w-auto px-5 py-2.5 neumorphic-inset font-black rounded-full flex items-center justify-center gap-2 cursor-pointer text-xs text-slate-800 hover:bg-slate-200/60 transition active:scale-95"
-            >
-              <History size={14} className="text-slate-700" />
-              <span>{translate('saved invoices', config.languageCode)}</span>
-              {savedInvoices.length > 0 && (
-                <span className="bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                  {savedInvoices.length}
-                </span>
-              )}
-            </button>
-
             <button
               type="button"
               onClick={handleShowPreview}
@@ -1657,19 +1534,6 @@ export default function InvoiceGeneratorScreen({
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <button
               type="button"
-              onClick={() => setIsHistoryModalOpen(true)}
-              className="text-xs neumorphic-inset px-4 py-2.5 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider text-slate-800 hover:bg-slate-200/60 active:scale-95 transition-all"
-            >
-              <History size={14} className="text-slate-700" />
-              <span>{translate('saved invoices', config.languageCode)}</span>
-              {savedInvoices.length > 0 && (
-                <span className="bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                  {savedInvoices.length}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
               onClick={handlePrintInvoice}
               disabled={isPdfBusy}
               className="text-xs neumorphic-btn-dark px-7 py-3 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed shadow-md hover:brightness-110 active:scale-95 transition-all"
@@ -2047,123 +1911,6 @@ export default function InvoiceGeneratorScreen({
                   className="neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white py-3 px-4 rounded-2xl text-xs font-extrabold uppercase tracking-wider hover:scale-[1.02] active:scale-[0.98] transition cursor-pointer shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {translate('confirm add', config.languageCode)}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* SAVED INVOICES HISTORY MODAL */}
-      <AnimatePresence>
-        {isHistoryModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm no-print">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="finnova-card w-full max-w-2xl max-h-[85vh] flex flex-col p-6 rounded-3xl gap-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 neumorphic-circle text-slate-900 dark:text-sky-400 flex items-center justify-center">
-                    <History size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                      {translate('saved invoice history', config.languageCode)}
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium">
-                      {translate('browse and reload previously printed and saved invoices', config.languageCode)}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsHistoryModalOpen(false)}
-                  className="w-8 h-8 neumorphic-inset rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              {/* Search input */}
-              <div className="relative">
-                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={historySearchQuery}
-                  onChange={(e) => setHistorySearchQuery(e.target.value)}
-                  placeholder={translate('search by invoice # or client name...', config.languageCode)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-sky-400"
-                />
-              </div>
-
-              {/* Invoices List */}
-              <div className="flex-1 overflow-y-auto space-y-2.5 max-h-[50vh] pr-1 [scrollbar-width:thin]">
-                {filteredSavedInvoices.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 flex flex-col items-center gap-2">
-                    <FileText size={32} className="opacity-40" />
-                    <span className="text-xs font-bold">
-                      {historySearchQuery ? translate('no matching invoices found', config.languageCode) : translate('no saved invoices yet. Every printed invoice is automatically saved here!', config.languageCode)}
-                    </span>
-                  </div>
-                ) : (
-                  filteredSavedInvoices.map((inv) => (
-                    <div
-                      key={inv.id}
-                      className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-slate-400 dark:hover:border-slate-600 transition"
-                    >
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-sm text-slate-900 dark:text-white tracking-wide">
-                            #{inv.invoice_number}
-                          </span>
-                          <span className="text-[11px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
-                            {Array.isArray(inv.line_items) ? inv.line_items.length : 0} {translate('items', config.languageCode)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                          <span>{inv.bill_to || 'Walk-in Customer'}</span>
-                          <span>•</span>
-                          <span>{new Date(inv.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 self-end sm:self-center">
-                        <span className="font-black text-sm text-slate-900 dark:text-emerald-400 mr-2">
-                          {config.currencySymbol || '$'}{Number(inv.grand_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleLoadSavedInvoice(inv)}
-                          className="px-3.5 py-1.5 rounded-xl neumorphic-btn-dark text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:brightness-110 active:scale-95 transition cursor-pointer"
-                        >
-                          <span>{translate('load', config.languageCode)}</span>
-                          <ArrowRight size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={deletingInvoiceId === inv.id}
-                          onClick={() => handleDeleteSavedInvoice(inv.id)}
-                          className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer"
-                          title={translate('delete invoice', config.languageCode)}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsHistoryModalOpen(false)}
-                  className="px-6 py-2.5 neumorphic-inset rounded-full text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white hover:bg-slate-200/60 active:scale-95 transition cursor-pointer"
-                >
-                  {translate('close', config.languageCode)}
                 </button>
               </div>
             </motion.div>

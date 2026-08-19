@@ -108,7 +108,6 @@ import {
 import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems, subscribeToStockAdjustments, submitRestockRequest, verifyRestockRequestTransaction, recordStockAdjustmentTransaction, subscribeToRestockRequests, createAttendantInvite } from './utils/inventoryServices';
 import { saveCreditProfile, subscribeToCreditProfiles } from './utils/creditServices';
 import { recordSaleTransaction, recordCreditSaleTransaction, recordSupplierCreditPurchaseTransaction, recordCreditChargeTransaction, recordRepaymentTransaction, subscribeToTransactions } from './utils/transactionServices';
-import { saveInvoice } from './utils/invoiceServices';
 import {
   flagStockAdjustment,
   flagTransaction,
@@ -3576,18 +3575,6 @@ export default function App() {
                 config={config}
                 currentOrgId={currentOrgId}
                 currentUserUid={currentUserUid}
-                onPersistInvoice={async (payload) => {
-                  const res = await saveInvoice(currentOrgId, currentUserUid, payload);
-                  if (res.success && currentOrgId && currentUserUid) {
-                    void logActivity(
-                      currentOrgId,
-                      currentUserUid,
-                      'invoice_generated',
-                      `Generated & Printed Invoice #${payload.invoiceNumber} for ${payload.billTo} (${config.currencySymbol || '$'}${Number(payload.grandTotal || 0).toLocaleString()})`
-                    );
-                  }
-                  return res;
-                }}
               />
             )}
 
