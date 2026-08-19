@@ -64,7 +64,7 @@ export default function Navigation({
   creditAccounts = [],
   adjustments = [],
   transactions = [],
-  userRole = 2,
+  userRole = 5,
   organizationName,
   currentUserName,
   currentUserPhoto,
@@ -527,8 +527,8 @@ export default function Navigation({
                     id={`nav-btn-${item.id}`}
                     onClick={() => setActiveScreen(item.id)}
                     className={`flex items-center gap-2 select-none transition-all cursor-pointer rounded-full px-4 py-1.5 text-xs xl:text-sm font-bold ${isActive
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 font-bold'
+                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 font-bold'
                       }`}
                   >
                     <MaterialIcon name={item.materialIcon} size={18} className={isActive ? 'text-white' : 'text-slate-500'} />
@@ -712,8 +712,8 @@ export default function Navigation({
                           setIsMobileMenuOpen(false);
                         }}
                         className={`w-full flex items-center justify-between px-4 py-3.5 text-xs font-bold transition cursor-pointer text-left border-l-4 ${isActive
-                            ? 'bg-indigo-50/75 text-indigo-700 border-indigo-500 font-extrabold'
-                            : 'text-slate-700 hover:bg-slate-50 border-transparent'
+                          ? 'bg-indigo-50/75 text-indigo-700 border-indigo-500 font-extrabold'
+                          : 'text-slate-700 hover:bg-slate-50 border-transparent'
                           }`}
                       >
                         <div className="flex items-center gap-3.5">
@@ -771,8 +771,8 @@ export default function Navigation({
                     type="button"
                     onClick={() => setNotificationTab('critical')}
                     className={`flex-1 py-1.5 text-center text-[10px] font-bold rounded-md uppercase tracking-wider transition ${notificationTab === 'critical'
-                        ? 'bg-white text-indigo-700 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-850'
+                      ? 'bg-white text-indigo-700 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-850'
                       }`}
                   >
                     {translate('alerts', config.languageCode)} <span className="text-red-600 font-black">({unreadCriticalCount})</span>
@@ -781,8 +781,8 @@ export default function Navigation({
                     type="button"
                     onClick={() => setNotificationTab('activities')}
                     className={`flex-1 py-1.5 text-center text-[10px] font-bold rounded-md uppercase tracking-wider transition ${notificationTab === 'activities'
-                        ? 'bg-white text-indigo-700 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-850'
+                      ? 'bg-white text-indigo-700 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-850'
                       }`}
                   >
                     {translate('liveActivities', config.languageCode)} <span className="text-red-600 font-black">({unreadActivityCount})</span>

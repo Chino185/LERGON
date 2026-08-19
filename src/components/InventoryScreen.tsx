@@ -1317,14 +1317,16 @@ export default function InventoryScreen({
                             >
                               <ArrowUpDown size={13} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEdit(item)}
-                              className="w-7 h-7 flex items-center justify-center neumorphic-circle text-slate-800 hover:text-black cursor-pointer"
-                              title={translate('edit details', config.languageCode)}
-                            >
-                              <Edit2 size={13} />
-                            </button>
+                            {userRole !== 5 && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(item)}
+                                className="w-7 h-7 flex items-center justify-center neumorphic-circle text-slate-800 hover:text-black cursor-pointer"
+                                title={translate('edit details', config.languageCode)}
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                            )}
                             {userRole !== 5 && (
                               <button
                                 type="button"
@@ -1431,14 +1433,16 @@ export default function InventoryScreen({
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(item)}
-                        className="flex-1 min-h-[44px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center gap-1 font-bold text-xs transition cursor-pointer"
-                        title={translate('edit details', config.languageCode)}
-                      >
-                        <Edit2 size={13} /> {translate('edit', config.languageCode)}
-                      </button>
+                      {userRole !== 5 && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(item)}
+                          className="flex-1 min-h-[44px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center gap-1 font-bold text-xs transition cursor-pointer"
+                          title={translate('edit details', config.languageCode)}
+                        >
+                          <Edit2 size={13} /> {translate('edit', config.languageCode)}
+                        </button>
+                      )}
 
                       {userRole !== 5 && (
                         <button
@@ -2249,7 +2253,7 @@ export default function InventoryScreen({
               {/* Adjustment Reason Type */}
               <div>
                 <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1.5">{translate('movement reason / action', config.languageCode)}</label>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className={`grid ${userRole === 5 ? 'grid-cols-1' : 'grid-cols-2'} gap-2.5`}>
                   <button
                     type="button"
                     onClick={() => setAdjustType('purchase_in')}
@@ -2260,16 +2264,18 @@ export default function InventoryScreen({
                   >
                     <ArrowDownCircle size={14} className={adjustType === 'purchase_in' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('stock procurement (+ in)', config.languageCode)}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setAdjustType('sale_out')}
-                    className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'sale_out'
-                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                      : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
-                      }`}
-                  >
-                    <ArrowUpCircle size={14} className={adjustType === 'sale_out' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('product outflow (- out)', config.languageCode)}
-                  </button>
+                  {userRole !== 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setAdjustType('sale_out')}
+                      className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'sale_out'
+                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
+                        : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
+                        }`}
+                    >
+                      <ArrowUpCircle size={14} className={adjustType === 'sale_out' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('product outflow (- out)', config.languageCode)}
+                    </button>
+                  )}
                   {userRole !== 5 && (
                     <button
                       type="button"
