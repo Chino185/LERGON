@@ -27,7 +27,8 @@ import {
   ShieldAlert,
   CheckCircle2,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ImagePlus
 } from 'lucide-react';
 import { InventoryItem, StockAdjustment, BusinessConfig, PendingRestock } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -420,12 +421,46 @@ export default function InventoryScreen({
   const [itemSupplier, setItemSupplier] = useState('');
   const [itemLocation, setItemLocation] = useState('');
   const [itemNotes, setItemNotes] = useState('');
-
+  const [itemImageFile, setItemImageFile] = useState<File | null>(null);
+  const [itemImagePreview, setItemImagePreview] = useState('');
+  const [itemOriginalImageUrl, setItemOriginalImageUrl] = useState('');
+  const itemImageInputRef = useRef<HTMLInputElement>(null);
   // Loading & Error Feedback states for Save Product action
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [itemSaveError, setItemSaveError] = useState<string | null>(null);
 
   // Subscribe to live custom categories from Supabase
+  useEffect(() => {
+    return () => {
+      if (itemImagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(itemImagePreview);
+      }
+    };
+  }, [itemImagePreview]);
+
+  const handleImageFileChange = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setItemSaveError('Please select a valid image file.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setItemSaveError('Image must be 5 MB or smaller.');
+      return;
+    }
+    setItemSaveError(null);
+    setItemImageFile(file);
+    setItemImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleClearSelectedImage = () => {
+    setItemImageFile(null);
+    setItemImagePreview(itemOriginalImageUrl);
+    if (itemImageInputRef.current) {
+      itemImageInputRef.current.value = '';
+    }
+  };
+
   useEffect(() => {
     if (!businessId) return;
     const unsubscribe = subscribeToBusinessCategories(businessId, (cats) => {
@@ -578,6 +613,10 @@ export default function InventoryScreen({
     setItemSupplier('');
     setItemLocation('');
     setItemNotes('');
+    setItemImageFile(null);
+    setItemOriginalImageUrl('');
+    setItemImagePreview('');
+    if (itemImageInputRef.current) itemImageInputRef.current.value = '';
     setItemSaveError(null);
     setIsSavingItem(false);
     setShowAddEditModal(true);
@@ -596,6 +635,10 @@ export default function InventoryScreen({
     setItemSupplier(item.supplier || '');
     setItemLocation(item.location || '');
     setItemNotes(item.notes || '');
+    setItemImageFile(null);
+    setItemOriginalImageUrl(item.imageUrl || '');
+    setItemImagePreview(item.imageUrl || '');
+    if (itemImageInputRef.current) itemImageInputRef.current.value = '';
     setItemSaveError(null);
     setIsSavingItem(false);
     setShowAddEditModal(true);
@@ -638,7 +681,8 @@ export default function InventoryScreen({
         reorderPoint: userRole === 2 ? (itemReorder === '' ? 5 : Number(itemReorder)) : 5,
         supplier: sanitizeTextInput(itemSupplier, 200),
         location: sanitizeTextInput(itemLocation, 200),
-        notes: sanitizeTextInput(itemNotes, 1000)
+        notes: sanitizeTextInput(itemNotes, 1000),
+        imageFile: itemImageFile || undefined
       };
 
       // Route through the onAddItem/onUpdateItem props (owned by App.tsx)
@@ -1710,7 +1754,38 @@ export default function InventoryScreen({
                   className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
                 />
               </div>
-
+              {/* Product Image */}
+              <div>
+                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">Product image</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-24 h-24 rounded-xl neumorphic-inset bg-[#ebf0f7] dark:bg-slate-950/80 border border-white/80 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
+                    {itemImagePreview ? (
+                      <img src={itemImagePreview} alt="Product preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImagePlus size={24} className="text-slate-400 dark:text-slate-500" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <input
+                      ref={itemImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageFileChange(e.target.files?.[0])}
+                      className="block w-full text-xs text-slate-600 dark:text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-xs file:font-extrabold file:text-white hover:file:bg-sky-600 file:cursor-pointer"
+                    />
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Upload an image up to 5 MB. The image is saved to this business inventory record.</p>
+                    {itemImageFile && (
+                      <button
+                        type="button"
+                        onClick={handleClearSelectedImage}
+                        className="text-[10px] font-extrabold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
+                      >
+                        Remove selected image
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
               {/* SKU & Category Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div>

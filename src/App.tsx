@@ -1504,6 +1504,7 @@ export default function App() {
     const rawPrice = newItemData.unitPrice !== undefined ? newItemData.unitPrice : (newItemData as any).sellingPrice;
     const rawMin = newItemData.reorderPoint !== undefined ? newItemData.reorderPoint : (newItemData as any).minStock;
     const rawNotes = newItemData.notes || (newItemData as any).remarks || '';
+    const imageFile = (newItemData as any).imageFile as File | undefined;
 
     const payload = {
       name: newItemData.name,
@@ -1515,7 +1516,8 @@ export default function App() {
       unitPrice: Number(rawPrice || 0),
       supplier: newItemData.supplier || '',
       location: newItemData.location || '',
-      notes: rawNotes
+      notes: rawNotes,
+      imageFile
     };
 
     const userUid = currentUserUid || '';
@@ -1532,6 +1534,7 @@ export default function App() {
       unitPrice: Number(rawPrice || 0),
       reorderPoint: Number(rawMin || 0),
       notes: rawNotes,
+      imageUrl: syncRes.imageUrl || newItemData.imageUrl || '',
       lastUpdated: new Date().toISOString()
     };
 
@@ -1557,6 +1560,7 @@ export default function App() {
         return {
           ...item,
           ...updates,
+          imageUrl: syncRes.imageUrl || updates.imageUrl || item.imageUrl || '',
           lastUpdated: new Date().toISOString()
         };
       }

@@ -133,7 +133,7 @@ export async function saveInventoryItem(
     imageFile?: File;
   },
   existingItemId?: string | null
-): Promise<{ success: boolean; itemId?: string; error?: string }> {
+): Promise<{ success: boolean; itemId?: string; imageUrl?: string; error?: string }> {
   const isAdmin = userRole === 2 || userRole === 'admin';
   if (!isAdmin) {
     return { success: false, error: 'Unauthorized: Only business Administrators can create or edit inventory items.' };
@@ -166,18 +166,27 @@ export async function saveInventoryItem(
   try {
     let imageUrl = '';
     if (payload.imageFile) {
-      const fileExt = payload.imageFile.name.split('.').pop();
+      if (!payload.imageFile.type.startsWith('image/')) {
+        return { success: false, error: 'Only image files can be uploaded.' };
+      }
+      if (payload.imageFile.size > 5 * 1024 * 1024) {
+        return { success: false, error: 'Image must be 5 MB or smaller.' };
+      }
+      const fileExt = (payload.imageFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
       const filePath = `${businessId}/${cleanSku}_${Date.now()}.${fileExt}`;
       const { error: uploadErr } = await supabase.storage
         .from('inventory-images')
-        .upload(filePath, payload.imageFile, { upsert: true });
+        .upload(filePath, payload.imageFile, {
+          upsert: false,
+          contentType: payload.imageFile.type,
+          cacheControl: '3600'
+        });
+      if (uploadErr) throw uploadErr;
 
-      if (!uploadErr) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('inventory-images')
-          .getPublicUrl(filePath);
-        imageUrl = publicUrl;
-      }
+      const { data: publicData } = supabase.storage
+        .from('inventory-images')
+        .getPublicUrl(filePath);
+      imageUrl = publicData.publicUrl;
     }
 
     const itemPayload: any = {
@@ -234,7 +243,7 @@ export async function saveInventoryItem(
         });
         if (adjustmentError) throw adjustmentError;
       }
-      return { success: true, itemId: existingItemId };
+      return { success: true, itemId: existingItemId, imageUrl: imageUrl || undefined };
     } else {
       const requestedQuantity = Number(payload.quantity) || 0;
       itemPayload.quantity_in_hand = 0;
@@ -261,7 +270,7 @@ export async function saveInventoryItem(
           throw adjustmentError;
         }
       }
-      return { success: true, itemId: data.id };
+      return { success: true, itemId: data.id, imageUrl: imageUrl || undefined };
     }
   } catch (err: any) {
     console.error('saveInventoryItem Error:', err);
