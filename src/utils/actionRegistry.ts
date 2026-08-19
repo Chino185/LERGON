@@ -39,7 +39,7 @@ export const ACTION_METADATA: Record<string, { isConsequential: boolean; adminOn
   process_sale: { isConsequential: true, adminOnly: false },
   delete_inventory_item: { isConsequential: true, adminOnly: true },
   export_inventory_csv: { isConsequential: false, adminOnly: false },
-  
+
   create_credit_account: { isConsequential: true, adminOnly: false },
   record_credit_payment: { isConsequential: true, adminOnly: false },
   correct_credit_balance: { isConsequential: true, adminOnly: false },
@@ -113,7 +113,7 @@ export async function executeAppActionAsync(
     case 'process_sale': {
       const { itemName, itemId, quantity = 1, unitPrice, paymentMethod = 'Cash' } = args;
       const targetItem = ctx.inventory.find(i => (itemId && i.id === itemId) || (itemName && (i.name || '').toLowerCase() === itemName.toLowerCase()));
-      
+
       if (!targetItem) {
         return { success: false, message: `Sale failed: Inventory item '${itemName || itemId}' not found.`, error: 'Item not found' };
       }
@@ -143,7 +143,7 @@ export async function executeAppActionAsync(
     case 'record_stock_restock': {
       const { itemName, itemId, quantity = 1, notes = 'AI Restock' } = args;
       const targetItem = ctx.inventory.find(i => (itemId && i.id === itemId) || (itemName && (i.name || '').toLowerCase() === itemName.toLowerCase()));
-      
+
       if (!targetItem) {
         return { success: false, message: `Restock failed: Item '${itemName || itemId}' not found.`, error: 'Item not found' };
       }
@@ -166,7 +166,7 @@ export async function executeAppActionAsync(
     case 'update_item_price': {
       const { itemName, itemId, newPrice, newCost } = args;
       const targetItem = ctx.inventory.find(i => (itemId && i.id === itemId) || (itemName && (i.name || '').toLowerCase() === itemName.toLowerCase()));
-      
+
       if (!targetItem) {
         return { success: false, message: `Price update failed: Item '${itemName || itemId}' not found.`, error: 'Item not found' };
       }
@@ -193,13 +193,15 @@ export async function executeAppActionAsync(
     }
 
     case 'add_inventory_item': {
-      const { name, category = 'General', unitCost = 0, unitPrice = 0, quantity = 0, sku, supplier = 'Default Supplier' } = args;
+      const { name, category, unitCost = 0, unitPrice = 0, quantity = 0, sku, supplier = 'Default Supplier' } = args;
+      const cleanCategory = typeof category === 'string' ? category.trim() : '';
       if (!name) return { success: false, message: 'Item name is required.' };
+      if (!cleanCategory) return { success: false, message: 'A custom category is required when adding an inventory item.' };
 
       const itemPayload = {
         name,
         sku: sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        category,
+        category: cleanCategory,
         quantity,
         reorderPoint: 5,
         unitCost,

@@ -40,7 +40,6 @@ import {
   reportDamagedStockTransaction,
   subscribeToBusinessCategories,
   saveBusinessCategories,
-  DEFAULT_BUSINESS_CATEGORIES,
   DamageReport
 } from '../utils/inventoryServices';
 import { sanitizeTextInput } from '../utils/securityValidation';
@@ -443,28 +442,48 @@ export default function InventoryScreen({
   }, [businessCategories, activeInventory]);
 
   const handleCreateCategory = async (catName: string) => {
-    const trimmed = catName.trim();
+    const trimmed = sanitizeTextInput(catName, 60).trim();
     if (!trimmed) return;
-    const updated = Array.from(new Set([...businessCategories, trimmed]));
+    if (businessCategories.some(category => category.toLowerCase() === trimmed.toLowerCase())) {
+      setItemCategory(businessCategories.find(category => category.toLowerCase() === trimmed.toLowerCase()) || trimmed);
+      setNewCategoryInput('');
+      setIsAddingNewCategory(false);
+      return;
+    }
+
+    const previous = businessCategories;
+    const updated = [...businessCategories, trimmed];
     setBusinessCategories(updated);
     setItemCategory(trimmed);
     setNewCategoryInput('');
     setIsAddingNewCategory(false);
+
     if (businessId) {
-      void saveBusinessCategories(businessId, updated);
+      const result = await saveBusinessCategories(businessId, updated);
+      if (!result.success) {
+        setBusinessCategories(previous);
+        setItemCategory(previous[0] || '');
+        setItemSaveError(result.error || 'Failed to save custom category.');
+      }
     }
   };
 
   const handleDeleteCategory = async (catToDelete: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const previous = businessCategories;
     const updated = businessCategories.filter(c => c !== catToDelete);
-    if (updated.length === 0) return;
     setBusinessCategories(updated);
-    if (businessId) {
-      void saveBusinessCategories(businessId, updated);
-    }
     if (itemCategory === catToDelete) {
-      setItemCategory(updated[0] || 'Others');
+      setItemCategory(updated[0] || '');
+    }
+
+    if (businessId) {
+      const result = await saveBusinessCategories(businessId, updated);
+      if (!result.success) {
+        setBusinessCategories(previous);
+        setItemCategory(catToDelete);
+        setItemSaveError(result.error || 'Failed to delete custom category.');
+      }
     }
   };
 
@@ -477,6 +496,12 @@ export default function InventoryScreen({
   const formatMoney = (amount: number) => {
     return formatAmount(amount);
   };
+
+  useEffect(() => {
+    if (selectedCategory !== 'All' && !allAvailableCategories.includes(selectedCategory)) {
+      setSelectedCategory('All');
+    }
+  }, [allAvailableCategories, selectedCategory]);
 
   // 1. Gather Unique Categories for lookup dropdown
   const categoriesList = ['All', ...allAvailableCategories];
@@ -534,7 +559,10 @@ export default function InventoryScreen({
     setEditingItemId(null);
     setItemName('');
     setItemSku(`SKU-${Math.floor(Math.random() * 90000) + 10000}`);
-    setItemCategory(allAvailableCategories[0] || 'Electronics');
+    setItemCategory(allAvailableCategories[0] || '');
+    setIsCategoryDropdownOpen(false);
+    setIsAddingNewCategory(false);
+    setNewCategoryInput('');
     setItemQty(5);
     setItemCost(roundMoney(convertFromBase(10)));
     setItemPrice(roundMoney(convertFromBase(20)));
@@ -572,6 +600,7 @@ export default function InventoryScreen({
 
     const cleanTitle = sanitizeTextInput(itemName, 200);
     const cleanSkuStr = sanitizeTextInput(itemSku, 100).toUpperCase();
+    const cleanCategory = sanitizeTextInput(itemCategory, 100).trim();
 
     if (!cleanTitle) {
       setItemSaveError('Please fill out the product title.');
@@ -583,13 +612,18 @@ export default function InventoryScreen({
       return;
     }
 
+    if (!cleanCategory) {
+      setItemSaveError('Create or select a custom category before saving this item.');
+      return;
+    }
+
     setIsSavingItem(true);
 
     try {
       const itemPayload = {
         name: cleanTitle,
         sku: cleanSkuStr,
-        category: sanitizeTextInput(itemCategory, 100),
+        category: cleanCategory,
         quantity: itemQty === '' ? 0 : Number(itemQty),
         unitCost: userRole === 2 ? (itemCost === '' ? 0 : convertToBase(Number(itemCost))) : 0,
         unitPrice: userRole === 2 ? (itemPrice === '' ? 0 : convertToBase(Number(itemPrice))) : 0,
@@ -1723,15 +1757,17 @@ export default function InventoryScreen({
                                 <span className="truncate">{translate(catName.toLowerCase(), config.languageCode) || catName}</span>
                                 <div className="flex items-center gap-1.5">
                                   {itemCategory === catName && <Check size={13} className="text-white shrink-0" />}
-                                  <button
-                                    type="button"
-                                    onClick={(e) => handleDeleteCategory(catName, e)}
-                                    className={`p-1 rounded-lg opacity-0 group-hover:opacity-100 transition hover:bg-red-500 hover:text-white ${itemCategory === catName ? 'text-white/80' : 'text-slate-400 hover:text-white'
-                                      }`}
-                                    title={translate('delete category', config.languageCode)}
-                                  >
-                                    <Trash2 size={11} />
-                                  </button>
+                                  {businessCategories.includes(catName) && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => void handleDeleteCategory(catName, e)}
+                                      className={`p-1 rounded-lg opacity-0 group-hover:opacity-100 transition hover:bg-red-500 hover:text-white ${itemCategory === catName ? 'text-white/80' : 'text-slate-400 hover:text-white'
+                                        }`}
+                                      title={translate('delete category', config.languageCode)}
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ))
@@ -1761,11 +1797,7 @@ export default function InventoryScreen({
                               />
                               <button
                                 type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  void handleCreateCategory(newCategoryInput);
-                                }}
+                                onClick={() => void handleCreateCategory(newCategoryInput)}
                                 disabled={!newCategoryInput.trim()}
                                 className="px-2.5 py-1.5 rounded-xl bg-sky-500 text-white text-[11px] font-black hover:bg-sky-600 active:scale-95 transition disabled:opacity-40 cursor-pointer shrink-0"
                               >

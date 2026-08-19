@@ -44,7 +44,7 @@ export function subscribeToInventoryItems(
             id: d.id,
             name: d.product_title || '',
             sku: d.sku || '',
-            category: d.category || 'General',
+            category: d.category || '',
             quantity: d.quantity_in_hand ?? 0,
             unitCost: Number(d.cost_price) || 0,
             unitPrice: Number(d.selling_price) || 0,
@@ -145,13 +145,14 @@ export async function saveInventoryItem(
 
   const cleanName = sanitizeTextInput(payload.name, 200);
   const cleanSku = sanitizeTextInput(payload.sku, 100).toUpperCase();
-  const cleanCategory = sanitizeTextInput(payload.category || 'General', 100);
+  const cleanCategory = sanitizeTextInput(payload.category || '', 100);
   const cleanSupplier = sanitizeTextInput(payload.supplier || '', 200);
   const cleanLocation = sanitizeTextInput(payload.location || '', 200);
   const cleanNotes = sanitizeTextInput(payload.notes || '', 1000);
 
   if (!cleanName) return { success: false, error: 'Product title is required.' };
   if (!cleanSku) return { success: false, error: 'SKU is required.' };
+  if (!cleanCategory) return { success: false, error: 'A custom category is required.' };
 
   if (payload.quantity < 0 || payload.unitCost < 0 || payload.unitPrice < 0 || payload.reorderPoint < 0) {
     return { success: false, error: 'Quantities, costs, and prices cannot be negative values.' };
@@ -704,21 +705,7 @@ export function subscribeToBusinessCategories(
     return () => { };
   }
 
-  const cacheKey = `business_categories_${businessId}`;
-
   const fetchCategories = async () => {
-    // 1. Initial optimistic load from localStorage
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          onUpdate(parsed);
-        }
-      }
-    } catch { }
-
-    // 2. Fetch from Supabase
     try {
       const { data, error } = await supabase
         .from('businesses')
@@ -727,13 +714,13 @@ export function subscribeToBusinessCategories(
         .maybeSingle();
 
       if (!error && data?.categories && Array.isArray(data.categories)) {
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify(data.categories));
-        } catch { }
         onUpdate(data.categories);
+      } else {
+        onUpdate([]);
       }
     } catch (err) {
       console.warn('Could not fetch business categories:', err);
+      onUpdate([]);
     }
   };
 
@@ -751,9 +738,6 @@ export function subscribeToBusinessCategories(
       },
       (payload: any) => {
         if (payload.new?.categories && Array.isArray(payload.new.categories)) {
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify(payload.new.categories));
-          } catch { }
           onUpdate(payload.new.categories);
         }
       }
@@ -778,20 +762,12 @@ export async function saveBusinessCategories(
       new Set(categories.map(c => sanitizeTextInput(c, 60).trim()).filter(Boolean))
     );
 
-    // Save to local cache immediately
-    try {
-      localStorage.setItem(`business_categories_${businessId}`, JSON.stringify(cleanCategories));
-    } catch { }
-
     const { error } = await supabase
       .from('businesses')
       .update({ categories: cleanCategories })
       .eq('id', businessId);
 
-    if (error) {
-      console.error('Supabase categories update error:', error);
-      return { success: false, error: error.message };
-    }
+    if (error) throw error;
     return { success: true };
   } catch (err: any) {
     console.error('saveBusinessCategories Error:', err);
