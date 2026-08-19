@@ -35,7 +35,12 @@ import {
   validateBusinessName,
   sanitizeInput
 } from '../utils/securityValidation';
-import { updateUserPassword, uploadProfilePhoto, clearProfilePhoto } from '../utils/authServices';
+import {
+  updateUserPassword,
+  uploadProfilePhoto,
+  clearProfilePhoto,
+  subscribeToActiveAttendantInvite
+} from '../utils/authServices';
 
 
 interface SettingsScreenProps {
@@ -680,7 +685,45 @@ export default function SettingsScreen({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // --- Attendant Invite PIN Generator & Live Countdown ---
-  const currentActiveInvite = currentOrg?.activeInvite;
+  // The Systems page owns a backend-backed copy so returning to this page,
+  // refreshing, or reopening the tab cannot restore an old local timer.
+  const [backendInviteLoaded, setBackendInviteLoaded] = useState(false);
+  const [backendActiveInvite, setBackendActiveInvite] = useState<OrganizationInvite | null>(null);
+
+  React.useEffect(() => {
+    if (isAttendant || !currentOrgId) {
+      setBackendInviteLoaded(false);
+      setBackendActiveInvite(null);
+      return;
+    }
+
+    setBackendInviteLoaded(false);
+    const unsubscribe = subscribeToActiveAttendantInvite(currentOrgId, (invite) => {
+      const nextInvite = invite
+        ? {
+          code: invite.code,
+          createdAt: invite.createdAt,
+          expiresAt: invite.expiresAt,
+          isUsed: invite.isUsed
+        }
+        : null;
+      setBackendActiveInvite(nextInvite);
+      setBackendInviteLoaded(true);
+      if (organizations && onUpdateOrganizations) {
+        onUpdateOrganizations(organizations.map(org => (
+          org.id === currentOrgId
+            ? { ...org, activeInvite: nextInvite || undefined }
+            : org
+        )));
+      }
+    });
+
+    return unsubscribe;
+  }, [isAttendant, currentOrgId]);
+
+  const currentActiveInvite = backendInviteLoaded
+    ? backendActiveInvite || undefined
+    : currentOrg?.activeInvite;
   const [inviteTimeLeftSec, setInviteTimeLeftSec] = useState<number>(() => {
     if (!currentActiveInvite || currentActiveInvite.isUsed) return 0;
     return Math.max(0, Math.floor((currentActiveInvite.expiresAt - Date.now()) / 1000));
@@ -736,6 +779,8 @@ export default function SettingsScreen({
       if (organizations && currentOrgId && onUpdateOrganizations) {
         onUpdateOrganizations(organizations.map(org => org.id === currentOrgId ? { ...org, activeInvite: newInvite } : org));
       }
+      setBackendActiveInvite(newInvite);
+      setBackendInviteLoaded(true);
       setInviteTimeLeftSec(Math.max(0, Math.floor((newInvite.expiresAt - Date.now()) / 1000)));
       return;
     }
