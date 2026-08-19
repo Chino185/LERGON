@@ -702,6 +702,27 @@ export default function SettingsScreen({
     return () => clearInterval(interval);
   }, [currentActiveInvite]);
 
+  React.useEffect(() => {
+    if (
+      inviteTimeLeftSec > 0 ||
+      !currentActiveInvite ||
+      currentActiveInvite.isUsed ||
+      !organizations ||
+      !currentOrgId ||
+      !onUpdateOrganizations
+    ) {
+      return;
+    }
+
+    onUpdateOrganizations(
+      organizations.map(org => (
+        org.id === currentOrgId
+          ? { ...org, activeInvite: undefined }
+          : org
+      ))
+    );
+  }, [inviteTimeLeftSec, currentActiveInvite, organizations, currentOrgId, onUpdateOrganizations]);
+
   const handleGenerateInvite = async () => {
     if (onGenerateInvite) {
       const backendInvite = await onGenerateInvite();

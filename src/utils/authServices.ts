@@ -462,6 +462,53 @@ export async function clearProfilePhoto(
 }
 
 
+export function subscribeToActiveAttendantInvite(
+  businessId: string,
+  onUpdate: (invite: { code: string; createdAt: number; expiresAt: number; isUsed: boolean } | null) => void
+): () => void {
+  if (!businessId) {
+    onUpdate(null);
+    return () => { };
+  }
+
+  const fetchActiveInvite = async () => {
+    const { data, error } = await supabase
+      .from('invite_codes')
+      .select('code, created_at, expires_at, used')
+      .eq('business_id', businessId)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      if (error) console.warn('Could not load active attendant invite:', error.message);
+      onUpdate(null);
+      return;
+    }
+
+    onUpdate({
+      code: data.code,
+      createdAt: new Date(data.created_at).getTime(),
+      expiresAt: new Date(data.expires_at).getTime(),
+      isUsed: Boolean(data.used)
+    });
+  };
+
+  void fetchActiveInvite();
+  const channel = supabase
+    .channel(`invite_codes_${businessId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'invite_codes', filter: `business_id=eq.${businessId}` },
+      () => { void fetchActiveInvite(); }
+    )
+    .subscribe();
+
+  return () => { supabase.removeChannel(channel); };
+}
+
 export async function validateAttendantInvite(
   inviteCode: string
 ): Promise<{ success: boolean; businessId?: string; businessName?: string; expiresAt?: string; error?: string }> {
