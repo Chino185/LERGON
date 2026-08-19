@@ -426,7 +426,9 @@ export default function InventoryScreen({
   const [itemImagePreview, setItemImagePreview] = useState('');
   const [itemOriginalImageUrl, setItemOriginalImageUrl] = useState('');
   const itemImageInputRef = useRef<HTMLInputElement>(null);
-  const itemCameraInputRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   // Loading & Error Feedback states for Save Product action
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [itemSaveError, setItemSaveError] = useState<string | null>(null);
@@ -455,11 +457,81 @@ export default function InventoryScreen({
     setItemImagePreview(URL.createObjectURL(file));
   };
 
+  const stopCamera = () => {
+    cameraStreamRef.current?.getTracks().forEach(track => track.stop());
+    cameraStreamRef.current = null;
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const startCamera = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setItemSaveError('Live camera capture is not available in this browser or context. Use the image picker instead.');
+      return;
+    }
+    try {
+      setItemSaveError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+      cameraStreamRef.current = stream;
+      setIsCameraOpen(true);
+    } catch (error) {
+      console.error('Camera access error:', error);
+      setItemSaveError('Camera access was blocked or unavailable. Allow camera permission and try again, or use the image picker.');
+    }
+  };
+
+  const captureCameraPhoto = () => {
+    const video = cameraVideoRef.current;
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+      setItemSaveError('The camera is not ready yet. Please wait a moment and try again.');
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setItemSaveError('The camera image could not be captured. Please use the image picker instead.');
+      return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setItemSaveError('The camera image could not be captured. Please try again.');
+        return;
+      }
+      const file = new File([blob], `inventory-photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      handleImageFileChange(file);
+      stopCamera();
+    }, 'image/jpeg', 0.9);
+  };
+
+  useEffect(() => {
+    if (isCameraOpen && cameraVideoRef.current && cameraStreamRef.current) {
+      cameraVideoRef.current.srcObject = cameraStreamRef.current;
+      void cameraVideoRef.current.play().catch(() => undefined);
+    }
+  }, [isCameraOpen]);
+
+  useEffect(() => {
+    if (!showAddEditModal && isCameraOpen) {
+      stopCamera();
+    }
+  }, [showAddEditModal, isCameraOpen]);
+
+  useEffect(() => () => {
+    cameraStreamRef.current?.getTracks().forEach(track => track.stop());
+  }, []);
+
   const handleClearSelectedImage = () => {
     setItemImageFile(null);
     setItemImagePreview(itemOriginalImageUrl);
     if (itemImageInputRef.current) itemImageInputRef.current.value = '';
-    if (itemCameraInputRef.current) itemCameraInputRef.current.value = '';
   };
 
   useEffect(() => {
@@ -618,7 +690,7 @@ export default function InventoryScreen({
     setItemOriginalImageUrl('');
     setItemImagePreview('');
     if (itemImageInputRef.current) itemImageInputRef.current.value = '';
-    if (itemCameraInputRef.current) itemCameraInputRef.current.value = '';
+    stopCamera();
     setItemSaveError(null);
     setIsSavingItem(false);
     setShowAddEditModal(true);
@@ -641,7 +713,7 @@ export default function InventoryScreen({
     setItemOriginalImageUrl(item.imageUrl || '');
     setItemImagePreview(item.imageUrl || '');
     if (itemImageInputRef.current) itemImageInputRef.current.value = '';
-    if (itemCameraInputRef.current) itemCameraInputRef.current.value = '';
+    stopCamera();
     setItemSaveError(null);
     setIsSavingItem(false);
     setShowAddEditModal(true);
@@ -1776,23 +1848,15 @@ export default function InventoryScreen({
                       onChange={(e) => handleImageFileChange(e.target.files?.[0])}
                       className="block w-full text-xs text-slate-600 dark:text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-xs file:font-extrabold file:text-white hover:file:bg-sky-600 file:cursor-pointer"
                     />
-                    <input
-                      ref={itemCameraInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(e) => handleImageFileChange(e.target.files?.[0])}
-                      className="hidden"
-                    />
                     <button
                       type="button"
-                      onClick={() => itemCameraInputRef.current?.click()}
+                      onClick={() => void startCamera()}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-[11px] font-extrabold text-white hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 cursor-pointer"
                     >
                       <Camera size={13} />
                       Take photo
                     </button>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Upload an image up to 5 MB or take a photo with your device camera.</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Upload an image up to 5 MB or take a live photo with your device camera.</p>
                     {itemImageFile && (
                       <button
                         type="button"
@@ -1804,6 +1868,34 @@ export default function InventoryScreen({
                     )}
                   </div>
                 </div>
+                {isCameraOpen && (
+                  <div className="mt-3 rounded-xl neumorphic-inset bg-[#ebf0f7] dark:bg-slate-950/80 border border-white/80 dark:border-slate-800 p-2">
+                    <video
+                      ref={cameraVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full max-h-64 rounded-lg bg-black object-cover"
+                    />
+                    <div className="flex items-center justify-end gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="rounded-lg px-3 py-1.5 text-[11px] font-extrabold text-slate-700 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={captureCameraPhoto}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-extrabold text-white hover:bg-sky-600 cursor-pointer"
+                      >
+                        <Camera size={13} />
+                        Capture photo
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               {/* SKU & Category Row */}
               <div className="grid grid-cols-2 gap-3">
