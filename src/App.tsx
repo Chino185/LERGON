@@ -453,11 +453,18 @@ export default function App() {
     if (currentOrg?.name && orgConfig.businessName !== currentOrg.name) {
       orgConfig.businessName = currentOrg.name;
     }
+    if (currentOrg?.country) {
+      orgConfig.country = currentOrg.country;
+    }
+    if (currentOrg?.currency) {
+      orgConfig.currency = currentOrg.currency;
+    }
+    if (currentOrg?.currencySymbol) {
+      orgConfig.currencySymbol = currentOrg.currencySymbol;
+    }
 
     const userPrefKey = getUserPrefStorageKey(orgId, role);
     const userPrefs = getLocalState<{
-      currency?: string;
-      currencySymbol?: string;
       languageCode?: string;
       themeMode?: 'light' | 'dark' | 'system';
     } | null>(userPrefKey, null);
@@ -468,8 +475,6 @@ export default function App() {
 
     return {
       ...orgConfig,
-      currency: userPrefs.currency !== undefined ? userPrefs.currency : orgConfig.currency,
-      currencySymbol: userPrefs.currencySymbol !== undefined ? userPrefs.currencySymbol : orgConfig.currencySymbol,
       languageCode: userPrefs.languageCode !== undefined ? userPrefs.languageCode : orgConfig.languageCode,
       themeMode: userPrefs.themeMode !== undefined ? userPrefs.themeMode : orgConfig.themeMode
     };
@@ -1051,6 +1056,9 @@ export default function App() {
               attendantName: roleStr === 'attendant' ? (profileData.display_username || localOrg?.attendantName || 'Attendant') : localOrg?.attendantName,
               adminPhoto: localOrg?.adminPhoto,
               attendantPhoto: localOrg?.attendantPhoto,
+              country: businessData?.base_country || localOrg?.country,
+              currency: businessData?.base_currency_code || localOrg?.currency,
+              currencySymbol: businessData?.base_currency_symbol || localOrg?.currencySymbol,
             };
             setOrganizations(prev => [normalizedOrg, ...prev.filter(o => o.id !== normalizedOrg.id && o.id !== localOrg?.id)]);
             if (businessData) {
@@ -1328,7 +1336,13 @@ export default function App() {
       });
       setOrganizations(previousOrganizations => previousOrganizations.map(org => (
         org.id === currentOrgId
-          ? { ...org, ...(businessName ? { name: businessName } : {}) }
+          ? {
+            ...org,
+            ...(businessName ? { name: businessName } : {}),
+            ...(country ? { country } : {}),
+            currency: currencyCode,
+            currencySymbol
+          }
           : org
       )));
     });
@@ -2197,8 +2211,6 @@ export default function App() {
     // 1. Save user personal preferences under user-role specific storage key
     const userPrefKey = getUserPrefStorageKey(currentOrgId, currentUserRole);
     const userPrefs = {
-      currency: newConfig.currency,
-      currencySymbol: newConfig.currencySymbol,
       languageCode: newConfig.languageCode,
       themeMode: newConfig.themeMode
     };

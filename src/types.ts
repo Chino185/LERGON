@@ -140,6 +140,9 @@ export interface Organization {
   isTempPassword?: boolean;
   previousAttendantPass?: string;
   activeInvite?: OrganizationInvite;
+  country?: string;
+  currency?: string;
+  currencySymbol?: string;
 }
 
 export type UserRole = 2 | 5;
