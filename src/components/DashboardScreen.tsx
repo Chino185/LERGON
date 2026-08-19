@@ -48,6 +48,15 @@ interface DashboardProps {
 
 
 
+const getShowcaseImageUrl = (imageUrl: string): string => {
+  const storageMarker = '/storage/v1/object/public/inventory-images/';
+  const markerIndex = imageUrl.indexOf(storageMarker);
+  if (markerIndex === -1) return imageUrl;
+  const baseUrl = imageUrl.slice(0, markerIndex);
+  const objectPath = imageUrl.slice(markerIndex + storageMarker.length);
+  return `${baseUrl}/storage/v1/render/image/public/inventory-images/${objectPath}?width=1200&quality=78&resize=contain`;
+};
+
 const getItemImage = (name: string, category: string): string => {
   const nameLower = name.toLowerCase();
   if (nameLower.includes('keyboard')) {
@@ -739,8 +748,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-xl shadow-lg border text-xs font-bold ${feedback.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                : 'bg-rose-50 text-rose-800 border-rose-100'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+              : 'bg-rose-50 text-rose-800 border-rose-100'
               }`}
           >
             {feedback.type === 'success' ? <CheckCircle2 size={14} className="text-emerald-600" /> : <AlertTriangle size={14} className="text-rose-600" />}
@@ -782,8 +791,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               setIsAccountDropdownOpen(false);
             }}
             className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${quickAction === 'stock_in'
-                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
-                : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
+              ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
+              : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
               }`}
           >
             <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${quickAction === 'stock_in' ? 'bg-white/20 text-white' : 'neumorphic-circle bg-[#ebf0f7] dark:bg-[#202225] text-blue-600 dark:text-sky-400'}`}>
@@ -805,8 +814,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               setIsAccountDropdownOpen(false);
             }}
             className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${quickAction === 'stock_out'
-                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
-                : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
+              ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
+              : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
               }`}
           >
             <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${quickAction === 'stock_out' ? 'bg-white/20 text-white' : 'neumorphic-circle bg-[#ebf0f7] dark:bg-[#202225] text-blue-600 dark:text-sky-400'}`}>
@@ -829,8 +838,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               onNavigate?.('credit-new');
             }}
             className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${quickAction === 'stock_out_credit'
-                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
-                : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
+              ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
+              : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
               }`}
           >
             <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${quickAction === 'stock_out_credit' ? 'bg-white/20 text-white' : 'neumorphic-circle bg-[#ebf0f7] dark:bg-[#202225] text-blue-600 dark:text-sky-400'}`}>
@@ -852,8 +861,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               setIsAccountDropdownOpen(false);
             }}
             className={`flex items-center gap-2 rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-200 cursor-pointer ${quickAction === 'repayment'
-                ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
-                : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
+              ? 'neumorphic-inset bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 text-white shadow-inner font-black'
+              : 'neumorphic-btn text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-400 hover:scale-[1.02] active:scale-[0.98]'
               }`}
           >
             <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${quickAction === 'repayment' ? 'bg-white/20 text-white' : 'neumorphic-circle bg-[#ebf0f7] dark:bg-[#202225] text-blue-600 dark:text-sky-400'}`}>
@@ -1147,8 +1156,9 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               const item = inventory[activeSlide];
               const fallbackImg = getItemImage(item.name, item.category);
               const customImg = item.imageUrl && item.imageUrl.trim() !== '' ? item.imageUrl : '';
-              const resolvedImg = (customImg && !customImg.includes('photo-1618384887929') && !customImg.includes('photo-1587829741301'))
-                ? customImg
+              const optimizedCustomImg = customImg ? getShowcaseImageUrl(customImg) : '';
+              const resolvedImg = (optimizedCustomImg && !optimizedCustomImg.includes('photo-1618384887929') && !optimizedCustomImg.includes('photo-1587829741301'))
+                ? optimizedCustomImg
                 : fallbackImg;
               const isLowStock = item.quantity <= item.reorderPoint;
               const isOutOfStock = item.quantity === 0;
@@ -1164,9 +1174,16 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                         src={resolvedImg}
                         alt={item.name}
                         className="w-full h-full object-cover opacity-100 group-hover:scale-105 transition duration-500 rounded-xl"
+                        loading="eager"
+                        decoding="async"
                         referrerPolicy="no-referrer"
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=1200&q=90';
+                          const imageElement = e.currentTarget as HTMLImageElement;
+                          if (customImg && imageElement.src !== customImg) {
+                            imageElement.src = customImg;
+                          } else {
+                            imageElement.src = 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=1200&q=90';
+                          }
                         }}
                       />
 
@@ -1679,12 +1696,12 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                   type="button"
                   onClick={() => setActiveMobileTab('picker')}
                   className={`flex-1 py-1.5 px-2 text-center text-xs font-black uppercase tracking-wider rounded-lg transition ${activeMobileTab === 'picker'
-                      ? (quickAction === 'stock_in'
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : quickAction === 'stock_out_credit'
-                          ? 'bg-amber-600 text-white shadow-xs'
-                          : 'bg-orange-600 text-white shadow-xs')
-                      : 'text-slate-650 hover:bg-slate-200 font-bold'
+                    ? (quickAction === 'stock_in'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : quickAction === 'stock_out_credit'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-orange-600 text-white shadow-xs')
+                    : 'text-slate-650 hover:bg-slate-200 font-bold'
                     }`}
                 >
                   Find Items
@@ -1693,18 +1710,18 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                   type="button"
                   onClick={() => setActiveMobileTab('basket')}
                   className={`flex-1 py-1.5 px-2 text-center text-xs font-black uppercase tracking-wider rounded-lg transition flex items-center justify-center gap-1.5 ${activeMobileTab === 'basket'
-                      ? (quickAction === 'stock_in'
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : quickAction === 'stock_out_credit'
-                          ? 'bg-amber-600 text-white shadow-xs'
-                          : 'bg-orange-600 text-white shadow-xs')
-                      : 'text-slate-650 hover:bg-slate-200 font-bold'
+                    ? (quickAction === 'stock_in'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : quickAction === 'stock_out_credit'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-orange-600 text-white shadow-xs')
+                    : 'text-slate-650 hover:bg-slate-200 font-bold'
                     }`}
                 >
                   Added List
                   <span className={`text-[9.5px] px-1.5 py-0.5 rounded-md font-mono font-black ${activeMobileTab === 'basket'
-                      ? 'bg-black/20 text-white'
-                      : 'bg-slate-200 text-slate-705'
+                    ? 'bg-black/20 text-white'
+                    : 'bg-slate-200 text-slate-705'
                     }`}>
                     {basketItems.length}
                   </span>
@@ -1832,8 +1849,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                           <div
                             key={`modal-picker-${item.id}`}
                             className={`flex items-center justify-between p-3 rounded-2xl transition finnova-card ${qtyInBasket > 0
-                                ? 'border border-blue-400/50 shadow-xs'
-                                : 'border border-white/80'
+                              ? 'border border-blue-400/50 shadow-xs'
+                              : 'border border-white/80'
                               }`}
                           >
                             <div className="min-w-0 flex-1 pr-2">
@@ -2169,8 +2186,8 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                             handleQuickActionSubmit(mockEvent);
                           }}
                           className={`flex-1 sm:flex-initial text-xs font-black px-5 py-2 rounded-xl transition whitespace-nowrap cursor-pointer flex items-center justify-center gap-1.5 neumorphic-btn ${basketItems.length === 0
-                              ? 'opacity-40 cursor-not-allowed text-slate-400'
-                              : 'text-slate-900 hover:text-black border border-white/80'
+                            ? 'opacity-40 cursor-not-allowed text-slate-400'
+                            : 'text-slate-900 hover:text-black border border-white/80'
                             }`}
                         >
                           <span>Confirm & Process</span>

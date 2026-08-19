@@ -423,6 +423,7 @@ export default function InventoryScreen({
   const [itemLocation, setItemLocation] = useState('');
   const [itemNotes, setItemNotes] = useState('');
   const [itemImageFile, setItemImageFile] = useState<File | null>(null);
+  const [isPreparingImage, setIsPreparingImage] = useState(false);
   const [itemImagePreview, setItemImagePreview] = useState('');
   const [itemOriginalImageUrl, setItemOriginalImageUrl] = useState('');
   const itemImageInputRef = useRef<HTMLInputElement>(null);
@@ -442,7 +443,42 @@ export default function InventoryScreen({
     };
   }, [itemImagePreview]);
 
-  const handleImageFileChange = (file: File | undefined) => {
+  const compressInventoryImage = (file: File): Promise<File> => new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const maxDimension = 1600;
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      if (scale === 1 && file.size <= 1.5 * 1024 * 1024) {
+        resolve(file);
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('Canvas is unavailable'));
+        return;
+      }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Image compression failed'));
+          return;
+        }
+        resolve(new File([blob], `inventory-image-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.82);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Image could not be read'));
+    };
+    image.src = objectUrl;
+  });
+
+  const handleImageFileChange = async (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       setItemSaveError('Please select a valid image file.');
@@ -453,8 +489,17 @@ export default function InventoryScreen({
       return;
     }
     setItemSaveError(null);
-    setItemImageFile(file);
-    setItemImagePreview(URL.createObjectURL(file));
+    setIsPreparingImage(true);
+    try {
+      const preparedFile = await compressInventoryImage(file);
+      setItemImageFile(preparedFile);
+      setItemImagePreview(URL.createObjectURL(preparedFile));
+    } catch (error) {
+      console.error('Image preparation error:', error);
+      setItemSaveError('The image could not be prepared. Please choose another image.');
+    } finally {
+      setIsPreparingImage(false);
+    }
   };
 
   const stopCamera = () => {
@@ -1845,7 +1890,7 @@ export default function InventoryScreen({
                       ref={itemImageInputRef}
                       type="file"
                       accept="image/*"
-                      onChange={(e) => handleImageFileChange(e.target.files?.[0])}
+                      onChange={(e) => void handleImageFileChange(e.target.files?.[0])}
                       className="block w-full text-xs text-slate-600 dark:text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-xs file:font-extrabold file:text-white hover:file:bg-sky-600 file:cursor-pointer"
                     />
                     <button
@@ -2136,14 +2181,14 @@ export default function InventoryScreen({
                 <button
                   type="button"
                   onClick={() => setShowAddEditModal(false)}
-                  disabled={isSavingItem}
+                  disabled={isSavingItem || isPreparingImage}
                   className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-5 py-2.5 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700 disabled:opacity-50"
                 >
                   {translate('dismiss', config.languageCode)}
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingItem}
+                  disabled={isSavingItem || isPreparingImage}
                   className="px-6 py-2.5 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold rounded-xl neumorphic-btn shadow-md transition-all text-xs cursor-pointer border border-white/30 dark:border-slate-700/60 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSavingItem ? (
