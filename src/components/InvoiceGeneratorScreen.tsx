@@ -21,8 +21,7 @@ import {
   Search,
   History,
   X,
-  ArrowRight,
-  Download
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, SavedInvoice } from '../types';
@@ -30,8 +29,6 @@ import {
   SaveInvoicePayload,
   fetchInvoicesFromSupabase,
   deleteInvoiceFromSupabase,
-  uploadInvoicePdfToBackend,
-  downloadInvoicePdfFromBackend,
   subscribeToInvoices
 } from '../utils/invoiceServices';
 import { translate } from '../utils/translations';
@@ -190,15 +187,6 @@ export default function InvoiceGeneratorScreen({
     setIsHistoryModalOpen(false);
     setViewMode('preview');
     setIsPreviewMode(true);
-  };
-
-  const handleDownloadSavedInvoice = async (inv: SavedInvoice) => {
-    setIsPdfBusy(true);
-    const result = await downloadInvoicePdfFromBackend(currentOrgId || '', inv.id, inv.invoice_number);
-    if (!result.success) {
-      console.error('Saved invoice PDF download failed:', result.error);
-    }
-    setIsPdfBusy(false);
   };
 
   const handleDeleteSavedInvoice = async (invoiceId: string) => {
@@ -531,220 +519,6 @@ export default function InvoiceGeneratorScreen({
     setIsPreviewMode(false);
   };
 
-  const renderSheetToCanvas = async (sheetEl: HTMLElement): Promise<HTMLCanvasElement> => {
-    const width = 794; // Standard A4 at 96 DPI (210mm)
-    const height = 1123; // Standard A4 at 96 DPI (297mm)
-    const scale = 2; // 2x scale for crisp 192 DPI output
-
-    const canvas = document.createElement('canvas');
-    canvas.width = width * scale;
-    canvas.height = height * scale;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 2D context not available');
-
-    ctx.scale(scale, scale);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-
-    const clone = sheetEl.cloneNode(true) as HTMLElement;
-    clone.querySelectorAll('.no-print').forEach((node) => node.remove());
-    clone.style.zoom = '1';
-    clone.style.transform = 'none';
-    clone.style.width = `${width}px`;
-    clone.style.minHeight = `${height}px`;
-    clone.style.maxHeight = `${height}px`;
-    clone.style.height = `${height}px`;
-    clone.style.padding = '40px 48px';
-    clone.style.margin = '0';
-    clone.style.boxSizing = 'border-box';
-    clone.style.background = '#ffffff';
-    clone.style.color = '#000000';
-    clone.style.border = 'none';
-    clone.style.boxShadow = 'none';
-
-    const styleRules = `
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      body {
-        margin: 0;
-        padding: 0;
-        background: #ffffff;
-        color: #000000;
-        font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-      .printable-sheet {
-        width: ${width}px;
-        height: ${height}px;
-        min-height: ${height}px;
-        max-height: ${height}px;
-        padding: 40px 48px;
-        background: #ffffff;
-        color: #000000;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        box-sizing: border-box;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-        font-family: inherit;
-      }
-      th, td {
-        border: 1px solid #000000;
-        padding: 4px 8px;
-        vertical-align: middle;
-      }
-      .bg-black { background-color: #000000 !important; color: #ffffff !important; }
-      .bg-white { background-color: #ffffff !important; }
-      .bg-slate-100 { background-color: #f1f5f9 !important; }
-      .text-white { color: #ffffff !important; }
-      .text-black { color: #000000 !important; }
-      .text-slate-900 { color: #0f172a !important; }
-      .text-slate-500 { color: #64748b !important; }
-      .border-black { border-color: #000000 !important; }
-      .border-slate-300 { border-color: #cbd5e1 !important; }
-      .border { border: 1px solid #000000 !important; }
-      .border-b { border-bottom: 1px solid #000000 !important; }
-      .border-b-\\[5px\\] { border-bottom: 5px solid #000000 !important; }
-      .border-t { border-top: 1px solid #000000 !important; }
-      .border-2 { border: 2px solid #000000 !important; }
-      .border-r-2 { border-right: 2px solid #000000 !important; }
-      .grid { display: grid; }
-      .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .gap-4 { gap: 16px; }
-      .flex { display: flex; }
-      .flex-col { flex-direction: column; }
-      .items-center { align-items: center; }
-      .justify-between { justify-content: space-between; }
-      .justify-end { justify-content: flex-end; }
-      .justify-center { justify-content: center; }
-      .justify-start { justify-content: flex-start; }
-      .text-center { text-align: center; }
-      .text-left { text-align: left; }
-      .text-right { text-align: right; }
-      .font-extrabold, .font-black { font-weight: 800; }
-      .font-bold { font-weight: 700; }
-      .font-medium { font-weight: 500; }
-      .uppercase { text-transform: uppercase; }
-      .w-full { width: 100%; }
-      .h-full { height: 100%; }
-      .shrink-0 { flex-shrink: 0; }
-      .whitespace-nowrap { white-space: nowrap; }
-      .whitespace-pre-wrap { white-space: pre-wrap; }
-      .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .relative { position: relative; }
-      .absolute { position: absolute; }
-      .mt-auto { margin-top: auto; }
-      .rounded-lg { border-radius: 8px; }
-      .rounded-xl { border-radius: 12px; }
-      .rounded-2xl { border-radius: 16px; }
-      .rounded-full { border-radius: 9999px; }
-      .p-0\\.5 { padding: 2px; }
-      .p-2 { padding: 8px; }
-      .p-10 { padding: 40px; }
-      .pb-3 { padding-bottom: 12px; }
-      .pt-1 { padding-top: 4px; }
-      .pt-2 { padding-top: 8px; }
-      .px-2 { padding-left: 8px; padding-right: 8px; }
-      .px-3 { padding-left: 12px; padding-right: 12px; }
-      .px-4 { padding-left: 16px; padding-right: 16px; }
-      .px-5 { padding-left: 20px; padding-right: 20px; }
-      .py-0\\.5 { padding-top: 2px; padding-bottom: 2px; }
-      .py-1 { padding-top: 4px; padding-bottom: 4px; }
-      .py-1\\.5 { padding-top: 6px; padding-bottom: 6px; }
-      .my-1 { margin-top: 4px; margin-bottom: 4px; }
-      .mt-0\\.5 { margin-top: 2px; }
-      .mb-1 { margin-bottom: 4px; }
-      .mb-3 { margin-bottom: 12px; }
-      .min-h-\\[44px\\] { min-height: 44px; }
-      .min-w-\\[130px\\] { min-width: 130px; }
-      .text-\\[7\\.5px\\] { font-size: 7.5px; }
-      .text-\\[8\\.5px\\] { font-size: 8.5px; }
-      .text-\\[9px\\] { font-size: 9px; }
-      .text-\\[9\\.5px\\] { font-size: 9.5px; }
-      .text-\\[10px\\] { font-size: 10px; }
-      .text-\\[10\\.5px\\] { font-size: 10.5px; }
-      .text-\\[11px\\] { font-size: 11px; }
-      .text-xs { font-size: 12px; }
-      .text-\\[13px\\] { font-size: 13px; }
-      .text-\\[13\\.5px\\] { font-size: 13.5px; }
-      .text-xl { font-size: 20px; }
-      .text-2xl { font-size: 24px; }
-      .leading-tight { line-height: 1.25; }
-      .leading-snug { line-height: 1.375; }
-      .leading-relaxed { line-height: 1.625; }
-      .tracking-wide { letter-spacing: 0.025em; }
-      .tracking-wider { letter-spacing: 0.05em; }
-      .tracking-widest { letter-spacing: 0.1em; }
-      .space-y-4 > * + * { margin-top: 16px; }
-      .space-y-2 > * + * { margin-top: 8px; }
-      .space-y-0\\.5 > * + * { margin-top: 2px; }
-      .object-contain { object-fit: contain; }
-      .underline { text-decoration: underline; }
-    `;
-
-    const serializedHtml = new XMLSerializer().serializeToString(clone);
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-        <foreignObject width="100%" height="100%">
-          <div xmlns="http://www.w3.org/1999/xhtml">
-            <style>${styleRules}</style>
-            ${serializedHtml}
-          </div>
-        </foreignObject>
-      </svg>
-    `;
-
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, width, height);
-        URL.revokeObjectURL(url);
-        resolve(canvas);
-      };
-      img.onerror = (e) => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Failed to render invoice preview to canvas: ' + (e instanceof Error ? e.message : 'Unknown image error')));
-      };
-      img.src = url;
-    });
-  };
-
-  const buildInvoicePdf = async (): Promise<Blob> => {
-    setViewMode('preview');
-    setIsPreviewMode(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    const printRoot = document.querySelector<HTMLElement>('.printable-sheet') || document.getElementById('invoice-print-root');
-    if (!printRoot) {
-      throw new Error('Invoice preview is not ready for image capture.');
-    }
-
-    const html2pdfModule = await import('html2pdf.js');
-    const html2pdf = (html2pdfModule as any).default || html2pdfModule;
-
-    const opt = {
-      margin: 0,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' }
-    };
-
-    const canvas = await html2pdf().set(opt).from(printRoot).toCanvas().get('canvas');
-    return new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob: Blob | null) => {
-        if (blob && blob.size > 0) resolve(blob);
-        else reject(new Error('Invoice image conversion returned an empty blob.'));
-      }, 'image/png');
-    });
-  };
-
   const printInvoiceSheets = () => {
     setViewMode('preview');
     setIsPreviewMode(true);
@@ -890,7 +664,7 @@ export default function InvoiceGeneratorScreen({
     }, 150);
   };
 
-  const persistGeneratedInvoice = async (pdfBlob?: Blob): Promise<string | null> => {
+  const persistGeneratedInvoice = async (): Promise<string | null> => {
     if (!onPersistInvoice) return null;
 
     try {
@@ -925,14 +699,6 @@ export default function InvoiceGeneratorScreen({
         persistedInvoiceFingerprint.current = invoiceFingerprint;
       }
 
-      if (pdfBlob && currentOrgId && invoiceId) {
-        const pdfResult = await uploadInvoicePdfToBackend(currentOrgId, invoiceId, invoiceNo, pdfBlob);
-        if (!pdfResult.success) {
-          console.error('Invoice PDF backend upload failed:', pdfResult.error);
-          return null;
-        }
-      }
-
       if (currentOrgId) {
         void fetchInvoicesFromSupabase(currentOrgId).then(setSavedInvoices);
       }
@@ -950,47 +716,12 @@ export default function InvoiceGeneratorScreen({
     setIsPreviewMode(true);
   };
 
-  const handleDownloadPdf = async () => {
-    setIsPdfBusy(true);
-    try {
-      const pdfBlob = await buildInvoicePdf();
-      const invoiceId = await persistGeneratedInvoice(pdfBlob);
-      if (!invoiceId) throw new Error('The invoice metadata could not be saved before PDF upload.');
-      const refreshedInvoices = currentOrgId ? await fetchInvoicesFromSupabase(currentOrgId) : [];
-      const saved = refreshedInvoices.find(inv => inv.id === invoiceId);
-      if (!saved?.pdf_url) {
-        throw new Error('The backend did not return a stored PDF for this invoice.');
-      }
-      const result = await downloadInvoicePdfFromBackend(currentOrgId || '', invoiceId, invoiceNo);
-      if (!result.success) throw new Error(result.error || 'Backend PDF download failed.');
-      setSavedInvoices(refreshedInvoices);
-    } catch (err) {
-      console.error('Invoice PDF download failed:', err);
-    } finally {
-      setIsPdfBusy(false);
-      clearPdfArtifacts();
-    }
-  };
-
-  const handlePrintInvoice = async () => {
+  const handlePrintInvoice = () => {
     setViewMode('preview');
     setIsPreviewMode(true);
-    setIsPdfBusy(true);
 
-    try {
-      // 1. Build high-res PDF with html2pdf
-      const pdfBlob = await buildInvoicePdf();
-
-      // 2. Save metadata + upload PDF file to Supabase storage
-      await persistGeneratedInvoice(pdfBlob);
-    } catch (err) {
-      console.error('PDF generation/storage error during print:', err);
-      // Fallback: at least save invoice metadata
-      await persistGeneratedInvoice();
-    } finally {
-      setIsPdfBusy(false);
-      clearPdfArtifacts();
-    }
+    // Save structured invoice metadata to database
+    void persistGeneratedInvoice();
 
     window.setTimeout(() => {
       window.focus();
@@ -2403,17 +2134,6 @@ export default function InvoiceGeneratorScreen({
                         <span className="font-black text-sm text-slate-900 dark:text-emerald-400 mr-2">
                           {config.currencySymbol || '$'}{Number(inv.grand_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
-                        {inv.pdf_url && (
-                          <button
-                            type="button"
-                            disabled={isPdfBusy}
-                            onClick={() => void handleDownloadSavedInvoice(inv)}
-                            className="p-2 rounded-xl text-slate-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition cursor-pointer disabled:opacity-50"
-                            title="Download stored PDF"
-                          >
-                            <Download size={15} />
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={() => handleLoadSavedInvoice(inv)}

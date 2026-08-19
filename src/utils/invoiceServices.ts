@@ -10,22 +10,8 @@ export interface SaveInvoicePayload {
   metadata?: Record<string, unknown>;
 }
 
-export interface InvoicePdfResult {
-  success: boolean;
-  id?: string;
-  pdfUrl?: string;
-  sizeBytes?: number;
-  error?: string;
-}
-
-async function getAccessToken(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token || null;
-}
-
 /**
  * Persists invoice metadata to the Supabase `invoices` table.
- * PDF bytes are uploaded separately through the authenticated backend route.
  */
 export async function saveInvoice(
   businessId: string,
@@ -63,114 +49,6 @@ export async function saveInvoice(
   } catch (err: any) {
     console.error('saveInvoice Error:', err);
     return { success: false, error: err?.message || 'Failed to save invoice to database.' };
-  }
-}
-
-/**
- * Uploads the rendered invoice image directly to Supabase Storage
- * and saves the direct public URL into the `invoices` table.
- */
-export async function uploadInvoicePdfToBackend(
-  businessId: string,
-  invoiceId: string,
-  invoiceNumber: string,
-  fileBlob: Blob
-): Promise<InvoicePdfResult> {
-  if (!businessId || !invoiceId) return { success: false, error: 'Business ID and invoice ID are required.' };
-  if (!(fileBlob instanceof Blob) || fileBlob.size === 0) return { success: false, error: 'The generated image/file is empty.' };
-
-  const isPng = fileBlob.type.includes('png') || !fileBlob.type.includes('pdf');
-  const ext = isPng ? 'png' : 'pdf';
-  const mime = isPng ? 'image/png' : 'application/pdf';
-  const cleanNum = (invoiceNumber || 'invoice').replace(/[^a-zA-Z0-9._-]+/g, '-');
-  const filePath = `${businessId}/${invoiceId}/${Date.now()}-${cleanNum}.${ext}`;
-
-  // Priority bucket list (try invoice-pdfs, fallback to existing public inventory-images or receipts)
-  const candidateBuckets = ['invoice-pdfs', 'inventory-images', 'receipts'];
-
-  for (const bucket of candidateBuckets) {
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, fileBlob, {
-          contentType: mime,
-          upsert: true
-        });
-
-      if (!uploadError) {
-        // Successfully uploaded! Retrieve direct public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(filePath);
-
-        // Update the invoices record with direct public URL
-        const { error: updateError } = await supabase
-          .from('invoices')
-          .update({ pdf_url: publicUrl })
-          .eq('id', invoiceId)
-          .eq('business_id', businessId);
-
-        if (updateError) {
-          console.warn('Could not update invoice pdf_url record:', updateError);
-        }
-
-        return {
-          success: true,
-          id: invoiceId,
-          pdfUrl: publicUrl,
-          sizeBytes: fileBlob.size
-        };
-      }
-    } catch (err) {
-      console.warn(`Upload attempt failed for bucket ${bucket}:`, err);
-    }
-  }
-
-  return { success: false, error: 'Failed to upload invoice to Supabase Storage buckets.' };
-}
-
-/**
- * Opens or downloads the stored invoice PDF directly using its public URL.
- */
-export async function downloadInvoicePdfFromBackend(
-  businessId: string,
-  invoiceId: string,
-  invoiceNumber: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!businessId || !invoiceId) return { success: false, error: 'Business ID and invoice ID are required.' };
-
-  try {
-    // 1. Check if invoice has a direct public URL
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('pdf_url')
-      .eq('id', invoiceId)
-      .eq('business_id', businessId)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (data?.pdf_url) {
-      // Trigger browser download via direct public URL
-      const res = await fetch(data.pdf_url);
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `${(invoiceNumber || 'invoice').replace(/[^a-z0-9._-]+/gi, '-')}.pdf`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        return { success: true };
-      }
-    }
-
-    return { success: false, error: 'No stored PDF URL found for this invoice.' };
-  } catch (err: any) {
-    console.error('downloadInvoicePdf Error:', err);
-    return { success: false, error: err?.message || 'Failed to download invoice PDF.' };
   }
 }
 
