@@ -854,30 +854,26 @@ export default function App() {
     const cleanCode = codeCheck.cleanCode;
 
     const backendInvite = await validateAttendantInvite(cleanCode);
-    const localTargetOrg = organizations.find(org => {
-      const invite = org.activeInvite;
-      return invite?.code === cleanCode && !invite.isUsed && Date.now() < invite.expiresAt;
-    });
-    const targetOrg = backendInvite.success
-      ? ({
-        id: backendInvite.businessId!,
-        name: backendInvite.businessName || localTargetOrg?.name || 'Business',
-        adminPass: '',
-        attendantPass: '',
-        adminEmail: localTargetOrg?.adminEmail,
-        attendantName: localTargetOrg?.attendantName || 'Attendant'
-      } as Organization)
-      : localTargetOrg;
-
-    if (!targetOrg) {
+    if (!backendInvite.success || !backendInvite.businessId) {
       const fail = recordFailedAttempt('invite_pin_attempts', 5, 300000);
       if (fail.isLocked) {
         setJoinError(`Too many failed attempts. Invite PIN verification locked for 5 minutes.`);
       } else {
-        setJoinError(`Invalid or expired invite PIN code. (${fail.attemptsLeft} attempt${fail.attemptsLeft === 1 ? '' : 's'} remaining)`);
+        const backendMessage = backendInvite.error && !/invalid|expired/i.test(backendInvite.error)
+          ? ` ${backendInvite.error}`
+          : '';
+        setJoinError(`Invalid or expired invite PIN code.${backendMessage} (${fail.attemptsLeft} attempt${fail.attemptsLeft === 1 ? '' : 's'} remaining)`);
       }
       return;
     }
+
+    const targetOrg = {
+      id: backendInvite.businessId,
+      name: backendInvite.businessName || 'Business',
+      adminPass: '',
+      attendantPass: '',
+      attendantName: 'Attendant'
+    } as Organization;
 
     resetRateLimit('invite_pin_attempts');
     setValidatedJoinOrg(targetOrg);
