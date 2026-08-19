@@ -50,6 +50,7 @@ interface NavigationProps {
   backendNotifications?: BackendNotification[];
   onMarkAsRead?: (ids: string[]) => void;
   themeMode?: 'light' | 'dark' | 'system';
+  currentUserUid?: string;
   onThemeChange?: (theme: 'light' | 'dark') => void;
 }
 
@@ -76,6 +77,7 @@ export default function Navigation({
   backendNotifications,
   onMarkAsRead,
   themeMode,
+  currentUserUid,
   onThemeChange
 }: NavigationProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -451,12 +453,21 @@ export default function Navigation({
   // but must not make the main notification badge appear unread.
   const unreadNotificationCount = unreadCriticalCount;
 
+  const userThemeStorageKey = currentUserUid ? `lergon_theme_${currentUserUid}` : 'theme';
   const [localDarkMode, setLocalDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+      return document.documentElement.classList.contains('dark') || localStorage.getItem(userThemeStorageKey) === 'dark';
     }
     return false;
   });
+
+  useEffect(() => {
+    if (!currentUserUid) return;
+    const savedTheme = localStorage.getItem(`lergon_theme_${currentUserUid}`);
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      setLocalDarkMode(savedTheme === 'dark');
+    }
+  }, [currentUserUid]);
 
   const isDarkMode = themeMode ? themeMode === 'dark' : localDarkMode;
 
@@ -465,11 +476,11 @@ export default function Navigation({
     if (effectiveDarkMode) {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
-      localStorage.setItem('theme', 'dark');
+      localStorage.setItem(userThemeStorageKey, 'dark');
     } else {
       document.documentElement.classList.remove('dark');
       document.documentElement.setAttribute('data-theme', 'light');
-      localStorage.setItem('theme', 'light');
+      localStorage.setItem(userThemeStorageKey, 'light');
     }
   }, [themeMode, localDarkMode]);
 
@@ -555,7 +566,7 @@ export default function Navigation({
                 const root = document.documentElement;
                 root.classList.toggle('dark', nextTheme === 'dark');
                 root.setAttribute('data-theme', nextTheme);
-                localStorage.setItem('theme', nextTheme);
+                localStorage.setItem(userThemeStorageKey, nextTheme);
                 setLocalDarkMode(nextTheme === 'dark');
                 onThemeChange?.(nextTheme);
               }}

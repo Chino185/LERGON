@@ -1090,7 +1090,7 @@ export default function App() {
             const prefKey = getUserPrefStorageKey(profileData.business_id || '', roleStr === 'admin' ? 2 : 5);
             const existingPrefs = getLocalState<Record<string, unknown>>(prefKey, {});
             saveLocalState(prefKey, { ...existingPrefs, themeMode: backendTheme });
-            localStorage.setItem('theme', backendTheme);
+            localStorage.setItem(`lergon_theme_${user.id}`, backendTheme);
             setConfig(prev => ({ ...prev, themeMode: backendTheme }));
           }
 
@@ -1144,6 +1144,7 @@ export default function App() {
                   const prefKey = getUserPrefStorageKey(data.business_id || '', roleStr === 'admin' ? 2 : 5);
                   const existingPrefs = getLocalState<Record<string, unknown>>(prefKey, {});
                   saveLocalState(prefKey, { ...existingPrefs, themeMode: backendTheme });
+                  localStorage.setItem(`lergon_theme_${user.id}`, backendTheme);
                   setConfig(prev => ({ ...prev, themeMode: backendTheme }));
                 }
 
@@ -1307,18 +1308,29 @@ export default function App() {
     // 7. Real-time Business Currency Listener — keeps every device (Admin
     // and Attendant) in sync the instant the Admin changes the business
     // currency, instead of waiting on next login/refresh.
-    const unsubCurrency = subscribeToBusinessCurrency(currentOrgId, ({ country, currencyCode, currencySymbol }) => {
+    const unsubCurrency = subscribeToBusinessCurrency(currentOrgId, ({ businessName, country, currencyCode, currencySymbol }) => {
       setConfig(prev => {
-        if (prev.country === country && prev.currency === currencyCode && prev.currencySymbol === currencySymbol) {
+        if (
+          prev.businessName === businessName &&
+          prev.country === country &&
+          prev.currency === currencyCode &&
+          prev.currencySymbol === currencySymbol
+        ) {
           return prev;
         }
         return {
           ...prev,
+          ...(businessName ? { businessName } : {}),
           ...(country ? { country } : {}),
           currency: currencyCode,
           currencySymbol: currencySymbol
         };
       });
+      setOrganizations(previousOrganizations => previousOrganizations.map(org => (
+        org.id === currentOrgId
+          ? { ...org, ...(businessName ? { name: businessName } : {}) }
+          : org
+      )));
     });
 
     return () => {
@@ -2203,9 +2215,10 @@ export default function App() {
         newConfig.currency !== config.currency ||
         newConfig.currencySymbol !== config.currencySymbol;
       const countryChanged = newConfig.country !== config.country;
+      const businessNameChanged = newConfig.businessName !== config.businessName;
 
-      if ((currencyChanged || countryChanged) && currentOrgId) {
-        updateBusinessCurrency(currentOrgId, currentUserRole, newConfig.currency, newConfig.currencySymbol, newConfig.country)
+      if ((currencyChanged || countryChanged || businessNameChanged) && currentOrgId) {
+        updateBusinessCurrency(currentOrgId, currentUserRole, newConfig.currency, newConfig.currencySymbol, newConfig.country, newConfig.businessName)
           .then((res) => {
             if (!res.success) {
               console.error('Failed to sync currency to backend:', res.error);
@@ -2238,7 +2251,7 @@ export default function App() {
       const root = document.documentElement;
       root.classList.toggle('dark', newConfig.themeMode === 'dark');
       root.setAttribute('data-theme', newConfig.themeMode);
-      localStorage.setItem('theme', newConfig.themeMode);
+      localStorage.setItem(`lergon_theme_${currentUserUid || 'anonymous'}`, newConfig.themeMode);
     }
 
     if (currentUserUid && (newConfig.themeMode === 'light' || newConfig.themeMode === 'dark') && newConfig.themeMode !== config.themeMode) {
@@ -3467,6 +3480,7 @@ export default function App() {
             organizationName={organizations.find(o => o.id === currentOrgId)?.name}
             currentUserName={activeUserName}
             currentUserPhoto={activeUserPhoto}
+            currentUserUid={currentUserUid}
             currentOrg={organizations.find(o => o.id === currentOrgId)}
             onNavigateToSettingsTab={(tab) => setSettingsTabOverride(tab)}
             pendingRestocks={pendingRestocks}

@@ -582,12 +582,21 @@ export default function SettingsScreen({
   // Sync tab with external navigation overrides (e.g. from notifications list click)
   React.useEffect(() => {
     if (settingsTabOverride) {
-      setActiveTab(settingsTabOverride);
+      const requestedTab = isAttendant && settingsTabOverride === 'system'
+        ? 'profile'
+        : settingsTabOverride;
+      setActiveTab(requestedTab);
       if (onClearSettingsTabOverride) {
         onClearSettingsTabOverride();
       }
     }
-  }, [settingsTabOverride, onClearSettingsTabOverride]);
+  }, [settingsTabOverride, onClearSettingsTabOverride, isAttendant]);
+
+  React.useEffect(() => {
+    if (isAttendant && activeTab === 'system') {
+      setActiveTab('profile');
+    }
+  }, [isAttendant, activeTab]);
 
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -1115,17 +1124,19 @@ export default function SettingsScreen({
             <MaterialIcon name="person" size={18} className="text-slate-800" />
             <span>{translate('profileSettings', config.languageCode)}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('system')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'system'
-              ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
-              : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
-              }`}
-          >
-            <MaterialIcon name="tune" size={18} className="text-slate-800" />
-            <span>{translate('systemSettings', config.languageCode)}</span>
-          </button>
+          {!isAttendant && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('system')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'system'
+                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
+                : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
+                }`}
+            >
+              <MaterialIcon name="tune" size={18} className="text-slate-800" />
+              <span>{translate('systemSettings', config.languageCode)}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setActiveTab('security')}

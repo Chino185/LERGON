@@ -331,7 +331,8 @@ export async function updateBusinessCurrency(
   userRole: number | string | undefined,
   currencyCode: string,
   currencySymbol: string,
-  country?: string
+  country?: string,
+  businessName?: string
 ): Promise<{ success: boolean; error?: string }> {
   const isAdmin = userRole === 2 || userRole === 'admin';
   if (!isAdmin) {
@@ -348,7 +349,8 @@ export async function updateBusinessCurrency(
       .update({
         base_currency_code: currencyCode,
         base_currency_symbol: currencySymbol,
-        ...(country ? { base_country: country } : {})
+        ...(country ? { base_country: country } : {}),
+        ...(businessName ? { trade_name: businessName } : {})
       })
       .eq('id', businessId);
 
@@ -368,7 +370,7 @@ export async function updateBusinessCurrency(
  */
 export function subscribeToBusinessCurrency(
   businessId: string,
-  onUpdate: (currency: { currencyCode: string; currencySymbol: string; country?: string }) => void
+  onUpdate: (currency: { businessName?: string; currencyCode: string; currencySymbol: string; country?: string }) => void
 ): () => void {
   if (!businessId) {
     return () => { };
@@ -377,12 +379,13 @@ export function subscribeToBusinessCurrency(
   const fetchCurrency = () => {
     supabase
       .from('businesses')
-      .select('base_country, base_currency_code, base_currency_symbol')
+      .select('trade_name, base_country, base_currency_code, base_currency_symbol')
       .eq('id', businessId)
       .single()
       .then(({ data, error }) => {
         if (error || !data) return;
         onUpdate({
+          businessName: data.trade_name,
           country: data.base_country,
           currencyCode: data.base_currency_code,
           currencySymbol: data.base_currency_symbol
