@@ -818,6 +818,21 @@ export default function App() {
         return null;
       }
 
+      // When Supabase email confirmation is enabled, signUp returns a user
+      // without a usable session. Keep the user in the auth modal and show
+      // the existing verification view instead of sending them to the homepage.
+      if (!authRes.session) {
+        await logoutUser();
+        setPendingVerifyEmail(cleanEmail);
+        setShowAuthModal(true);
+        setActiveView('verify_email');
+        setIsLoggedIn(false);
+        setRegisterError('');
+        setEmailOtpError('');
+        setEmailOtpSuccess(`Business registration successful! A verification link has been sent to ${cleanEmail}. Check your email, verify your account, then sign in.`);
+        return newOrg;
+      }
+
       setShowAuthModal(false);
       setRegisterError('');
       return newOrg;
