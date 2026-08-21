@@ -1743,10 +1743,10 @@ export default function CreditScreen({
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl w-full max-w-md overflow-hidden text-slate-900 dark:text-white text-xs"
+            className="mobile-reminder-modal neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col min-w-0 overflow-hidden text-slate-900 dark:text-white text-xs"
           >
             {/* Header */}
-            <div className="bg-slate-900 p-4 text-white flex justify-between items-center shrink-0">
+            <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-white/80 dark:border-slate-800">
               <h3 className="font-semibold text-sm flex items-center gap-1.5">
                 <MessageSquare size={16} /> Automated Client Payment Reminder
               </h3>
@@ -1761,8 +1761,8 @@ export default function CreditScreen({
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
-              <p className="text-gray-500">
+            <div className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto min-w-0">
+              <p className="text-slate-600 dark:text-slate-300 font-medium">
                 Generate and copy a professional reminder notice to text David or send right to Sarah via WhatsApp or cellular networks:
               </p>
 
@@ -1770,12 +1770,12 @@ export default function CreditScreen({
                 {generateReminderText(reminderAcc)}
               </div>
 
-              <div className="bg-indigo-50 text-indigo-800 p-2.5 rounded-lg text-[10px] leading-snug">
+              <div className="neumorphic-inset text-slate-700 dark:text-slate-200 p-3 rounded-xl text-[10px] leading-snug border border-white/80 dark:border-slate-700">
                 <strong>Tip for Merchants:</strong> Just copy this text and paste it into messages or mail clients.
               </div>
 
               {/* Action */}
-              <div className="flex justify-end gap-2 pt-2 border-t">
+              <div className="flex flex-wrap justify-end gap-2 pt-3 border-t border-white/70 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => { setShowReminderModal(false); setReminderAcc(null); }}
@@ -1786,7 +1786,7 @@ export default function CreditScreen({
                 <button
                   type="button"
                   onClick={() => copyReminderToClipboard(generateReminderText(reminderAcc))}
-                  className="px-5 py-2.5 bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 hover:opacity-95 text-white font-semibold rounded-lg flex items-center gap-1 cursor-pointer transition"
+                  className="neumorphic-btn text-slate-900 dark:text-white px-5 py-2.5 font-semibold rounded-xl flex items-center gap-1 cursor-pointer transition hover:scale-[1.01]"
                 >
                   {copiedText ? (
                     <><Check size={14} /> Copied!</>
@@ -1809,7 +1809,7 @@ export default function CreditScreen({
             className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl w-full max-w-xl overflow-hidden text-slate-900 dark:text-white flex flex-col max-h-[85vh]"
           >
             {/* Header */}
-            <div className="bg-slate-900 p-4 text-white flex justify-between items-center shrink-0">
+            <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-white/80 dark:border-slate-800">
               <h3 className="font-semibold text-sm flex items-center gap-1.5">
                 <Paperclip size={16} className="text-indigo-400" /> Attached Receipt Verification
               </h3>
@@ -1885,7 +1885,7 @@ export default function CreditScreen({
             className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl w-full max-w-xl overflow-hidden text-slate-900 dark:text-white flex flex-col max-h-[85vh]"
           >
             {/* Header */}
-            <div className="bg-slate-900 p-4 text-white flex justify-between items-center shrink-0">
+            <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-white/80 dark:border-slate-800">
               <h3 className="font-semibold text-sm flex items-center gap-1.5">
                 <Paperclip size={16} className="text-indigo-400" /> Payment Transaction Verification Proof
               </h3>
