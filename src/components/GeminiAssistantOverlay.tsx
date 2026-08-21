@@ -50,6 +50,7 @@ interface GeminiAssistantOverlayProps {
   readNotificationIds?: string[];
   currentUserName?: string;
   currentOrg?: Organization;
+  dataReady?: boolean;
 
 }
 
@@ -72,7 +73,8 @@ export default function GeminiAssistantOverlay({
   backendNotifications = [],
   readNotificationIds = [],
   currentUserName = "",
-  currentOrg
+  currentOrg,
+  dataReady = false
 }: GeminiAssistantOverlayProps) {
   // AI Hub UI Panel states
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -442,7 +444,7 @@ export default function GeminiAssistantOverlay({
   // Passive voice wake-word (RICHARD) detection
   useEffect(() => {
     const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionClass || !autoWakeEnabled || isVoiceConnected || voiceStatus === "connecting") {
+    if (!SpeechRecognitionClass || !autoWakeEnabled || !dataReady || isVoiceConnected || voiceStatus === "connecting") {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -525,7 +527,7 @@ export default function GeminiAssistantOverlay({
       recognitionRef.current = null;
       setIsWakeWordListening(false);
     };
-  }, [autoWakeEnabled, isVoiceConnected, voiceStatus]);
+  }, [autoWakeEnabled, dataReady, isVoiceConnected, voiceStatus]);
 
   const calculateDashboardMetrics = (
     items: InventoryItem[],
@@ -781,6 +783,12 @@ export default function GeminiAssistantOverlay({
 
   // Live WebSocket methods
   const connectVoiceSession = async (isWakeWordTriggered: boolean = false) => {
+    if (!dataReady) {
+      setVoiceError("Business data is still loading. Please try again in a moment.");
+      setVoiceStatus("error");
+      return;
+    }
+
     try {
       setVoiceStatus("connecting");
       setVoiceError("");

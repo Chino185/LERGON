@@ -553,11 +553,12 @@ export default function App() {
       resolvedRole = 5;
     }
 
-    // Success login -> reset rate limit
+    // Success login -> reset rate limit. Keep the assistant/data views blocked
+    // until all current organization listeners deliver their first snapshots.
     resetRateLimit('signin_attempts');
 
     setShowAuthModal(false);
-    setIsDataLoading(false);
+    setIsDataLoading(true);
 
     setLoginError('');
     setPasscode('');
@@ -1369,16 +1370,45 @@ export default function App() {
       return;
     }
 
-    setIsDataLoading(false);
+    // Do not expose the previous organization’s records while the new
+    // organization’s first Supabase snapshots are arriving.
+    setIsDataLoading(true);
+    setInventory([]);
+    setCreditAccounts([]);
+    setTransactions([]);
+    setAdjustments([]);
+    setPendingRestocks([]);
+    setBackendNotifications([]);
+
+    let initialSnapshotsReceived = 0;
+    let hydrationCompleted = false;
+    const hydrationTimeout = window.setTimeout(() => {
+      if (!hydrationCompleted) {
+        console.warn('[Data Hydration] Timed out waiting for one or more Supabase snapshots; exposing the data received so far.');
+        hydrationCompleted = true;
+        setIsDataLoading(false);
+      }
+    }, 8000);
+    const markInitialSnapshot = () => {
+      if (hydrationCompleted) return;
+      initialSnapshotsReceived += 1;
+      if (initialSnapshotsReceived >= 6) {
+        hydrationCompleted = true;
+        window.clearTimeout(hydrationTimeout);
+        setIsDataLoading(false);
+      }
+    };
 
     // 1. Real-time Inventory Listener
     const unsubInventory = subscribeToInventoryItems(currentOrgId, (items) => {
       setInventory(items || []);
+      markInitialSnapshot();
     });
 
     // 2. Real-time Credit Accounts Listener
     const unsubCredits = subscribeToCreditProfiles(currentOrgId, (accounts) => {
       setCreditAccounts(accounts || []);
+      markInitialSnapshot();
     });
 
     // 3. Real-time Sales Transactions Listener
@@ -1387,6 +1417,7 @@ export default function App() {
         ...tx,
         performedBy: labelCurrentActor(tx.performedBy)
       })));
+      markInitialSnapshot();
     });
 
     // 4. Real-time typed stock-adjustment ledger listener
@@ -1395,17 +1426,20 @@ export default function App() {
         ...adj,
         performedBy: labelCurrentActor(adj.performedBy)
       })));
+      markInitialSnapshot();
     });
 
     // 5. Real-time pending restock requests listener
     const unsubRestocks = subscribeToRestockRequests(currentOrgId, (requests) => {
       setPendingRestocks(requests || []);
+      markInitialSnapshot();
     });
 
     // 6. Backend notification source of truth. Low-stock and correction
     // events are written to public.notifications by Supabase triggers.
     const unsubBackendNotifications = subscribeToBackendNotifications(currentOrgId, (notifications) => {
       setBackendNotifications(notifications || []);
+      markInitialSnapshot();
     });
 
     // 7. Real-time Business Currency Listener — keeps every device (Admin
@@ -1443,6 +1477,8 @@ export default function App() {
     });
 
     return () => {
+      hydrationCompleted = true;
+      window.clearTimeout(hydrationTimeout);
       unsubInventory();
       unsubCredits();
       unsubSales();
@@ -3848,6 +3884,7 @@ export default function App() {
               readNotificationIds={readNotificationIds}
               currentUserName={activeUserName}
               currentOrg={organizations.find(o => o.id === currentOrgId)}
+              dataReady={!isDataLoading}
             />
           </Navigation>
         </CurrencyProvider>
