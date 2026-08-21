@@ -2,6 +2,30 @@ import { supabase, getSafeChannel, isSupabaseConfigured } from './supabaseClient
 import { CreditAccount } from '../types';
 import { sanitizeTextInput } from './securityValidation';
 
+const inferReceiptName = (storedValue: string) => {
+  const lastSegment = storedValue.split('/').pop() || 'credit-receipt';
+  return decodeURIComponent(lastSegment).replace(/^\d+-/, '') || 'credit-receipt';
+};
+
+const inferReceiptType = (storedValue: string) => {
+  const extension = storedValue.split('?')[0].split('.').pop()?.toLowerCase();
+  if (extension === 'png') return 'image/png';
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'webp') return 'image/webp';
+  if (extension === 'pdf') return 'application/pdf';
+  return 'application/octet-stream';
+};
+
+const resolveReceiptDataUrl = async (storedValue: string) => {
+  if (!storedValue || /^https?:\/\//i.test(storedValue)) return storedValue;
+
+  const { data, error } = await supabase.storage
+    .from('receipts')
+    .createSignedUrl(storedValue, 60 * 60);
+
+  return error || !data?.signedUrl ? storedValue : data.signedUrl;
+};
+
 export function subscribeToCreditProfiles(
   businessId: string,
   onUpdate: (accounts: CreditAccount[]) => void,
@@ -12,36 +36,48 @@ export function subscribeToCreditProfiles(
     return () => { };
   }
 
-  const fetchAccounts = () => {
-    supabase
+  const fetchAccounts = async () => {
+    const { data, error } = await supabase
       .from('credit_profiles')
       .select('*')
       .eq('business_id', businessId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) {
-          if (onError) onError(error);
-          return;
-        }
-        if (data) {
-          const accounts: CreditAccount[] = data.map(d => ({
-            id: d.id,
-            name: d.contact_name || '',
-            type: d.type === 'customer_receivable' ? 'receivable' : 'payable',
-            phone: d.contact_phone || '',
-            email: d.contact_email || '',
-            totalAmount: Number(d.initial_amount) || 0,
-            remainingAmount: Number(d.remaining_balance) || 0,
-            dueDate: d.due_date || new Date().toISOString().split('T')[0],
-            status: d.status || 'active',
-            notes: d.notes || '',
-            lastUpdated: d.last_payment_at || d.created_at || new Date().toISOString(),
-            paymentDate: d.last_payment_at || undefined,
-            dateOfCrediting: d.created_at ? d.created_at.split('T')[0] : new Date().toISOString().split('T')[0]
-          }));
-          onUpdate(accounts);
-        }
-      });
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (onError) onError(error);
+      return;
+    }
+
+    if (data) {
+      const accounts: CreditAccount[] = await Promise.all(data.map(async d => {
+        const storedReceipt = typeof d.receipt_url === 'string' ? d.receipt_url : '';
+        const receiptDataUrl = storedReceipt ? await resolveReceiptDataUrl(storedReceipt) : '';
+
+        return {
+          id: d.id,
+          name: d.contact_name || '',
+          type: d.type === 'customer_receivable' ? 'receivable' : 'payable',
+          phone: d.contact_phone || '',
+          email: d.contact_email || '',
+          totalAmount: Number(d.initial_amount) || 0,
+          remainingAmount: Number(d.remaining_balance) || 0,
+          dueDate: d.due_date || new Date().toISOString().split('T')[0],
+          status: d.status || 'active',
+          notes: d.notes || '',
+          lastUpdated: d.last_payment_at || d.created_at || new Date().toISOString(),
+          paymentDate: d.last_payment_at || undefined,
+          dateOfCrediting: d.created_at ? d.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+          ...(storedReceipt ? {
+            receipt: {
+              name: inferReceiptName(storedReceipt),
+              dataUrl: receiptDataUrl,
+              type: inferReceiptType(storedReceipt)
+            }
+          } : {})
+        };
+      }));
+      onUpdate(accounts);
+    }
   };
 
   fetchAccounts();
@@ -89,21 +125,27 @@ export async function saveCreditProfile(
   if (!cleanName) return { success: false, error: 'Contact name is required.' };
   if (payload.totalAmount < 0) return { success: false, error: 'Credit amount cannot be negative.' };
 
+  let uploadedReceiptPath = '';
+
   try {
-    let receiptUrl = '';
     if (payload.receiptFile) {
-      const fileExt = payload.receiptFile.name.split('.').pop();
-      const filePath = `${businessId}/${Date.now()}.${fileExt}`;
+      const originalName = payload.receiptFile.name || 'credit-receipt';
+      const fileExt = originalName.includes('.') ? originalName.split('.').pop() : 'bin';
+      const safeBaseName = originalName
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[^a-zA-Z0-9_-]/g, '_')
+        .slice(0, 80) || 'credit-receipt';
+      uploadedReceiptPath = `${businessId}/credit-profiles/${Date.now()}-${safeBaseName}.${fileExt}`;
+
       const { error: uploadErr } = await supabase.storage
         .from('receipts')
-        .upload(filePath, payload.receiptFile, { upsert: true });
+        .upload(uploadedReceiptPath, payload.receiptFile, {
+          upsert: false,
+          contentType: payload.receiptFile.type || undefined,
+          cacheControl: '3600'
+        });
 
-      if (!uploadErr) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('receipts')
-          .getPublicUrl(filePath);
-        receiptUrl = publicUrl;
-      }
+      if (uploadErr) throw uploadErr;
     }
 
     if (existingId) {
@@ -116,7 +158,7 @@ export async function saveCreditProfile(
         due_date: cleanDueDate,
         notes: cleanNotes
       };
-      if (receiptUrl) updateData.receipt_url = receiptUrl;
+      if (uploadedReceiptPath) updateData.receipt_url = uploadedReceiptPath;
 
       const { error } = await supabase
         .from('credit_profiles')
@@ -141,10 +183,23 @@ export async function saveCreditProfile(
       });
 
       if (error) throw error;
+
+      if (uploadedReceiptPath) {
+        const { error: receiptLinkError } = await supabase
+          .from('credit_profiles')
+          .update({ receipt_url: uploadedReceiptPath })
+          .eq('id', data)
+          .eq('business_id', businessId);
+        if (receiptLinkError) throw receiptLinkError;
+      }
+
       return { success: true, id: data };
     }
   } catch (err: any) {
     console.error('saveCreditProfile Error:', err);
+    if (uploadedReceiptPath) {
+      await supabase.storage.from('receipts').remove([uploadedReceiptPath]).catch(() => undefined);
+    }
     return { success: false, error: err?.message || 'Failed to save credit profile.' };
   }
 }

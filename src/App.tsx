@@ -2175,7 +2175,7 @@ export default function App() {
 
   // --- Handlers: Credit Ledger ---
   const handleAddAccount = async (
-    newAccData: Omit<CreditAccount, 'id' | 'remainingAmount' | 'status' | 'lastUpdated'>,
+    newAccData: Omit<CreditAccount, 'id' | 'remainingAmount' | 'status' | 'lastUpdated'> & { receiptFile?: File },
     items?: Array<{ itemId: string; qty: number; unitPrice: number }>,
     performedBy?: string
   ): Promise<string | null> => {
@@ -2194,7 +2194,8 @@ export default function App() {
       email: newAccData.email,
       totalAmount: initialAmount,
       dueDate: newAccData.dueDate,
-      notes: newAccData.notes
+      notes: newAccData.notes,
+      receiptFile: newAccData.receiptFile
     });
     if (!saveResult.success || !saveResult.id) {
       alert(saveResult.error || 'Failed to save credit account.');

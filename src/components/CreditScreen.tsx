@@ -40,7 +40,7 @@ interface CreditScreenProps {
   inventory: InventoryItem[];
   adjustments: StockAdjustment[];
   onAddAccount: (
-    account: Omit<CreditAccount, 'id' | 'remainingAmount' | 'status' | 'lastUpdated'>,
+    account: Omit<CreditAccount, 'id' | 'remainingAmount' | 'status' | 'lastUpdated'> & { receiptFile?: File },
     items?: Array<{ itemId: string; qty: number; unitPrice: number }>
   ) => void | Promise<string | null>;
   onUpdateCreditPhone?: (accountId: string, phone: string) => Promise<{ success: boolean; error?: string }>;
@@ -105,6 +105,7 @@ export default function CreditScreen({
   const [accPhone, setAccPhone] = useState('');
   const [accAmount, setAccAmount] = useState<number | ''>('');
   const [accReceipt, setAccReceipt] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
+  const [accReceiptFile, setAccReceiptFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // Dynamic credited items builder state
@@ -326,6 +327,7 @@ export default function CreditScreen({
 
   const handleFileChange = (file: File) => {
     if (!file) return;
+    setAccReceiptFile(file);
     const reader = new FileReader();
     reader.onload = (e) => {
       setAccReceipt({
@@ -406,7 +408,8 @@ export default function CreditScreen({
       totalAmount: Number(accAmount),
       dueDate: safeDueDate,
       notes: accReceipt ? `Attached receipt: ${accReceipt.name}` : '',
-      receipt: accReceipt || undefined
+      receipt: accReceipt || undefined,
+      receiptFile: accReceiptFile || undefined
     }, creditedItems.map(x => ({ itemId: x.itemId, qty: x.qty, unitPrice: x.unitValue })));
 
     if (!createdAccountId) return;
@@ -416,6 +419,7 @@ export default function CreditScreen({
     setAccPhone('');
     setAccAmount('');
     setAccReceipt(null);
+    setAccReceiptFile(null);
     setCreditedItems([]);
     setSelectedItemId('');
     setItemQty('');
