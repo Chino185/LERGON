@@ -109,6 +109,8 @@ export default function GeminiAssistantOverlay({
   const nextStartTimeRef = useRef<number>(0);
   const activeSourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
   const recognitionRef = useRef<any>(null);
+  const latestLiveDataRef = useRef({ inventory, creditAccounts, adjustments, transactions, pendingRestocks, config });
+  latestLiveDataRef.current = { inventory, creditAccounts, adjustments, transactions, pendingRestocks, config };
 
   // DSP Audio Ref pointers for thread safe callback read
   const noiseCancellationRef = useRef<boolean>(noiseCancellationEnabled);
@@ -273,7 +275,11 @@ export default function GeminiAssistantOverlay({
             creditAccounts,
             adjustments: adjustments.slice(0, 30),
             transactions: transactions.slice(0, 30),
-            pendingRestocks
+            pendingRestocks,
+            dashboardKpis: {
+              stockInHandValue: calculateDashboardStockInHand(inventory),
+              stockInHandBasis: "sum of current inventory quantity multiplied by current unit price"
+            }
           }
         }));
       }
@@ -294,7 +300,11 @@ export default function GeminiAssistantOverlay({
           creditAccounts,
           adjustments: adjustments.slice(0, 30),
           transactions: transactions.slice(0, 30),
-          pendingRestocks
+          pendingRestocks,
+          dashboardKpis: {
+            stockInHandValue: calculateDashboardStockInHand(inventory),
+            stockInHandBasis: "sum of current inventory quantity multiplied by current unit price"
+          }
         }
       }));
     }
@@ -506,6 +516,14 @@ export default function GeminiAssistantOverlay({
     };
   }, [autoWakeEnabled, isVoiceConnected, voiceStatus]);
 
+  const calculateDashboardStockInHand = (items: InventoryItem[]) => {
+    return items.reduce((total, item) => {
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unitPrice) || 0;
+      return total + quantity * unitPrice;
+    }, 0);
+  };
+
   // Live WebSocket methods
   const connectVoiceSession = async (isWakeWordTriggered: boolean = false) => {
     try {
@@ -532,15 +550,21 @@ export default function GeminiAssistantOverlay({
       wsRef.current = ws;
 
       ws.onopen = () => {
-        const recentCtx = getRecentActivityContext(adjustments, transactions, inventory, creditAccounts, 20);
+        const liveData = latestLiveDataRef.current;
+        const stockInHandValue = calculateDashboardStockInHand(liveData.inventory);
+        const recentCtx = getRecentActivityContext(liveData.adjustments, liveData.transactions, liveData.inventory, liveData.creditAccounts, 20);
         ws.send(JSON.stringify({
           type: "init",
-          businessName: config?.businessName || "",
-          inventory: inventory, // Send entire object to ensure AI knows categories, unit cost, suppliers, descriptions
-          creditAccounts: creditAccounts, // Send entire object to ensure AI knows phones, limits, status, types
-          adjustments: adjustments, // Send complete audit & stock movement log list
-          transactions: transactions, // Send credit payment ledger transactions
-          pendingRestocks: pendingRestocks, // Send active replenishment confirmations list
+          businessName: liveData.config?.businessName || "",
+          inventory: liveData.inventory,
+          creditAccounts: liveData.creditAccounts,
+          adjustments: liveData.adjustments,
+          transactions: liveData.transactions,
+          pendingRestocks: liveData.pendingRestocks,
+          dashboardKpis: {
+            stockInHandValue,
+            stockInHandBasis: "sum of current inventory quantity multiplied by current unit price"
+          },
           userRole: userRole,
           isWakeWordTriggered: isWakeWordTriggered,
           recentActivityContext: recentCtx

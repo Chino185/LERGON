@@ -895,6 +895,7 @@ wss.on("connection", (clientWs: WebSocket) => {
           adjustments = [],
           transactions = [],
           pendingRestocks = [],
+          dashboardKpis = {},
           businessName = "Velo Tech",
           userRole,
           isWakeWordTriggered = false
@@ -932,6 +933,8 @@ wss.on("connection", (clientWs: WebSocket) => {
         const pendingRestocksContext = pendingRestocks.slice(0, 30).map((r: any) =>
           `- Restock Draft: Item: ${r.itemName || "ID: " + r.itemId} - Qty proposed: ${r.attendantQty} - Status: ${r.status} - Notes: ${r.attendantNotes || "None"} - Submitted by: ${r.submittedBy} - Date: ${r.date || "N/A"}`
         ).join("\n");
+
+        const dashboardKpiContext = `- Stock In Hand: ${Number(dashboardKpis?.stockInHandValue) || 0} (${dashboardKpis?.stockInHandBasis || "dashboard live KPI snapshot"})`;
 
         const systemInstruction = `Your name is RICHARD. You are RICHARD, a concise, practical business partner for "${businessName}". Use the live records supplied in this session as the source of truth. Never invent records, names, amounts, permissions, or completed actions. When the answer is available in live data, give the exact answer first.
 
@@ -1020,6 +1023,9 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
         
         Here is the current pending restock draft list (Replenishment confirmations):
         ${pendingRestocksContext || "No pending restock entries."}
+
+        Here is the current dashboard KPI snapshot. This is the authoritative value for dashboard questions and must be used instead of guessing from a partial list:
+        ${dashboardKpiContext}
         
         You can read all this information to answer any specific audit, reconciliation, cost, profit, debt, replenishment, or history questions asked by the operator instantly with exact data values.
         Acknowledge low stock alerts or severe overdue debts when asked, and recommend actions verbally. Use a friendly but professional tone. Do not use markdown notation in your speech (e.g., avoid asterisks or bullet lists, speak in smooth complete sentences).`;
