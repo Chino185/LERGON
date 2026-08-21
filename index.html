@@ -21,12 +21,26 @@
         // user-specific key exists, use it first so a previous landing dark
         // preference cannot flash across the authenticated app.
         var savedUserTheme = null;
+        var authenticatedUserUid = null;
         try {
-          var lastUserUid = localStorage.getItem('lergon_last_user_uid');
+          // Supabase persists the current session in a key like
+          // sb-<project-ref>-auth-token. Reading the user ID here lets the
+          // first paint choose the exact account theme, even when both an
+          // Administrator and Attendant have used this browser.
+          var authKey = Object.keys(localStorage).find(function (key) {
+            return key.indexOf('sb-') === 0 && key.indexOf('-auth-token') > 3;
+          });
+          if (authKey) {
+            var authState = JSON.parse(localStorage.getItem(authKey) || 'null');
+            authenticatedUserUid = authState && authState.user && authState.user.id
+              ? authState.user.id
+              : null;
+          }
+          var lastUserUid = authenticatedUserUid || localStorage.getItem('lergon_last_user_uid');
           if (lastUserUid) {
             savedUserTheme = localStorage.getItem('lergon_theme_' + lastUserUid);
           }
-          if (!savedUserTheme) {
+          if (!savedUserTheme && !authenticatedUserUid) {
             var userKeys = Object.keys(localStorage).filter(function (key) {
               return key.indexOf('lergon_theme_') === 0;
             });
@@ -35,7 +49,7 @@
             }
           }
         } catch (_) { }
-        var hasAuthenticatedSession = localStorage.getItem('lergon_session_active') === 'true';
+        var hasAuthenticatedSession = Boolean(authenticatedUserUid) || localStorage.getItem('lergon_session_active') === 'true';
         // During an authenticated refresh, never fall back to the landing
         // page key. If the per-user value is not available yet, light is the
         // safe default and Supabase hydration will replace it if needed.
