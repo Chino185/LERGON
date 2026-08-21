@@ -864,7 +864,7 @@ export default function CreditScreen({
             className="mobile-credit-modal bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl w-full max-w-3xl lg:max-w-4xl max-h-[85vh] sm:max-h-[90vh] flex flex-col min-w-0 min-h-0 overflow-hidden text-xs cursor-default border border-white/80 dark:border-slate-800 neumorphic-card"
           >
             {/* Header */}
-            <div className="bg-slate-100/90 dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-slate-200/80 dark:border-slate-800">
+            <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-white/80 dark:border-slate-800">
               <h3 className="font-extrabold text-sm flex items-center gap-1.5">
                 <Plus size={16} className="text-sky-600 dark:text-sky-400" /> New Credit Profile
               </h3>
@@ -1274,10 +1274,10 @@ export default function CreditScreen({
             onClick={(e) => e.stopPropagation()}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-xs cursor-default border border-white/80 dark:border-slate-800 neumorphic-card"
+            className="mobile-payment-modal bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col min-w-0 overflow-hidden text-xs cursor-default border border-white/80 dark:border-slate-800 neumorphic-card"
           >
             {/* Header */}
-            <div className="bg-slate-100/90 dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-slate-200/80 dark:border-slate-800">
+            <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-white/80 dark:border-slate-800">
               <h3 className="font-extrabold text-sm flex items-center gap-1.5">
                 <Coins size={15} className="text-sky-600 dark:text-sky-400" /> Record Payment
               </h3>
@@ -1303,17 +1303,17 @@ export default function CreditScreen({
               const isSubmitDisabled = txnAmount === '' || isUploadMissing;
 
               return (
-                <form onSubmit={handleRecordTransaction} className="p-6 space-y-4">
+                <form onSubmit={handleRecordTransaction} className="p-4 sm:p-6 space-y-4 overflow-y-auto min-w-0">
                   <div>
-                    <span className="block text-gray-400 font-medium mb-1">Target Account:</span>
-                    <strong className="text-gray-900 block text-sm bg-slate-50 p-2 border rounded">
+                    <span className="block text-slate-600 dark:text-slate-300 font-bold mb-1">Target Account:</span>
+                    <strong className="neumorphic-inset text-slate-900 dark:text-white block text-sm p-2.5 border border-white/80 dark:border-slate-700 rounded-xl">
                       {currentAcc?.name}
                     </strong>
                   </div>
 
                   {/* Payment Type Selection: Full or Partial */}
                   <div>
-                    <label className="block font-semibold text-gray-700 mb-1.5">Payment Option *</label>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Payment Option *</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -1324,9 +1324,9 @@ export default function CreditScreen({
                           }
                           setTxnNotes(currentAcc && currentAcc.type === 'receivable' ? 'Received full repayment.' : 'Paid full supplier balance.');
                         }}
-                        className={`py-2 px-1 rounded-md border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'full'
-                          ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
-                          : 'border-slate-200 hover:border-slate-350 text-slate-700 bg-slate-50/20'
+                        className={`neumorphic-btn w-full py-2 px-1 rounded-xl border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'full'
+                          ? 'neumorphic-inset text-slate-900 dark:text-white font-bold'
+                          : 'text-slate-700 dark:text-slate-200'
                           }`}
                       >
                         Full Payment
@@ -1337,9 +1337,9 @@ export default function CreditScreen({
                           setPaymentOption('partial');
                           setTxnNotes(currentAcc && currentAcc.type === 'receivable' ? 'Received partial repayment.' : 'Paid partial supplier balance.');
                         }}
-                        className={`py-2 px-1 rounded-md border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'partial'
-                          ? 'border-indigo-650 bg-indigo-50/50 text-indigo-700 font-bold'
-                          : 'border-slate-200 hover:border-slate-350 text-slate-705 bg-slate-50/20'
+                        className={`neumorphic-btn w-full py-2 px-1 rounded-xl border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'partial'
+                          ? 'neumorphic-inset text-slate-900 dark:text-white font-bold'
+                          : 'text-slate-700 dark:text-slate-200'
                           }`}
                       >
                         Partial Payment
@@ -1350,9 +1350,9 @@ export default function CreditScreen({
                   {/* Amount */}
                   <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="block font-semibold text-gray-700">Transaction Value ({config.currencySymbol}) *</label>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-200">Transaction Value ({config.currencySymbol}) *</label>
                       {paymentOption === 'full' && currentAcc && (
-                        <span className="text-[10px] text-indigo-650 font-bold">Locked to full outstanding balance</span>
+                        <span className="text-[10px] text-slate-600 dark:text-slate-300 font-bold">Locked to full outstanding balance</span>
                       )}
                     </div>
                     <input
@@ -1365,24 +1365,24 @@ export default function CreditScreen({
                       disabled={paymentOption === 'full'}
                       onChange={(e) => setTxnAmount(e.target.value === '' ? '' : Number(e.target.value))}
                       className={`w-full rounded-lg border p-2.5 font-mono text-sm font-semibold ${paymentOption === 'full'
-                        ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
-                        : 'bg-white text-gray-900 border-gray-300 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
+                        ? 'neumorphic-inset text-slate-500 dark:text-slate-400 cursor-not-allowed border-white/70 dark:border-slate-700'
+                        : 'neumorphic-inset text-slate-900 dark:text-white border-white/80 dark:border-slate-700 focus:outline-hidden focus:ring-1 focus:ring-sky-500'
                         }`}
                     />
                   </div>
 
                   {/* Payment Method Selector */}
                   <div>
-                    <label className="block font-semibold text-gray-700 mb-1.5">Payment Method *</label>
-                    <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-lg">
+                    <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Payment Method *</label>
+                    <div className="neumorphic-inset grid grid-cols-3 gap-1.5 p-1 rounded-xl">
                       {(['Cash', 'Mobile Money', 'Bank'] as const).map((method) => (
                         <button
                           key={method}
                           type="button"
                           onClick={() => setTxnPaymentMethod(method)}
-                          className={`py-1.5 text-center rounded-md font-semibold transition cursor-pointer text-[10px] ${txnPaymentMethod === method
-                            ? 'bg-white text-indigo-700 shadow-xs'
-                            : 'text-gray-500 hover:text-gray-800'
+                          className={`neumorphic-btn py-1.5 text-center rounded-lg font-semibold transition cursor-pointer text-[10px] ${txnPaymentMethod === method
+                            ? 'neumorphic-inset text-slate-900 dark:text-white font-bold'
+                            : 'text-slate-600 dark:text-slate-300'
                             }`}
                         >
                           {method}
@@ -1394,7 +1394,7 @@ export default function CreditScreen({
                   {/* Receipt / Screenshot Attachment Upload (Only for Mobile Money & Bank) */}
                   {txnPaymentMethod !== 'Cash' && (
                     <div>
-                      <label className="block font-semibold text-gray-700 mb-1 text-[11px] leading-snug">
+                      <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1 text-[11px] leading-snug">
                         {txnPaymentMethod === 'Mobile Money'
                           ? 'Upload Message Screenshot * (Compulsory)'
                           : isSupplierForTxn
@@ -1409,7 +1409,7 @@ export default function CreditScreen({
                           onDrop={handleTxnDrop}
                           className={`border-2 border-dashed rounded-lg p-4 text-center transition ${isTxnDragging
                             ? 'border-indigo-500 bg-indigo-50/50'
-                            : 'border-slate-300 hover:border-slate-400 bg-slate-50/50 bg-white'
+                            : 'neumorphic-inset border-white/80 dark:border-slate-700 bg-[#ebf0f7]/60 dark:bg-[#0f172a]/60'
                             }`}
                         >
                           <label className="flex flex-col items-center justify-center cursor-pointer select-none">
@@ -1433,7 +1433,7 @@ export default function CreditScreen({
                           </label>
                         </div>
                       ) : (
-                        <div className="border rounded-lg bg-indigo-50/30 p-2.5 flex items-center justify-between gap-2 border-indigo-100">
+                        <div className="neumorphic-card border rounded-xl p-2.5 flex items-center justify-between gap-2 border-white/80 dark:border-slate-700">
                           <div className="flex items-center gap-2 min-w-0">
                             {txnProof.type.startsWith('image/') ? (
                               <div className="w-8 h-8 rounded border overflow-hidden shrink-0 bg-white shadow-3xs flex items-center justify-center">
@@ -1456,7 +1456,7 @@ export default function CreditScreen({
                           <button
                             type="button"
                             onClick={() => setTxnProof(null)}
-                            className="p-1 px-1.5 hover:bg-rose-50 rounded-lg text-rose-500 hover:text-rose-700 transition cursor-pointer select-none shrink-0"
+                            className="neumorphic-circle-danger p-1 px-1.5 rounded-lg text-rose-500 hover:text-rose-700 transition cursor-pointer select-none shrink-0"
                             title="Remove uploaded file"
                           >
                             <Trash2 size={12} />
@@ -1468,18 +1468,18 @@ export default function CreditScreen({
 
                   {/* Memo */}
                   <div>
-                    <label className="block font-semibold text-gray-700 mb-1">Reference Memo / Serial</label>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">Reference Memo / Serial</label>
                     <input
                       type="text"
                       placeholder="e.g. Transaction ID, operator notes, reference number."
                       value={txnNotes}
                       onChange={(e) => setTxnNotes(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 p-2.5 bg-white text-gray-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                      className="neumorphic-inset w-full rounded-xl border border-white/80 dark:border-slate-700 p-2.5 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-sky-500"
                     />
                   </div>
 
                   {/* Action buttons */}
-                  <div className="pt-4 border-t flex justify-end gap-2.5">
+                  <div className="pt-4 border-t border-white/70 dark:border-slate-700 flex flex-wrap justify-end gap-2.5">
                     <button
                       type="button"
                       onClick={() => setShowTxnModal(false)}
@@ -1490,9 +1490,9 @@ export default function CreditScreen({
                     <button
                       type="submit"
                       disabled={isSubmitDisabled}
-                      className={`px-5 py-2.5 font-semibold rounded-lg text-xs transition ${isSubmitDisabled
-                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300/50'
-                        : 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white hover:opacity-95 cursor-pointer animate-shake font-bold'
+                      className={`neumorphic-btn px-5 py-2.5 font-semibold rounded-xl text-xs transition ${isSubmitDisabled
+                        ? 'neumorphic-inset text-slate-500 dark:text-slate-400 cursor-not-allowed border border-white/60 dark:border-slate-700'
+                        : 'text-slate-900 dark:text-white hover:scale-[1.01] cursor-pointer font-bold'
                         }`}
                       title={isSubmitDisabled ? 'Please complete all required fields and upload proof' : 'Confirm Logs'}
                     >
@@ -1519,7 +1519,7 @@ export default function CreditScreen({
             className="bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh] cursor-default border border-white/80 dark:border-slate-800 neumorphic-card"
           >
             {/* Header */}
-            <div className="bg-slate-100/90 dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-slate-200/80 dark:border-slate-800">
+            <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-white/80 dark:border-slate-800">
               <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                 <MaterialIcon name="history" size={18} className="text-sky-600 dark:text-sky-400" />
                 <span>Statement Ledger: {historyAcc.name}</span>
