@@ -1313,7 +1313,7 @@ export default function CreditScreen({
 
                   {/* Payment Type Selection: Full or Partial */}
                   <div>
-                    <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Payment Option *</label>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Payment Option *</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -1324,7 +1324,7 @@ export default function CreditScreen({
                           }
                           setTxnNotes(currentAcc && currentAcc.type === 'receivable' ? 'Received full repayment.' : 'Paid full supplier balance.');
                         }}
-                        className={`neumorphic-btn w-full py-2 px-1 rounded-xl border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'full'
+                          className={`neumorphic-btn w-full py-2 px-1 rounded-xl border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'full'
                           ? 'neumorphic-inset text-slate-900 dark:text-white font-bold'
                           : 'text-slate-700 dark:text-slate-200'
                           }`}
@@ -1337,7 +1337,7 @@ export default function CreditScreen({
                           setPaymentOption('partial');
                           setTxnNotes(currentAcc && currentAcc.type === 'receivable' ? 'Received partial repayment.' : 'Paid partial supplier balance.');
                         }}
-                        className={`neumorphic-btn w-full py-2 px-1 rounded-xl border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'partial'
+                          className={`neumorphic-btn w-full py-2 px-1 rounded-xl border text-center font-semibold transition cursor-pointer text-xs ${paymentOption === 'partial'
                           ? 'neumorphic-inset text-slate-900 dark:text-white font-bold'
                           : 'text-slate-700 dark:text-slate-200'
                           }`}

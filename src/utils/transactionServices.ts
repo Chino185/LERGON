@@ -30,6 +30,17 @@ export function subscribeToTransactions(
     }
     if (!data) return;
 
+    const proofUrls = new Map<string, string>();
+    await Promise.all(data.map(async (row) => {
+      if (!row.proof_path) return;
+      const { data: signedData } = await supabase.storage
+        .from('receipts')
+        .createSignedUrl(row.proof_path, 60 * 60);
+      if (signedData?.signedUrl) {
+        proofUrls.set(row.id, signedData.signedUrl);
+      }
+    }));
+
     const currentBalances = new Map<string, number>((accountRows || []).map(row => [row.id, Number(row.remaining_balance) || 0]));
     const list: CreditTransaction[] = data.map(d => ({
       id: d.id,
@@ -40,6 +51,13 @@ export function subscribeToTransactions(
       date: d.created_at || new Date().toISOString(),
       notes: (d.items && d.items[0]?.notes) || `${String(d.type || 'transaction').toUpperCase()} transaction`,
       paymentMethod: (d.payment_method as any) || 'Cash',
+      transactionProof: d.proof_path && proofUrls.get(d.id)
+        ? {
+            name: d.proof_file_name || 'Payment proof',
+            dataUrl: proofUrls.get(d.id)!,
+            type: d.proof_mime_type || 'application/octet-stream'
+          }
+        : undefined,
       remainingAmount: d.items && d.items[0]?.remaining_amount !== undefined ? Number(d.items[0].remaining_amount) : undefined,
       relatedCreditTxnId: d.items && d.items[0]?.related_credit_txn_id ? d.items[0].related_credit_txn_id : undefined,
       performedBy: d.performed_by || 'User',
@@ -151,25 +169,61 @@ export async function recordRepaymentTransaction(
   amount: number,
   paymentMethod: string = 'Cash',
   notes?: string,
-  source: 'manual' | 'ai_assistant' = 'manual'
+  source: 'manual' | 'ai_assistant' = 'manual',
+  transactionProof?: { name: string; dataUrl: string; type: string }
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   if (!businessId || !creditId) return { success: false, error: 'Business ID and Credit ID are required.' };
   if (amount <= 0) return { success: false, error: 'Repayment amount must be greater than zero.' };
 
+  let uploadedProofPath = '';
   try {
-    const { data, error } = await supabase.rpc('record_repayment', {
+    if (transactionProof && paymentMethod !== 'Cash') {
+      const commaIndex = transactionProof.dataUrl.indexOf(',');
+      if (commaIndex < 0) throw new Error('The payment proof file could not be read.');
+
+      const encoded = transactionProof.dataUrl.slice(commaIndex + 1);
+      const binary = atob(encoded);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      const proofBlob = new Blob([bytes], { type: transactionProof.type || 'application/octet-stream' });
+      const extension = (transactionProof.name.split('.').pop() || 'bin')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '') || 'bin';
+      const proofId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      uploadedProofPath = `${businessId}/payment-proofs/${proofId}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('receipts')
+        .upload(uploadedProofPath, proofBlob, {
+          contentType: transactionProof.type || 'application/octet-stream',
+          upsert: false
+        });
+      if (uploadError) throw uploadError;
+    }
+
+    const { data, error } = await supabase.rpc('record_repayment_with_proof', {
       p_business_id: businessId,
       p_credit_id: creditId,
       p_amount: amount,
       p_payment_method: paymentMethod,
       p_notes: notes || '',
       p_performed_by: userUid,
-      p_source: source
+      p_source: source,
+      p_proof_path: uploadedProofPath || null,
+      p_proof_file_name: transactionProof?.name || null,
+      p_proof_mime_type: transactionProof?.type || null
     });
 
     if (error) throw error;
     return { success: true, id: data };
   } catch (err: any) {
+    if (uploadedProofPath) {
+      await supabase.storage.from('receipts').remove([uploadedProofPath]);
+    }
     console.error('recordRepaymentTransaction Error:', err);
     return { success: false, error: err?.message || 'Failed to record repayment.' };
   }

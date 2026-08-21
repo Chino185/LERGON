@@ -2241,7 +2241,16 @@ export default function App() {
     if (!accountId || amount <= 0) return { success: false, error: 'A valid account and positive amount are required.' };
 
     const result = type === 'pay'
-      ? await recordRepaymentTransaction(currentOrgId, currentUserUid || '', accountId, amount, paymentMethod || 'Cash', notes)
+      ? await recordRepaymentTransaction(
+          currentOrgId,
+          currentUserUid || '',
+          accountId,
+          amount,
+          paymentMethod || 'Cash',
+          notes,
+          'manual',
+          transactionProof
+        )
       : await recordCreditChargeTransaction(currentOrgId, currentUserUid || '', accountId, amount, notes);
 
     if (!result.success) {
@@ -2277,6 +2286,7 @@ export default function App() {
         date: now,
         notes,
         paymentMethod: isPayment ? (paymentMethod || 'Cash') : 'Credit',
+        transactionProof: isPayment ? transactionProof : undefined,
         remainingAmount: nextRemaining,
         performedBy: currentUserUid,
         transactionType: isPayment ? 'repayment' : 'credit',
