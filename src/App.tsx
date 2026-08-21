@@ -232,6 +232,10 @@ export default function App() {
 
   // --- Synchronize Dark Mode for Landing Page & App ---
   useEffect(() => {
+    // Do not let the landing-page preference mutate the document while the
+    // authenticated session and per-user theme are still bootstrapping.
+    if (!authBootstrapReady) return;
+
     if (!isLoggedIn) {
       if (isLandingDark) {
         document.documentElement.classList.add('dark');
@@ -241,7 +245,7 @@ export default function App() {
         document.documentElement.setAttribute('data-theme', 'light');
       }
     }
-  }, [isLandingDark, isLoggedIn]);
+  }, [isLandingDark, isLoggedIn, authBootstrapReady]);
 
   // --- Parallax Float Animation Logic (GSAP) ---
   useEffect(() => {
@@ -1039,6 +1043,11 @@ export default function App() {
         console.log('[Supabase Auth Listener] Active session for:', user.email, 'UID:', user.id);
         setIsLoggedIn(true);
         setCurrentUserUid(user.id);
+        try {
+          localStorage.setItem('lergon_last_user_uid', user.id);
+        } catch (error) {
+          console.warn('[Theme] Unable to persist last authenticated user:', error);
+        }
 
         // Fetch initial profile data
         const { data: profileData } = await supabase

@@ -12,6 +12,7 @@ export const INITIAL_BUSINESS_CONFIG: BusinessConfig = {
   country: 'United States',
   language: 'English',
   languageCode: 'en',
+  themeMode: 'light',
   adminPhone: '',
   attendantPhone: ''
 };
