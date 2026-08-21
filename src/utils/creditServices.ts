@@ -164,3 +164,34 @@ export async function deleteCreditProfile(businessId: string, id: string): Promi
     return false;
   }
 }
+
+/**
+ * Update only the saved phone number for an existing credit profile.
+ * Keeping this mutation narrow prevents phone edits from changing balances,
+ * due dates, profile type, or the credit ledger.
+ */
+export async function updateCreditProfilePhone(
+  businessId: string,
+  profileId: string,
+  phone: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!businessId || !profileId) {
+    return { success: false, error: 'Business and creditor profile are required.' };
+  }
+
+  const cleanPhone = sanitizeTextInput(phone || '', 50);
+
+  try {
+    const { error } = await supabase
+      .from('credit_profiles')
+      .update({ contact_phone: cleanPhone })
+      .eq('id', profileId)
+      .eq('business_id', businessId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateCreditProfilePhone Error:', err);
+    return { success: false, error: err?.message || 'Failed to update creditor phone number.' };
+  }
+}

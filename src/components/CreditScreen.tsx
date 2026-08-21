@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   AlertCircle,
   PhoneCall,
+  Pencil,
+  Loader2,
   Mail,
   CalendarDays,
   Search,
@@ -41,6 +43,7 @@ interface CreditScreenProps {
     account: Omit<CreditAccount, 'id' | 'remainingAmount' | 'status' | 'lastUpdated'>,
     items?: Array<{ itemId: string; qty: number; unitPrice: number }>
   ) => void | Promise<string | null>;
+  onUpdateCreditPhone?: (accountId: string, phone: string) => Promise<{ success: boolean; error?: string }>;
   onAddTransaction: (
     accountId: string,
     amount: number,
@@ -64,6 +67,7 @@ export default function CreditScreen({
   inventory,
   adjustments,
   onAddAccount,
+  onUpdateCreditPhone,
   onAddTransaction,
   onSettleAccount,
   initialOpenAddModal,
@@ -140,6 +144,52 @@ export default function CreditScreen({
   const [txnPaymentMethod, setTxnPaymentMethod] = useState<'Cash' | 'Mobile Money' | 'Bank'>('Cash');
   const [txnProof, setTxnProof] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
   const [isTxnDragging, setIsTxnDragging] = useState(false);
+
+  // Creditor phone edit modal states
+  const [phoneEditAcc, setPhoneEditAcc] = useState<CreditAccount | null>(null);
+  const [phoneEditValue, setPhoneEditValue] = useState('');
+  const [phoneEditError, setPhoneEditError] = useState('');
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+
+  const openPhoneEdit = (account: CreditAccount) => {
+    setPhoneEditAcc(account);
+    setPhoneEditValue(account.phone || '');
+    setPhoneEditError('');
+  };
+
+  const closePhoneEdit = () => {
+    if (isSavingPhone) return;
+    setPhoneEditAcc(null);
+    setPhoneEditValue('');
+    setPhoneEditError('');
+  };
+
+  const handleSavePhoneEdit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!phoneEditAcc || isSavingPhone) return;
+
+    const nextPhone = phoneEditValue.trim();
+    if (!nextPhone) {
+      setPhoneEditError('Enter a creditor phone number.');
+      return;
+    }
+    if (!onUpdateCreditPhone) {
+      setPhoneEditError('Phone editing is unavailable until the account connection is ready.');
+      return;
+    }
+
+    setPhoneEditError('');
+    setIsSavingPhone(true);
+    const result = await onUpdateCreditPhone(phoneEditAcc.id, nextPhone);
+    setIsSavingPhone(false);
+
+    if (!result.success) {
+      setPhoneEditError(result.error || 'Unable to update the creditor phone number.');
+      return;
+    }
+
+    closePhoneEdit();
+  };
 
   // Reminder Script Modal states
   const [showReminderModal, setShowReminderModal] = useState(false);
@@ -593,6 +643,15 @@ export default function CreditScreen({
                           </div>
                           <div className="flex flex-wrap gap-2 text-[10px] items-center mt-1">
                             <span className="flex items-center gap-0.5 text-gray-400"><PhoneCall size={10} /> {acc.phone || 'No phone'}</span>
+                            <button
+                              type="button"
+                              onClick={() => openPhoneEdit(acc)}
+                              className="neumorphic-circle w-5 h-5 inline-flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-black dark:hover:text-white cursor-pointer"
+                              title="Edit creditor phone number"
+                              aria-label={`Edit phone number for ${acc.name}`}
+                            >
+                              <Pencil size={10} />
+                            </button>
                             {acc.receipt && (
                               <>
                                 <span className="text-gray-300 select-none">•</span>
@@ -742,6 +801,14 @@ export default function CreditScreen({
                           }`}>
                           {acc.type === 'receivable' ? 'Customer Receivable' : 'Supplier Payable'}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => openPhoneEdit(acc)}
+                          className="neumorphic-btn inline-flex items-center gap-1 px-2 py-1 text-[9px] text-slate-700 dark:text-slate-200 hover:text-black dark:hover:text-white cursor-pointer"
+                          title="Edit creditor phone number"
+                        >
+                          <PhoneCall size={9} /> {acc.phone || 'Add phone'} <Pencil size={9} />
+                        </button>
                         {acc.receipt && (
                           <button
                             type="button"
@@ -857,6 +924,75 @@ export default function CreditScreen({
         </div>
 
       </div>
+
+      {/* MODAL: EDIT CREDITOR PHONE */}
+      {phoneEditAcc && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl w-full max-w-sm overflow-hidden text-slate-900 dark:text-white"
+          >
+            <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] p-4 flex items-center justify-between border-b border-white/80 dark:border-slate-800">
+              <div>
+                <h3 className="font-extrabold text-sm flex items-center gap-1.5">
+                  <PhoneCall size={15} /> Edit Creditor Phone Number
+                </h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-300 mt-1">{phoneEditAcc.name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closePhoneEdit}
+                disabled={isSavingPhone}
+                className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-3 py-1 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer disabled:opacity-60"
+                aria-label="Close phone editor"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePhoneEdit} className="p-5 space-y-4">
+              <div>
+                <label htmlFor="creditor-phone-edit" className="block text-[10px] font-extrabold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1.5">
+                  Creditor phone number
+                </label>
+                <input
+                  id="creditor-phone-edit"
+                  type="tel"
+                  autoFocus
+                  value={phoneEditValue}
+                  onChange={(event) => setPhoneEditValue(event.target.value)}
+                  placeholder="e.g. +233 55 123 4567"
+                  disabled={isSavingPhone}
+                  className="w-full neumorphic-inset rounded-xl p-3 bg-[#ebf0f7] dark:bg-[#0f172a] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 border border-white/80 dark:border-slate-700 disabled:opacity-60"
+                />
+                {phoneEditError && (
+                  <p role="alert" className="text-[10px] text-red-600 dark:text-red-300 font-bold mt-2">{phoneEditError}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-white/70 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={closePhoneEdit}
+                  disabled={isSavingPhone}
+                  className="neumorphic-btn text-slate-900 dark:text-white rounded-xl px-4 py-2 text-xs font-extrabold cursor-pointer disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPhone}
+                  className="neumorphic-btn text-slate-900 dark:text-white rounded-xl px-4 py-2 text-xs font-extrabold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                  aria-busy={isSavingPhone}
+                >
+                  {isSavingPhone ? <><Loader2 size={13} className="animate-spin" /> Saving…</> : 'Save Number'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
 
       {/* MODAL: ADD CREDIT ACCOUNT */}
       {showAddModal && (

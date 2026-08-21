@@ -107,7 +107,7 @@ import {
 } from './utils/authServices';
 
 import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems, subscribeToStockAdjustments, submitRestockRequest, verifyRestockRequestTransaction, recordStockAdjustmentTransaction, subscribeToRestockRequests, createAttendantInvite } from './utils/inventoryServices';
-import { saveCreditProfile, subscribeToCreditProfiles } from './utils/creditServices';
+import { saveCreditProfile, subscribeToCreditProfiles, updateCreditProfilePhone } from './utils/creditServices';
 import { recordSaleTransaction, recordCreditSaleTransaction, recordSupplierCreditPurchaseTransaction, recordCreditChargeTransaction, recordRepaymentTransaction, subscribeToTransactions } from './utils/transactionServices';
 import {
   flagStockAdjustment,
@@ -2235,6 +2235,17 @@ export default function App() {
     return parentId;
   };
 
+  const handleUpdateCreditPhone = async (accountId: string, phone: string): Promise<{ success: boolean; error?: string }> => {
+    const result = await updateCreditProfilePhone(currentOrgId, accountId, phone);
+    if (!result.success) return result;
+
+    setCreditAccounts(prev => prev.map(account => account.id === accountId
+      ? { ...account, phone, lastUpdated: new Date().toISOString() }
+      : account
+    ));
+    return result;
+  };
+
   const handleAddTransaction = async (
     accountId: string,
     amount: number,
@@ -3736,6 +3747,7 @@ export default function App() {
                 inventory={inventory}
                 adjustments={adjustments}
                 onAddAccount={handleAddAccount}
+                onUpdateCreditPhone={handleUpdateCreditPhone}
                 onAddTransaction={handleAddTransaction}
                 onSettleAccount={handleSettleAccount}
                 initialOpenAddModal={initialOpenAddModal}
