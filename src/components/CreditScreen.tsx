@@ -11,11 +11,9 @@ import {
   Search,
   MessageSquare,
   History,
-  Copy,
   PlusCircle,
   TrendingDown,
   Clock,
-  Check,
   Paperclip,
   UploadCloud,
   FileText,
@@ -146,7 +144,6 @@ export default function CreditScreen({
   // Reminder Script Modal states
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [reminderAcc, setReminderAcc] = useState<CreditAccount | null>(null);
-  const [copiedText, setCopiedText] = useState(false);
 
   // History Log Modal states
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -444,10 +441,20 @@ export default function CreditScreen({
     return `Hello ${acc.name},\n\nThis is a friendly reminder from ${config.businessName} regarding your outstanding credit balance of ${formatMoney(acc.remainingAmount)}.\n\nPlease arrange for settlement via ACH or Mobile/Cash at your earliest convenience to maintain an active profile.\n\nThank you for choosing ${config.businessName}!\nContact: ${config.phone || 'us directly'}`;
   };
 
-  const copyReminderToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedText(true);
-    setTimeout(() => setCopiedText(false), 2000);
+  const sendReminderViaWhatsApp = (acc: CreditAccount) => {
+    const normalizedPhone = String(acc.phone || '')
+      .replace(/[^\d+]/g, '')
+      .replace(/^00/, '+')
+      .replace(/\D/g, '');
+
+    if (normalizedPhone.length < 7) {
+      alert(`No valid phone number is saved for ${acc.name}. Update the creditor profile phone number first.`);
+      return;
+    }
+
+    const reminderText = generateReminderText(acc);
+    const whatsappUrl = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(reminderText)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -1763,7 +1770,7 @@ export default function CreditScreen({
 
             <div className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto min-w-0">
               <p className="text-slate-600 dark:text-slate-300 font-medium">
-                Generate and copy a professional reminder notice to text David or send right to Sarah via WhatsApp or cellular networks:
+                Generate a professional reminder notice for {reminderAcc.name} and send it directly to the saved phone number on WhatsApp:
               </p>
 
               <div className="neumorphic-inset border border-white/70 dark:border-slate-700/70 p-4.5 rounded-xl space-y-2 font-mono whitespace-pre-wrap text-[11px] text-slate-700 dark:text-slate-200 select-all leading-relaxed relative">
@@ -1771,7 +1778,7 @@ export default function CreditScreen({
               </div>
 
               <div className="neumorphic-inset text-slate-700 dark:text-slate-200 p-3 rounded-xl text-[10px] leading-snug border border-white/80 dark:border-slate-700">
-                <strong>Tip for Merchants:</strong> Just copy this text and paste it into messages or mail clients.
+                <strong>Tip for Merchants:</strong> Choose Send via WhatsApp to open a chat with the saved creditor number and the message prefilled.
               </div>
 
               {/* Action */}
@@ -1785,14 +1792,10 @@ export default function CreditScreen({
                 </button>
                 <button
                   type="button"
-                  onClick={() => copyReminderToClipboard(generateReminderText(reminderAcc))}
+                  onClick={() => sendReminderViaWhatsApp(reminderAcc)}
                   className="neumorphic-btn text-slate-900 dark:text-white px-5 py-2.5 font-semibold rounded-xl flex items-center gap-1 cursor-pointer transition hover:scale-[1.01]"
                 >
-                  {copiedText ? (
-                    <><Check size={14} /> Copied!</>
-                  ) : (
-                    <><Copy size={14} /> Copy to Clipboard</>
-                  )}
+                  <Send size={14} /> Send via WhatsApp
                 </button>
               </div>
             </div>
