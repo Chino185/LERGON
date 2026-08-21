@@ -412,7 +412,7 @@ export async function submitRestockRequest(
     requestedQuantity: number;
     notes?: string;
   }
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; pending?: boolean; error?: string }> {
   if (!businessId) return { success: false, error: 'Business ID is required.' };
 
   const cleanNotes = sanitizeTextInput(payload.notes || '', 500);
@@ -432,7 +432,7 @@ export async function submitRestockRequest(
     });
 
     if (error) throw error;
-    return { success: true };
+    return { success: true, pending: true };
   } catch (err: any) {
     console.error('submitRestockRequest Error:', err);
     return { success: false, error: err?.message || 'Failed to submit restock request.' };

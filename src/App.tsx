@@ -1759,7 +1759,7 @@ export default function App() {
     if (!item) return { success: false, error: 'Inventory item not found.' };
 
     const userUid = currentUserUid || '';
-    let result: { success: boolean; error?: string };
+    let result: { success: boolean; pending?: boolean; error?: string };
 
     // Attendants submit restock requests; only an approved request changes stock.
     if (currentUserRole === 5 && qtyChanged > 0 && type === 'purchase_in') {
@@ -1803,6 +1803,13 @@ export default function App() {
     if (!result.success) {
       alert(result.error || 'Failed to persist the stock movement.');
       return result;
+    }
+
+    // Attendant restocks are requests only. The inventory quantity, adjustment
+    // ledger, KPIs, and activity feed must remain unchanged until an Admin
+    // approves the request through verify_restock_request.
+    if (currentUserRole === 5 && qtyChanged > 0 && type === 'purchase_in') {
+      return { ...result, pending: true };
     }
 
     const now = new Date().toISOString();
@@ -2459,9 +2466,13 @@ export default function App() {
 
   // --- Dashboard helper proxies ---
   const handleQuickStockIn = async (items: Array<{ itemId: string; qty: number }>, notes: string) => {
+    let pending = false;
     for (const item of items) {
-      await handleLogAdjustment(item.itemId, item.qty, 'purchase_in', notes);
+      const result = await handleLogAdjustment(item.itemId, item.qty, 'purchase_in', notes);
+      if (!result?.success) return result;
+      pending = pending || result.pending === true;
     }
+    return { success: true, pending };
   };
 
   const handleQuickStockOut = async (

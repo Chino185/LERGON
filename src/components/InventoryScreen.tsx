@@ -57,7 +57,7 @@ interface InventoryScreenProps {
   onAddItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => Promise<{ success: boolean; error?: string }> | any;
   onUpdateItem: (id: string, updates: Partial<InventoryItem>) => Promise<{ success: boolean; error?: string }> | any;
   onDeleteItem: (id: string) => void;
-  onLogAdjustment: (itemId: string, qtyChanged: number, type: StockAdjustment['type'], notes: string) => void | Promise<{ success: boolean; error?: string }>;
+  onLogAdjustment: (itemId: string, qtyChanged: number, type: StockAdjustment['type'], notes: string) => void | Promise<{ success: boolean; pending?: boolean; error?: string }>;
   onDamageReported?: (itemId: string, quantityDamaged: number) => void;
   userRole?: number;
   pendingRestocks?: PendingRestock[];
@@ -867,6 +867,9 @@ export default function InventoryScreen({
     const result = await onLogAdjustment(adjustItemId, finalChange, adjustType, adjustNotes || translate('manual adjustment log', config.languageCode));
     if (result && !result.success) return;
     setShowAdjustModal(false);
+    if (result && 'pending' in result && result.pending) {
+      alert('Restock submitted for Admin validation. Inventory will update after an Administrator approves the counted quantity.');
+    }
   };
 
   // 9. Delete item safely

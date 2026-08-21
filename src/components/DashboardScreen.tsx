@@ -39,7 +39,7 @@ interface DashboardProps {
   config: BusinessConfig;
   userRole?: number;
   isLoading?: boolean;
-  onQuickStockIn: (items: Array<{ itemId: string; qty: number }>, notes: string) => void;
+  onQuickStockIn: (items: Array<{ itemId: string; qty: number }>, notes: string) => Promise<{ success: boolean; pending?: boolean; error?: string }> | { success: boolean; pending?: boolean; error?: string } | void;
   onQuickStockOut: (items: Array<{ itemId: string; qty: number }>, notes: string, creditAccountId?: string, totalAmount?: number) => void;
   onQuickRepayment: (accountId: string, amount: number, notes: string) => void;
   onNavigate?: (screen: string) => void;
@@ -613,11 +613,20 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
         triggerFeedback('Please add at least one product to the restock batch.', 'error');
         return;
       }
-      await onQuickStockIn(
+      const restockResult = await onQuickStockIn(
         basketItems.map(it => ({ itemId: it.itemId, qty: it.qty })),
         'Batch Quick Restock'
       );
-      triggerFeedback('Restock batch successfully processed!', 'success');
+      if (restockResult && !restockResult.success) {
+        triggerFeedback(restockResult.error || 'The restock request could not be submitted.', 'error');
+        return;
+      }
+      triggerFeedback(
+        restockResult && 'pending' in restockResult && restockResult.pending
+          ? 'Restock submitted for Admin validation. Inventory will update after approval.'
+          : 'Restock batch successfully processed!',
+        'success'
+      );
     } else if (quickAction === 'stock_out' || quickAction === 'stock_out_credit') {
       if (basketItems.length === 0) {
         triggerFeedback('Please add at least one product to the sale batch.', 'error');
