@@ -1,4 +1,4 @@
-import { supabase, getSafeChannel } from './supabaseClient';
+import { supabase, getSafeChannel, isSupabaseConfigured } from './supabaseClient';
 import { CreditAccount } from '../types';
 import { sanitizeTextInput } from './securityValidation';
 
@@ -178,20 +178,41 @@ export async function updateCreditProfilePhone(
   if (!businessId || !profileId) {
     return { success: false, error: 'Business and creditor profile are required.' };
   }
+  if (!isSupabaseConfigured) {
+    return {
+      success: false,
+      error: 'Supabase is not configured for this deployment. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to the Vercel Production environment, then redeploy.'
+    };
+  }
 
   const cleanPhone = sanitizeTextInput(phone || '', 50);
 
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('credit_profiles')
       .update({ contact_phone: cleanPhone })
       .eq('id', profileId)
-      .eq('business_id', businessId);
+      .eq('business_id', businessId)
+      .select('id')
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      return {
+        success: false,
+        error: 'The creditor number was not updated. The profile may not belong to this business or your account may not have update permission.'
+      };
+    }
     return { success: true };
   } catch (err: any) {
     console.error('updateCreditProfilePhone Error:', err);
-    return { success: false, error: err?.message || 'Failed to update creditor phone number.' };
+    const rawMessage = String(err?.message || '');
+    const isFetchFailure = err instanceof TypeError || rawMessage.toLowerCase().includes('failed to fetch');
+    return {
+      success: false,
+      error: isFetchFailure
+        ? 'Unable to reach Supabase. Check the Vercel Production Supabase environment variables and network connection, then try again.'
+        : rawMessage || 'Failed to update creditor phone number.'
+    };
   }
 }
