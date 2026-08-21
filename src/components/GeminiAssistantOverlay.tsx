@@ -126,6 +126,7 @@ export default function GeminiAssistantOverlay({
   const nextStartTimeRef = useRef<number>(0);
   const activeSourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
   const recognitionRef = useRef<any>(null);
+  const wakeTriggerInProgressRef = useRef(false);
   const latestLiveDataRef = useRef({ inventory, creditAccounts, adjustments, transactions, pendingRestocks, config });
   latestLiveDataRef.current = { inventory, creditAccounts, adjustments, transactions, pendingRestocks, config };
 
@@ -450,7 +451,7 @@ export default function GeminiAssistantOverlay({
   // Passive voice wake-word (RICHARD) detection
   useEffect(() => {
     const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionClass || !autoWakeEnabled || !dataReady || isVoiceConnected || voiceStatus === "connecting") {
+    if (!SpeechRecognitionClass || !autoWakeEnabled || !dataReady || wakeTriggerInProgressRef.current || isVoiceConnected || voiceStatus === "connecting") {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -482,10 +483,21 @@ export default function GeminiAssistantOverlay({
           for (let i = event.resultIndex; i < results.length; i++) {
             if (results[i].isFinal) {
               const text = results[i][0].transcript.trim().toLowerCase();
+              const normalizedWakeText = text.replace(/[^a-z]/g, '');
+              const wakeWordMatched = normalizedWakeText.includes('lergon')
+                || normalizedWakeText.includes('richard')
+                || normalizedWakeText.includes('richart')
+                || text.includes('rich art');
               console.log("Wake-word passive speech transcript:", text);
-              if (text.includes("lergon") || text.includes("richard")) {
-                console.log("Wake word 'LERGON' matched! Activating interactive voice session...");
-                // Trigger connection with wake-word greeting
+              if (wakeWordMatched && !wakeTriggerInProgressRef.current) {
+                console.log("Wake word matched! Activating interactive voice session...");
+                wakeTriggerInProgressRef.current = true;
+                try {
+                  recognition.stop();
+                } catch {
+                  // The recognizer may already have stopped after the final result.
+                }
+                setIsWakeWordListening(false);
                 connectVoiceSession(true);
                 break;
               }
@@ -498,10 +510,10 @@ export default function GeminiAssistantOverlay({
         };
 
         recognition.onend = () => {
-          if (active && !isVoiceConnected && voiceStatus !== "connecting") {
+          if (active && !wakeTriggerInProgressRef.current && !isVoiceConnected && voiceStatus !== "connecting") {
             // Restart listening continuously
             setTimeout(() => {
-              if (active && !isVoiceConnected && voiceStatus !== "connecting") {
+              if (active && !wakeTriggerInProgressRef.current && !isVoiceConnected && voiceStatus !== "connecting") {
                 try {
                   recognition.start();
                 } catch (e) {
@@ -795,6 +807,7 @@ export default function GeminiAssistantOverlay({
       return;
     }
 
+    wakeTriggerInProgressRef.current = true;
     try {
       setVoiceStatus("connecting");
       setVoiceError("");
@@ -1497,16 +1510,19 @@ export default function GeminiAssistantOverlay({
 
       ws.onerror = (err) => {
         console.error("WS Live error:", err);
-        setVoiceError("Connection lost. Verify system API.");
-        setVoiceStatus("error");
+      wakeTriggerInProgressRef.current = false;
+      setVoiceError("Connection lost. Verify system API.");
+      setVoiceStatus("error");
       };
 
       ws.onclose = () => {
+        wakeTriggerInProgressRef.current = false;
         setIsVoiceConnected(false);
         setVoiceStatus("disconnected");
       };
 
     } catch (err: any) {
+      wakeTriggerInProgressRef.current = false;
       console.error(err);
       setVoiceError(err.message || "No microphone permissions.");
       setVoiceStatus("error");
@@ -1686,6 +1702,7 @@ export default function GeminiAssistantOverlay({
       wsRef.current = null;
     }
 
+    wakeTriggerInProgressRef.current = false;
     setIsVoiceConnected(false);
     setVoiceStatus("disconnected");
   };

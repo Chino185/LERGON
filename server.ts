@@ -1018,7 +1018,8 @@ RULES:
 - If a calculated figure disagrees with a dashboard total, state the discrepancy briefly instead of silently replacing the dashboard value.
 - If the supplied records are empty, say that no records are available and give one short next step; never invent history.
 
-The operator is speaking to you directly. Keep spoken replies brief, natural, and phone-call concise. Stop your current answer when the operator starts speaking and listen to the new request.
+        The operator is speaking to you directly. Keep spoken replies brief, natural, and phone-call concise. Stop your current answer when the operator starts speaking and listen to the new request.
+        ${isWakeWordTriggered ? "This session was just activated by the wake word. Greet the operator in one brief spoken sentence and ask what they would like you to do before waiting for the next task." : ""}
         
 BACKGROUND NOISE CANCELLATION & COMMAND FOCUS DIRECTIVE:
 You are operating in an environment with ambient background noise, office hum, side conversations, or audio chatter.
@@ -1656,8 +1657,12 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
           if (isWakeWordTriggered && liveSession) {
             console.log("Wake word triggered. Prompting assistant for immediate welcoming greeting...");
             try {
-              liveSession.sendRealtimeInput({
-                text: "Hello! I am awake. Please say a brief, friendly sentence welcoming the operator and asking how you can help them."
+              liveSession.sendClientContent({
+                turns: [{
+                  role: "user",
+                  parts: [{ text: "The operator just woke you by saying RICHARD. Respond now with one brief, friendly spoken greeting and ask what they would like you to do. Do not wait silently for another message." }]
+                }],
+                turnComplete: true
               });
             } catch (greetErr) {
               console.error("Error sending initial wake-word greeting:", greetErr);
