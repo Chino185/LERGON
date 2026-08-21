@@ -2,7 +2,7 @@ import React from 'react';
 import { InventoryItem, StockAdjustment, CreditAccount, CreditTransaction, BusinessConfig } from '../types';
 import { logActivity } from './authServices';
 import { saveInventoryItem, directAdminRestockTransaction } from './inventoryServices';
-import { recordSaleTransaction } from './transactionServices';
+import { recordSaleTransaction, recordRepaymentTransaction } from './transactionServices';
 import { supabase } from './supabaseClient';
 
 export interface ActionResult {
@@ -137,6 +137,41 @@ export async function executeAppActionAsync(
         success: true,
         message: `Successfully processed sale of ${quantity}x ${targetItem.name} for $${(salePrice * quantity).toFixed(2)}.`,
         data: { itemId: targetItem.id, quantity, totalAmount: salePrice * quantity }
+      };
+    }
+
+    case 'record_credit_payment': {
+      const { accountId, accountName, amount, paymentMethod = 'Cash', notes = 'AI Voice Executed Debt Payment' } = args;
+      const targetAccount = ctx.creditAccounts.find(account =>
+        (accountId && account.id === accountId) ||
+        (accountName && account.name.toLowerCase().includes(String(accountName).toLowerCase()))
+      );
+      if (!targetAccount) {
+        return { success: false, message: `Payment failed: Credit profile '${accountName || accountId}' was not found.`, error: 'Credit account not found' };
+      }
+      const paymentAmount = Math.abs(Number(amount) || 0);
+      if (paymentAmount <= 0) {
+        return { success: false, message: 'Payment failed: Amount must be greater than zero.', error: 'Invalid payment amount' };
+      }
+      if (paymentAmount > targetAccount.remainingAmount) {
+        return { success: false, message: `Payment failed: ${targetAccount.name} owes ${targetAccount.remainingAmount}, so the payment cannot exceed the remaining balance.`, error: 'Payment exceeds balance' };
+      }
+      const paymentRes = await recordRepaymentTransaction(
+        businessId,
+        userUid,
+        targetAccount.id,
+        paymentAmount,
+        paymentMethod,
+        notes,
+        'ai_assistant'
+      );
+      if (!paymentRes.success) {
+        return { success: false, message: `Payment failed: ${paymentRes.error}`, error: paymentRes.error };
+      }
+      return {
+        success: true,
+        message: `Recorded ${paymentAmount.toFixed(2)} payment for ${targetAccount.name}. The amount moves from Asset on Credit into Value Sold while Total Inventory Value remains unchanged.`,
+        data: { id: paymentRes.id, accountId: targetAccount.id, amount: paymentAmount, transactionType: 'repayment' }
       };
     }
 

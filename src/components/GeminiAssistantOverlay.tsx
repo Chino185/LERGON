@@ -46,6 +46,9 @@ interface GeminiAssistantOverlayProps {
   setTransactions?: React.Dispatch<React.SetStateAction<CreditTransaction[]>>;
   setPendingRestocks?: React.Dispatch<React.SetStateAction<PendingRestock[]>>;
   setConfig?: React.Dispatch<React.SetStateAction<BusinessConfig>>;
+  onUpdateConfig?: (cfg: BusinessConfig) => void;
+  onInvoiceCommand?: (command: { action: 'generate_invoice' | 'add_invoice_item'; args: Record<string, any> }) => void;
+  businessId?: string;
   backendNotifications?: BackendNotification[];
   readNotificationIds?: string[];
   currentUserName?: string;
@@ -70,6 +73,9 @@ export default function GeminiAssistantOverlay({
   setTransactions,
   setPendingRestocks,
   setConfig,
+  onUpdateConfig,
+  onInvoiceCommand,
+  businessId,
   backendNotifications = [],
   readNotificationIds = [],
   currentUserName = "",
@@ -881,6 +887,8 @@ export default function GeminiAssistantOverlay({
             transactions,
             setTransactions,
             config,
+            onUpdateConfig,
+            businessId,
             userRole,
             setActiveScreen,
             performedBy: 'RICHARD. (AI Assistant)'
@@ -892,6 +900,59 @@ export default function GeminiAssistantOverlay({
             addCorrectionToast("AI Action Executed", actionResult.message);
           } else {
             addCorrectionToast("AI Action Blocked", actionResult.message);
+          }
+
+          if (name === "change_theme" && actionResult.success) {
+            const requestedTheme = args.theme === 'dark' ? 'dark' : 'light';
+            onUpdateConfig?.({ ...config, themeMode: requestedTheme });
+            setConfig?.(previous => ({ ...previous, themeMode: requestedTheme }));
+            return;
+          }
+
+          if (name === "generate_invoice" && actionResult.success) {
+            setActiveScreen('invoice');
+            onInvoiceCommand?.({ action: 'generate_invoice', args: args || {} });
+            return;
+          }
+
+          if (name === "record_credit_payment" && actionResult.success && actionResult.data && setCreditAccounts) {
+            const paymentAccountId = actionResult.data.accountId;
+            const paymentAccount = creditAccounts.find(account => account.id === paymentAccountId);
+            const paymentAmount = Number(actionResult.data.amount) || 0;
+            if (paymentAccount && paymentAmount > 0 && setTransactions) {
+              const now = new Date().toISOString();
+              const nextRemaining = Math.max(0, paymentAccount.remainingAmount - paymentAmount);
+              setCreditAccounts(previous => previous.map(account => account.id === paymentAccountId
+                ? {
+                    ...account,
+                    remainingAmount: nextRemaining,
+                    status: nextRemaining === 0 ? 'settled' : 'partially_paid',
+                    lastUpdated: now,
+                    paymentDate: now
+                  }
+                : account
+              ));
+              setTransactions(previous => [
+                {
+                  id: actionResult.data.id || `ai-repayment-${Date.now()}`,
+                  creditAccountId: paymentAccount.id,
+                  accountName: paymentAccount.name,
+                  type: 'pay',
+                  amount: paymentAmount,
+                  date: now,
+                  notes: args.notes || 'AI Voice Executed Debt Payment',
+                  paymentMethod: args.paymentMethod || 'Cash',
+                  remainingAmount: nextRemaining,
+                  performedBy: 'RICHARD. (AI Assistant)',
+                  transactionType: 'repayment',
+                  lineItems: [{ credit_id: paymentAccount.id, account_name: paymentAccount.name, remaining_amount: nextRemaining, notes: args.notes || 'AI Voice Executed Debt Payment' }],
+                  isFlagged: false,
+                  isResolved: true
+                },
+                ...previous.filter(transaction => transaction.id !== actionResult.data.id)
+              ]);
+            }
+            return;
           }
 
           if (name === "navigate_to_page") {
@@ -1212,6 +1273,10 @@ export default function GeminiAssistantOverlay({
               "AI Assistant has entered sleep mode. Wake it up by saying 'RICHARD' or clicking Start."
             );
           } else if (name === "record_credit_payment") {
+            // The canonical async action above persists the repayment and applies
+            // the correct optimistic transaction shape. This legacy branch is
+            // retained only as a no-op safety boundary for failed calls.
+            if (!actionResult.success) return;
             const { accountId, accountName, amount, notes } = args;
             const payVal = Math.abs(Number(amount) || 0);
 

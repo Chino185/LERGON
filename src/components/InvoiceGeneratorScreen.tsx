@@ -28,6 +28,12 @@ import { translate } from '../utils/translations';
 import MaterialIcon from './MaterialIcon';
 import NeumorphicSelect, { NeumorphicSelectOption } from './NeumorphicSelect';
 
+export interface InvoiceAiCommand {
+  id: string;
+  action: 'generate_invoice' | 'add_invoice_item';
+  args: Record<string, any>;
+}
+
 interface InvoiceGeneratorScreenProps {
   inventory: InventoryItem[];
   creditAccounts: CreditAccount[];
@@ -36,6 +42,8 @@ interface InvoiceGeneratorScreenProps {
   config: BusinessConfig;
   currentOrgId?: string;
   currentUserUid?: string;
+  aiCommand?: InvoiceAiCommand | null;
+  onAiCommandHandled?: (commandId: string) => void;
 }
 
 interface DocRow {
@@ -98,7 +106,9 @@ export default function InvoiceGeneratorScreen({
   transactions = [],
   config,
   currentOrgId,
-  currentUserUid
+  currentUserUid,
+  aiCommand = null,
+  onAiCommandHandled
 }: InvoiceGeneratorScreenProps) {
   // Preset types
   type PresetType = 'invoice_credit' | 'custom';
@@ -619,6 +629,86 @@ export default function InvoiceGeneratorScreen({
       window.print();
     }, 150);
   };
+
+  useEffect(() => {
+    if (!aiCommand) return;
+    const args = aiCommand.args || {};
+    const requestedItems = Array.isArray(args.items) ? args.items : [];
+
+    if (args.invoiceNumber || args.invoiceNo) setInvoiceNo(String(args.invoiceNumber || args.invoiceNo));
+    if (args.invoiceDate) setInvoiceDate(String(args.invoiceDate));
+    if (args.customerName || args.billTo) setBillTo(String(args.customerName || args.billTo).toUpperCase());
+    if (args.clientAddress || args.customerAddress) setClientAddress(String(args.clientAddress || args.customerAddress));
+    if (args.documentTopic) setDocumentTopic(String(args.documentTopic));
+    if (args.companySubHeader !== undefined) setCompanySubHeader(String(args.companySubHeader || ''));
+    if (args.professionalTag !== undefined) setProfessionalTag(String(args.professionalTag || ''));
+    if (args.companyAddress !== undefined) setCompanyAddress(String(args.companyAddress || ''));
+    if (args.companyContact !== undefined) setCompanyContact(String(args.companyContact || ''));
+    if (args.paymentInstructionsTitle !== undefined) setPaymentInstructionsTitle(String(args.paymentInstructionsTitle || ''));
+    if (args.paymentBankName !== undefined) setPaymentBankName(String(args.paymentBankName || ''));
+    if (args.paymentAccountNumber !== undefined) setPaymentAccountNumber(String(args.paymentAccountNumber || ''));
+    if (args.paymentBranch !== undefined) setPaymentBranch(String(args.paymentBranch || ''));
+
+    if (args.invoiceAccountId || args.accountId) {
+      const accountId = String(args.invoiceAccountId || args.accountId);
+      const account = creditAccounts.find(entry => entry.id === accountId);
+      setInvoiceAccountId(accountId);
+      if (account && !args.customerName && !args.billTo) {
+        setBillTo(account.name.toUpperCase());
+        setClientAddress(account.email || '');
+      }
+    }
+
+    if (requestedItems.length > 0) {
+      setRows(previousRows => {
+        const nextRows = [...previousRows];
+        requestedItems.forEach((requestedItem: any) => {
+          const itemId = requestedItem.itemId || requestedItem.id;
+          const itemName = String(requestedItem.itemName || requestedItem.name || '').toLowerCase();
+          const inventoryItem = inventory.find(item =>
+            (itemId && item.id === itemId) ||
+            (itemName && (item.name || '').toLowerCase() === itemName)
+          );
+          if (!inventoryItem) return;
+          const quantity = Math.max(1, Number(requestedItem.quantity ?? requestedItem.qty ?? 1) || 1);
+          const rate = requestedItem.rate !== undefined
+            ? Number(requestedItem.rate) || inventoryItem.unitPrice
+            : inventoryItem.unitPrice;
+          const existingIndex = nextRows.findIndex(row => row.type === 'billable' && row.sku === inventoryItem.sku);
+          if (existingIndex >= 0) {
+            nextRows[existingIndex] = {
+              ...nextRows[existingIndex],
+              qty: (nextRows[existingIndex].qty || 0) + quantity,
+              rate
+            };
+          } else {
+            nextRows.push({
+              id: `row-ai-${inventoryItem.id}-${Date.now()}-${nextRows.length}`,
+              type: 'billable',
+              title: inventoryItem.name.toUpperCase(),
+              qty: quantity,
+              rate,
+              sku: inventoryItem.sku
+            });
+          }
+        });
+        return nextRows;
+      });
+      setSuccessAnimation(true);
+      window.setTimeout(() => setSuccessAnimation(false), 800);
+    }
+
+    const shouldOpenPreview = args.openPreview !== false && args.preview !== false;
+    if (shouldOpenPreview) {
+      window.setTimeout(() => {
+        clearPdfArtifacts();
+        setViewMode('preview');
+        setIsPreviewMode(true);
+      }, requestedItems.length > 0 ? 120 : 40);
+    }
+
+    onAiCommandHandled?.(aiCommand.id);
+  }, [aiCommand?.id]);
 
   return (
     <div className="flex-1 w-full max-w-none xl:max-w-[1550px] mx-auto px-4 py-6 flex flex-col xl:flex-row gap-6 min-h-0 relative">

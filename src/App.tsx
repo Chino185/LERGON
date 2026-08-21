@@ -126,7 +126,7 @@ import CreditScreen from './components/CreditScreen';
 import TransactionsScreen from './components/TransactionsScreen';
 import ReportScreen from './components/ReportScreen';
 import SettingsScreen from './components/SettingsScreen';
-import InvoiceGeneratorScreen from './components/InvoiceGeneratorScreen';
+import InvoiceGeneratorScreen, { InvoiceAiCommand } from './components/InvoiceGeneratorScreen';
 import ActivityLogScreen from './components/ActivityLogScreen';
 import GeminiAssistantOverlay from './components/GeminiAssistantOverlay';
 import { RichardLogo } from './components/RichardLogo';
@@ -600,6 +600,7 @@ export default function App() {
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [pendingRestocks, setPendingRestocks] = useState<PendingRestock[]>([]);
   const [isDataLoading, setIsDataLoading] = useState<boolean>(true);
+  const [invoiceAiCommand, setInvoiceAiCommand] = useState<InvoiceAiCommand | null>(null);
 
   // Keep track of the item IDs that have already been notified (opened in WhatsApp) in this session / localStorage
   // This prevents the browser from repeatedly spamming WhatsApp tabs on every single state render or on reload.
@@ -3833,6 +3834,10 @@ export default function App() {
                 config={config}
                 currentOrgId={currentOrgId}
                 currentUserUid={currentUserUid}
+                aiCommand={invoiceAiCommand}
+                onAiCommandHandled={(commandId) => {
+                  setInvoiceAiCommand(previous => previous?.id === commandId ? null : previous);
+                }}
               />
             )}
 
@@ -3880,6 +3885,11 @@ export default function App() {
               setTransactions={setTransactions}
               setPendingRestocks={setPendingRestocks}
               setConfig={setConfig}
+              onUpdateConfig={handleUpdateConfig}
+              onInvoiceCommand={(command) => {
+                setInvoiceAiCommand({ ...command, id: `ai-invoice-${Date.now()}` });
+              }}
+              businessId={currentOrgId}
               backendNotifications={backendNotifications}
               readNotificationIds={readNotificationIds}
               currentUserName={activeUserName}

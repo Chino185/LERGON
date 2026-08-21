@@ -1515,11 +1515,38 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                     },
                     {
                       name: "generate_invoice",
-                      description: "Navigates to the invoice generator screen and pre-fills invoice details.",
+                      description: "Opens the existing Invoice screen, fills the requested invoice fields, adds requested items from live inventory only, and opens the existing print-preview workspace for review. Do not invent items that are not in the live inventory context.",
                       parameters: {
                         type: Type.OBJECT,
                         properties: {
-                          customerName: { type: Type.STRING, description: "Optional customer or company name." }
+                          customerName: { type: Type.STRING, description: "Optional customer or company name." },
+                          clientAddress: { type: Type.STRING, description: "Optional customer address." },
+                          invoiceNumber: { type: Type.STRING, description: "Optional invoice number." },
+                          invoiceDate: { type: Type.STRING, description: "Optional invoice date text." },
+                          documentTopic: { type: Type.STRING, description: "Optional document title such as INVOICE or PROFORMA INVOICE." },
+                          companySubHeader: { type: Type.STRING, description: "Optional business subheading." },
+                          professionalTag: { type: Type.STRING, description: "Optional professional tagline." },
+                          companyAddress: { type: Type.STRING, description: "Optional business address override." },
+                          companyContact: { type: Type.STRING, description: "Optional business contact line override." },
+                          paymentInstructionsTitle: { type: Type.STRING, description: "Optional payment instructions heading." },
+                          paymentBankName: { type: Type.STRING, description: "Optional bank name." },
+                          paymentAccountNumber: { type: Type.STRING, description: "Optional payment account number." },
+                          paymentBranch: { type: Type.STRING, description: "Optional bank branch." },
+                          invoiceAccountId: { type: Type.STRING, description: "Optional existing credit-account ID to autofill the customer." },
+                          openPreview: { type: Type.BOOLEAN, description: "Open the existing invoice preview after filling; defaults to true." },
+                          items: {
+                            type: Type.ARRAY,
+                            description: "Items to add from live inventory search. Each item must identify an existing inventory item by itemName or itemId and may include quantity and rate.",
+                            items: {
+                              type: Type.OBJECT,
+                              properties: {
+                                itemId: { type: Type.STRING },
+                                itemName: { type: Type.STRING },
+                                quantity: { type: Type.NUMBER },
+                                rate: { type: Type.NUMBER }
+                              }
+                            }
+                          }
                         }
                       }
                     }
