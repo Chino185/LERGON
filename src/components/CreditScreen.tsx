@@ -438,7 +438,7 @@ export default function CreditScreen({
   };
 
   const generateReminderText = (acc: CreditAccount) => {
-    return `Hello ${acc.name},\n\nThis is a friendly reminder from ${config.businessName} regarding your outstanding credit balance of ${formatMoney(acc.remainingAmount)}.\n\nPlease arrange for settlement via ACH or Mobile/Cash at your earliest convenience to maintain an active profile.\n\nThank you for choosing ${config.businessName}!\nContact: ${config.phone || 'us directly'}`;
+    return `Hello ${acc.name},\n\nThis is a friendly reminder from ${config.businessName} regarding your outstanding credit balance of ${formatMoney(acc.remainingAmount)}.\n\nPlease arrange for settlement via ACH or Mobile/Cash at your earliest convenience to maintain an active profile.\n\nThank you for choosing ${config.businessName}!`;
   };
 
   const sendReminderViaWhatsApp = (acc: CreditAccount) => {
@@ -1775,10 +1775,6 @@ export default function CreditScreen({
 
               <div className="neumorphic-inset border border-white/70 dark:border-slate-700/70 p-4.5 rounded-xl space-y-2 font-mono whitespace-pre-wrap text-[11px] text-slate-700 dark:text-slate-200 select-all leading-relaxed relative">
                 {generateReminderText(reminderAcc)}
-              </div>
-
-              <div className="neumorphic-inset text-slate-700 dark:text-slate-200 p-3 rounded-xl text-[10px] leading-snug border border-white/80 dark:border-slate-700">
-                <strong>Tip for Merchants:</strong> Choose Send via WhatsApp to open a chat with the saved creditor number and the message prefilled.
               </div>
 
               {/* Action */}
