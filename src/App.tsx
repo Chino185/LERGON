@@ -3844,6 +3844,10 @@ export default function App() {
               setTransactions={setTransactions}
               setPendingRestocks={setPendingRestocks}
               setConfig={setConfig}
+              backendNotifications={backendNotifications}
+              readNotificationIds={readNotificationIds}
+              currentUserName={activeUserName}
+              currentOrg={organizations.find(o => o.id === currentOrgId)}
             />
           </Navigation>
         </CurrencyProvider>

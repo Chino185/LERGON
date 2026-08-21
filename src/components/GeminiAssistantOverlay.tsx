@@ -26,7 +26,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, PendingRestock } from "../types";
+import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, PendingRestock, BackendNotification, Organization } from "../types";
 import { getRecentActivityContext, queryActivityLog, activityLogger } from "../utils/activityLogger";
 import { executeAppActionAsync, validateActionPermission } from "../utils/actionRegistry";
 
@@ -46,6 +46,11 @@ interface GeminiAssistantOverlayProps {
   setTransactions?: React.Dispatch<React.SetStateAction<CreditTransaction[]>>;
   setPendingRestocks?: React.Dispatch<React.SetStateAction<PendingRestock[]>>;
   setConfig?: React.Dispatch<React.SetStateAction<BusinessConfig>>;
+  backendNotifications?: BackendNotification[];
+  readNotificationIds?: string[];
+  currentUserName?: string;
+  currentOrg?: Organization;
+
 }
 
 export default function GeminiAssistantOverlay({
@@ -63,7 +68,11 @@ export default function GeminiAssistantOverlay({
   setAdjustments,
   setTransactions,
   setPendingRestocks,
-  setConfig
+  setConfig,
+  backendNotifications = [],
+  readNotificationIds = [],
+  currentUserName = "",
+  currentOrg
 }: GeminiAssistantOverlayProps) {
   // AI Hub UI Panel states
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -279,7 +288,8 @@ export default function GeminiAssistantOverlay({
             dashboardKpis: {
               stockInHandValue: calculateDashboardStockInHand(inventory),
               stockInHandBasis: "sum of current inventory quantity multiplied by current unit price"
-            }
+            },
+            applicationContext: buildRoleAwareApplicationContext()
           }
         }));
       }
@@ -524,6 +534,147 @@ export default function GeminiAssistantOverlay({
     }, 0);
   };
 
+  const buildRoleAwareApplicationContext = () => {
+    const isAdministrator = userRole === 2;
+    const safeInventory = inventory.map(item => ({
+      id: item.id,
+      name: item.name,
+      sku: item.sku,
+      category: item.category,
+      quantity: Number(item.quantity) || 0,
+      reorderPoint: Number(item.reorderPoint) || 0,
+      unitCost: Number(item.unitCost) || 0,
+      unitPrice: Number(item.unitPrice) || 0,
+      supplier: item.supplier,
+      location: item.location,
+      imageUrl: item.imageUrl
+    }));
+    const safeCreditAccounts = creditAccounts.map(account => ({
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      phone: account.phone,
+      email: account.email,
+      totalAmount: Number(account.totalAmount) || 0,
+      remainingAmount: Number(account.remainingAmount) || 0,
+      status: account.status,
+      dueDate: account.dueDate,
+      dateOfCrediting: account.dateOfCrediting,
+      paymentDate: account.paymentDate
+    }));
+    const safeTransactions = transactions.map(transaction => ({
+      id: transaction.id,
+      creditAccountId: transaction.creditAccountId,
+      accountName: transaction.accountName,
+      type: transaction.type,
+      amount: Number(transaction.amount) || 0,
+      date: transaction.date,
+      notes: transaction.notes,
+      paymentMethod: transaction.paymentMethod,
+      performedBy: transaction.performedBy,
+      isFlagged: transaction.isFlagged,
+      isResolved: transaction.isResolved
+    }));
+    const safeAdjustments = adjustments.map(adjustment => ({
+      id: adjustment.id,
+      itemId: adjustment.itemId,
+      itemName: adjustment.itemName,
+      qtyChanged: Number(adjustment.qtyChanged) || 0,
+      type: adjustment.type,
+      date: adjustment.date,
+      notes: adjustment.notes,
+      unitPriceSnapshot: adjustment.unitPriceSnapshot,
+      creditAccountId: adjustment.creditAccountId,
+      performedBy: adjustment.performedBy,
+      isFlagged: adjustment.isFlagged,
+      isResolved: adjustment.isResolved,
+      correctionNotes: adjustment.correctionNotes
+    }));
+    const safeNotifications = backendNotifications
+      .filter(notification => isAdministrator || !/restock validation|pending restock|activity log|system settings|currency change|invite pin|business profile/i.test(`${notification.eventKey} ${notification.title} ${notification.message}`))
+      .map(notification => ({
+        id: notification.id,
+        eventKey: notification.eventKey,
+        category: notification.category,
+        title: notification.title,
+        message: notification.message,
+        severity: notification.severity,
+        relatedRef: notification.relatedRef,
+        targetScreen: notification.targetScreen,
+        targetTab: notification.targetTab,
+        isActive: notification.isActive,
+        createdAt: notification.createdAt,
+        isRead: readNotificationIds.includes(notification.id)
+      }));
+    const safePendingRestocks = isAdministrator
+      ? pendingRestocks
+      : pendingRestocks.filter(restock => !currentUserName || restock.submittedBy === currentUserName);
+    const stockInHandValue = calculateDashboardStockInHand(inventory);
+
+    return {
+      currentScreen: activeScreen,
+      operator: {
+        role: isAdministrator ? "Administrator" : "Attendant",
+        name: currentUserName || "Current operator"
+      },
+      pageAvailability: {
+        dashboard: true,
+        inventory: true,
+        transactions: true,
+        credit: true,
+        invoice: true,
+        report: true,
+        notifications: true,
+        settings: isAdministrator,
+        activity_log: isAdministrator
+      },
+      pages: {
+        dashboard: {
+          stockInHandValue,
+          stockInHandBasis: "current inventory quantity multiplied by current unit price",
+          totalInventoryValue: stockInHandValue,
+          inventoryItemCount: safeInventory.length,
+          lowStockItems: safeInventory.filter(item => item.quantity > 0 && item.quantity <= item.reorderPoint).map(item => ({ id: item.id, name: item.name, quantity: item.quantity, reorderPoint: item.reorderPoint }))
+        },
+        inventory: {
+          items: safeInventory,
+          pendingRestocks: safePendingRestocks
+        },
+        transactions: {
+          salesAndAdjustments: safeAdjustments,
+          creditLedger: safeTransactions
+        },
+        credit: {
+          accounts: safeCreditAccounts,
+          paymentLedger: safeTransactions.filter(transaction => transaction.type === "pay")
+        },
+        invoice: {
+          searchableInventory: safeInventory,
+          availableCreditAccounts: safeCreditAccounts
+        },
+        report: {
+          inventory: safeInventory,
+          adjustments: safeAdjustments,
+          transactions: safeTransactions,
+          creditAccounts: safeCreditAccounts,
+          stockInHandValue
+        },
+        notifications: {
+          notifications: safeNotifications
+        },
+        settings: isAdministrator
+          ? { businessName: config.businessName, country: config.country, currency: config.currency, currencySymbol: config.currencySymbol, language: config.language, lowStockThresholdDefault: config.lowStockThresholdDefault, activeInviteCode: currentOrg?.activeInvite?.code, activeInviteExpiresAt: currentOrg?.activeInvite?.expiresAt, activeInviteIsUsed: currentOrg?.activeInvite?.isUsed }
+          : { unavailable: true, reason: "Administrator permission is required." },
+        activity_log: isAdministrator
+          ? { adjustments: safeAdjustments, transactions: safeTransactions }
+          : { unavailable: true, reason: "Administrator permission is required." }
+      },
+      restrictions: isAdministrator
+        ? []
+        : ["Settings and Activity Log are unavailable to Attendants.", "Organization-wide settings, invite management, KPI overrides, deletion, and administrative corrections require Administrator permission."]
+    };
+  };
+
   // Live WebSocket methods
   const connectVoiceSession = async (isWakeWordTriggered: boolean = false) => {
     try {
@@ -552,6 +703,7 @@ export default function GeminiAssistantOverlay({
       ws.onopen = () => {
         const liveData = latestLiveDataRef.current;
         const stockInHandValue = calculateDashboardStockInHand(liveData.inventory);
+        const applicationContext = buildRoleAwareApplicationContext();
         const recentCtx = getRecentActivityContext(liveData.adjustments, liveData.transactions, liveData.inventory, liveData.creditAccounts, 20);
         ws.send(JSON.stringify({
           type: "init",
@@ -565,6 +717,7 @@ export default function GeminiAssistantOverlay({
             stockInHandValue,
             stockInHandBasis: "sum of current inventory quantity multiplied by current unit price"
           },
+          applicationContext,
           userRole: userRole,
           isWakeWordTriggered: isWakeWordTriggered,
           recentActivityContext: recentCtx

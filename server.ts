@@ -896,12 +896,17 @@ wss.on("connection", (clientWs: WebSocket) => {
           transactions = [],
           pendingRestocks = [],
           dashboardKpis = {},
+          applicationContext = {},
           businessName = "Velo Tech",
           userRole,
           isWakeWordTriggered = false
         } = msg;
 
         const isAdministrator = userRole === 2 || userRole === "2";
+        const visiblePendingRestocks = isAdministrator
+          ? pendingRestocks
+          : pendingRestocks.filter((restock: any) => !applicationContext?.operator?.name || restock.submittedBy === applicationContext.operator.name);
+        const applicationContextJson = JSON.stringify(applicationContext || {});
         const blockedAttendantActions = new Set([
           "delete_inventory_item",
           "correct_dashboard_kpi",
@@ -930,7 +935,7 @@ wss.on("connection", (clientWs: WebSocket) => {
           `- Ledger Entry: Customer: ${t.accountName || "ID: " + (t.creditAccountId || t.accountId)} - Amount: ${t.amount} - Type: ${t.type} - Notes: ${t.notes || "None"} - Date: ${t.date || t.timestamp || "N/A"}`
         ).join("\n");
 
-        const pendingRestocksContext = pendingRestocks.slice(0, 30).map((r: any) =>
+        const pendingRestocksContext = visiblePendingRestocks.slice(0, 30).map((r: any) =>
           `- Restock Draft: Item: ${r.itemName || "ID: " + r.itemId} - Qty proposed: ${r.attendantQty} - Status: ${r.status} - Notes: ${r.attendantNotes || "None"} - Submitted by: ${r.submittedBy} - Date: ${r.date || "N/A"}`
         ).join("\n");
 
@@ -1026,8 +1031,11 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
 
         Here is the current dashboard KPI snapshot. This is the authoritative value for dashboard questions and must be used instead of guessing from a partial list:
         ${dashboardKpiContext}
+
+        Here is the complete role-filtered application context for every page. Use the matching page section when the operator asks about Dashboard, Inventory, Transactions, Credit, Invoice, Reports, Notifications, Settings, or Activity Log. Never answer from a page marked unavailable:
+        ${applicationContextJson}
         
-        You can read all this information to answer any specific audit, reconciliation, cost, profit, debt, replenishment, or history questions asked by the operator instantly with exact data values.
+        You can read all this information to answer any specific audit, reconciliation, cost, profit, debt, replenishment, notification, invoice, report, settings, or history question asked by the operator instantly with exact data values.
         Acknowledge low stock alerts or severe overdue debts when asked, and recommend actions verbally. Use a friendly but professional tone. Do not use markdown notation in your speech (e.g., avoid asterisks or bullet lists, speak in smooth complete sentences).`;
 
         console.log("Connecting Live API session...");
