@@ -102,6 +102,7 @@ import {
   updateBusinessCurrency,
   subscribeToBusinessCurrency,
   updateUserPhone,
+  updateUserDisplayName,
   updateUserTheme
 } from './utils/authServices';
 
@@ -1048,6 +1049,18 @@ export default function App() {
 
         if (profileData) {
           const roleStr = profileData.role === 'admin' ? 'admin' : 'attendant';
+          const backendProfilePhoto = typeof profileData.profile_photo_url === 'string'
+            ? profileData.profile_photo_url
+            : '';
+          const backendDisplayName = profileData.display_username || '';
+
+          // Hydrate profile-owned values from Supabase instead of stale local
+          // state so Settings can restore the saved name and photo.
+          setConfig(prev => ({
+            ...prev,
+            profilePhoto: backendProfilePhoto,
+            ownerName: roleStr === 'admin' ? (backendDisplayName || prev.ownerName) : prev.ownerName
+          }));
 
           if (profileData.business_id) {
             const { data: businessData } = await supabase
@@ -1069,8 +1082,8 @@ export default function App() {
               attendantEmail: roleStr === 'attendant' ? (user.email || localOrg?.attendantEmail) : localOrg?.attendantEmail,
               adminName: roleStr === 'admin' ? (profileData.display_username || localOrg?.adminName || 'Administrator') : localOrg?.adminName,
               attendantName: roleStr === 'attendant' ? (profileData.display_username || localOrg?.attendantName || '') : localOrg?.attendantName,
-              adminPhoto: localOrg?.adminPhoto,
-              attendantPhoto: localOrg?.attendantPhoto,
+              adminPhoto: roleStr === 'admin' ? (backendProfilePhoto || localOrg?.adminPhoto) : localOrg?.adminPhoto,
+              attendantPhoto: roleStr === 'attendant' ? (backendProfilePhoto || localOrg?.attendantPhoto) : localOrg?.attendantPhoto,
               country: businessData?.base_country || localOrg?.country,
               currency: businessData?.base_currency_code || localOrg?.currency,
               currencySymbol: businessData?.base_currency_symbol || localOrg?.currencySymbol,
@@ -1170,6 +1183,26 @@ export default function App() {
                   localStorage.setItem(`lergon_theme_${user.id}`, backendTheme);
                   setConfig(prev => ({ ...prev, themeMode: backendTheme }));
                 }
+
+                const backendProfilePhoto = typeof data.profile_photo_url === 'string'
+                  ? data.profile_photo_url
+                  : '';
+                setConfig(prev => ({
+                  ...prev,
+                  profilePhoto: backendProfilePhoto,
+                  ownerName: roleStr === 'admin' ? (data.display_username || prev.ownerName) : prev.ownerName
+                }));
+                setOrganizations(previousOrganizations => previousOrganizations.map(org => (
+                  org.id === data.business_id
+                    ? {
+                      ...org,
+                      adminName: roleStr === 'admin' ? (data.display_username || org.adminName) : org.adminName,
+                      attendantName: roleStr === 'attendant' ? (data.display_username || org.attendantName) : org.attendantName,
+                      adminPhoto: roleStr === 'admin' ? backendProfilePhoto : org.adminPhoto,
+                      attendantPhoto: roleStr === 'attendant' ? backendProfilePhoto : org.attendantPhoto
+                    }
+                    : org
+                )));
 
                 // Keep the locally-shown contact number in sync with the
                 // backend if it changes elsewhere (e.g. another device).
@@ -2223,6 +2256,10 @@ export default function App() {
 
   // --- Handlers: Configuration Profile Save & Maintenance ---
   const handleUpdateConfig = (newConfig: BusinessConfig) => {
+    // Profile forms may submit only their own fields. Preserve the current
+    // theme and all unrelated config values during every save.
+    newConfig = { ...config, ...newConfig };
+
     // 1. Save user personal preferences under user-role specific storage key
     const userPrefKey = getUserPrefStorageKey(currentOrgId, currentUserRole);
     const userPrefs = {
@@ -2284,6 +2321,12 @@ export default function App() {
     if (currentUserUid && (newConfig.themeMode === 'light' || newConfig.themeMode === 'dark') && newConfig.themeMode !== config.themeMode) {
       updateUserTheme(currentUserUid, newConfig.themeMode).then((res) => {
         if (!res.success) console.error('Failed to sync theme preference to backend:', res.error);
+      });
+    }
+
+    if (currentUserUid && newConfig.ownerName !== config.ownerName) {
+      updateUserDisplayName(currentUserUid, newConfig.ownerName || '').then((res) => {
+        if (!res.success) console.error('Failed to sync operator name to backend:', res.error);
       });
     }
 
@@ -3694,6 +3737,7 @@ export default function App() {
                 onWipeStorage={handleWipeStorage}
                 onClearTransactions={handleClearTransactions}
                 userRole={currentUserRole || undefined}
+                userUid={currentUserUid}
                 currentOrgId={currentOrgId}
                 organizations={organizations}
                 onUpdateOrganizations={handleUpdateOrganizations}

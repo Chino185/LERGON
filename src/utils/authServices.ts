@@ -222,11 +222,20 @@ export async function uploadProfilePhoto(
       .from('profile-photos')
       .getPublicUrl(filePath);
 
-    // Update profile with photo URL
-    await supabase
+    // Persist and verify the profile URL. Previously an RLS/update error was
+    // ignored, so the UI could report success while profile_photo_url stayed
+    // NULL in Supabase.
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .update({ profile_photo_url: publicUrl })
-      .eq('id', userUid);
+      .eq('id', userUid)
+      .select('id, profile_photo_url')
+      .single();
+
+    if (profileError) throw profileError;
+    if (!profileData || profileData.id !== userUid || profileData.profile_photo_url !== publicUrl) {
+      throw new Error('The authenticated profile photo URL was not saved.');
+    }
 
     return { success: true, url: publicUrl };
   } catch (err: any) {
@@ -453,12 +462,17 @@ export async function clearProfilePhoto(
   userUid: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .update({ profile_photo_url: null })
-      .eq('id', userUid);
+      .eq('id', userUid)
+      .select('id, profile_photo_url')
+      .single();
 
     if (error) throw error;
+    if (!data || data.id !== userUid || data.profile_photo_url !== null) {
+      throw new Error('The authenticated profile photo was not cleared.');
+    }
     return { success: true };
   } catch (err: any) {
     console.error('clearProfilePhoto Error:', err);
@@ -544,6 +558,31 @@ export async function validateAttendantInvite(
   }
 }
 
+
+/** Persist the authenticated user's operator name. */
+export async function updateUserDisplayName(
+  userUid: string,
+  displayUsername: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!userUid) return { success: false, error: 'User ID is required.' };
+  try {
+    const cleanName = String(displayUsername || '').trim().slice(0, 120);
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ display_username: cleanName || null })
+      .eq('id', userUid)
+      .select('id, display_username')
+      .single();
+    if (error) throw error;
+    if (!data || data.id !== userUid || (data.display_username || '') !== cleanName) {
+      return { success: false, error: 'The authenticated profile name was not updated.' };
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateUserDisplayName Error:', err);
+    return { success: false, error: err?.message || 'Failed to update operator name.' };
+  }
+}
 
 /** Persist the authenticated user's personal theme preference. */
 export async function updateUserTheme(

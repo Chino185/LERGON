@@ -644,6 +644,14 @@ export default function SettingsScreen({
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [photoError, setPhotoError] = useState('');
 
+  // Restore the persisted backend photo whenever App hydrates or updates it.
+  // A pending local File remains the immediate preview until the save finishes.
+  React.useEffect(() => {
+    if (!profilePhotoFile) {
+      setProfilePhoto(config.profilePhoto || '');
+    }
+  }, [config.profilePhoto, profilePhotoFile]);
+
   // Supabase Auth Password Update States
   const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
