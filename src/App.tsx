@@ -563,6 +563,11 @@ export default function App() {
     setActiveView('signin');
     setActiveScreen('dashboard');
     try {
+      window.localStorage.removeItem('lergon_session_active');
+    } catch (error) {
+      console.warn('[Theme] Unable to clear session marker:', error);
+    }
+    try {
       window.localStorage.removeItem(ACTIVE_SCREEN_STORAGE_KEY);
     } catch (error) {
       console.warn('[Navigation] Unable to clear saved active screen:', error);
@@ -1041,6 +1046,11 @@ export default function App() {
       if (session?.user) {
         const user = session.user;
         console.log('[Supabase Auth Listener] Active session for:', user.email, 'UID:', user.id);
+        try {
+          localStorage.setItem('lergon_session_active', 'true');
+        } catch (error) {
+          console.warn('[Theme] Unable to persist session marker:', error);
+        }
         setIsLoggedIn(true);
         setCurrentUserUid(user.id);
         try {
@@ -1229,6 +1239,11 @@ export default function App() {
 
       } else {
         console.log('[Supabase Auth Listener] User signed out or inactive.');
+        try {
+          localStorage.removeItem('lergon_session_active');
+        } catch (error) {
+          console.warn('[Theme] Unable to clear session marker:', error);
+        }
         setIsLoggedIn(false);
         setCurrentUserRole(null);
         setCurrentOrgId('');
