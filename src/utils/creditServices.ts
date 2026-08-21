@@ -80,6 +80,10 @@ export async function saveCreditProfile(
   const cleanPhone = sanitizeTextInput(payload.phone || '', 50);
   const cleanEmail = sanitizeTextInput(payload.email || '', 150);
   const cleanNotes = sanitizeTextInput(payload.notes || '', 1000);
+  const requestedDueDate = String(payload.dueDate || '').trim();
+  const cleanDueDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedDueDate)
+    ? requestedDueDate
+    : new Date().toISOString().slice(0, 10);
   const dbType = payload.type === 'receivable' ? 'customer_receivable' : 'supplier_payable';
 
   if (!cleanName) return { success: false, error: 'Contact name is required.' };
@@ -109,7 +113,7 @@ export async function saveCreditProfile(
         contact_phone: cleanPhone,
         contact_email: cleanEmail,
         initial_amount: payload.totalAmount,
-        due_date: payload.dueDate,
+        due_date: cleanDueDate,
         notes: cleanNotes
       };
       if (receiptUrl) updateData.receipt_url = receiptUrl;
@@ -130,7 +134,7 @@ export async function saveCreditProfile(
         p_contact_phone: cleanPhone,
         p_contact_email: cleanEmail,
         p_amount: payload.totalAmount,
-        p_due_date: payload.dueDate,
+        p_due_date: cleanDueDate,
         p_notes: cleanNotes,
         p_performed_by: userUid,
         p_source: 'manual'

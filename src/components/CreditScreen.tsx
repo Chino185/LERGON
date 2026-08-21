@@ -350,13 +350,14 @@ export default function CreditScreen({
       return;
     }
 
+    const safeDueDate = new Date().toISOString().slice(0, 10);
     const createdAccountId = await onAddAccount({
-      name: accName,
+      name: accName.trim(),
       type: userRole === 2 ? accType : 'receivable',
-      phone: accPhone,
+      phone: accPhone.trim(),
       email: '',
       totalAmount: Number(accAmount),
-      dueDate: '',
+      dueDate: safeDueDate,
       notes: accReceipt ? `Attached receipt: ${accReceipt.name}` : '',
       receipt: accReceipt || undefined
     }, creditedItems.map(x => ({ itemId: x.itemId, qty: x.qty, unitPrice: x.unitValue })));
@@ -860,7 +861,7 @@ export default function CreditScreen({
             onClick={(e) => e.stopPropagation()}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl w-full max-w-3xl lg:max-w-4xl max-h-[85vh] sm:max-h-[90vh] flex flex-col min-h-0 overflow-hidden text-xs cursor-default border border-white/80 dark:border-slate-800 neumorphic-card"
+            className="mobile-credit-modal bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl w-full max-w-3xl lg:max-w-4xl max-h-[85vh] sm:max-h-[90vh] flex flex-col min-w-0 min-h-0 overflow-hidden text-xs cursor-default border border-white/80 dark:border-slate-800 neumorphic-card"
           >
             {/* Header */}
             <div className="bg-slate-100/90 dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-slate-200/80 dark:border-slate-800">
@@ -879,9 +880,9 @@ export default function CreditScreen({
             </div>
 
             {/* Form */}
-            <form onSubmit={handleCreateAccount} className="flex-1 flex flex-col min-h-0 overflow-hidden" autoComplete="off">
+            <form onSubmit={handleCreateAccount} className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden" autoComplete="off">
               <div className="p-4 sm:p-5 lg:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-start min-w-0">
 
                   {/* Left Column: Profile Core Settings */}
                   <div className="space-y-4">

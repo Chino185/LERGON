@@ -1350,3 +1350,99 @@ span[class*="bg-red-"] {
     visibility: visible !important;
   }
 }
+
+
+/* --- MOBILE APP-WIDE NEUMORPHIC RESPONSIVE LAYER ---
+   This layer intentionally targets only the authenticated app shell. It
+   preserves semantic colored badges/alerts and gradient active states while
+   giving neutral mobile surfaces a consistent raised/inset treatment. */
+@media (max-width: 767px) {
+
+  #app-shell,
+  #app-main-content,
+  #app-main-content>*,
+  #app-main-content form,
+  #app-main-content section {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #app-shell {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  #app-main-content {
+    width: 100%;
+    overflow-x: hidden;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  #app-main-content .finnova-card,
+  #app-main-content .app-card,
+  #app-main-content .neumorphic-card {
+    max-width: 100%;
+    box-shadow: 4px 4px 10px #d1d8e5, -4px -4px 10px #ffffff;
+  }
+
+  .dark #app-main-content .finnova-card,
+  [data-theme="dark"] #app-main-content .finnova-card,
+  .dark #app-main-content .app-card,
+  [data-theme="dark"] #app-main-content .app-card,
+  .dark #app-main-content .neumorphic-card,
+  [data-theme="dark"] #app-main-content .neumorphic-card {
+    box-shadow: 5px 5px 12px #18191c, -5px -5px 12px #383b42;
+  }
+
+  /* Neutral rounded surfaces that do not already carry a semantic background
+     become raised mobile panels. Colored statuses and active gradients are
+     excluded so their meaning remains visually intact. */
+  #app-main-content div.rounded-xl:not([class*="bg-"]):not([class*="neumorphic"]):not([class*="finnova-"]),
+  #app-main-content div.rounded-2xl:not([class*="bg-"]):not([class*="neumorphic"]):not([class*="finnova-"]),
+  #app-main-content form.rounded-xl:not([class*="bg-"]):not([class*="neumorphic"]),
+  #app-main-content form.rounded-2xl:not([class*="bg-"]):not([class*="neumorphic"]) {
+    background-color: #ebf0f7;
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 4px 4px 10px #d1d8e5, -4px -4px 10px #ffffff;
+  }
+
+  .dark #app-main-content div.rounded-xl:not([class*="bg-"]):not([class*="neumorphic"]):not([class*="finnova-"]),
+  [data-theme="dark"] #app-main-content div.rounded-xl:not([class*="bg-"]):not([class*="neumorphic"]):not([class*="finnova-"]),
+  .dark #app-main-content div.rounded-2xl:not([class*="bg-"]):not([class*="neumorphic"]):not([class*="finnova-"]),
+  [data-theme="dark"] #app-main-content div.rounded-2xl:not([class*="bg-"]):not([class*="neumorphic"]):not([class*="finnova-"]),
+  .dark #app-main-content form.rounded-xl:not([class*="bg-"]):not([class*="neumorphic"]),
+  [data-theme="dark"] #app-main-content form.rounded-xl:not([class*="bg-"]):not([class*="neumorphic"]),
+  .dark #app-main-content form.rounded-2xl:not([class*="bg-"]):not([class*="neumorphic"]),
+  [data-theme="dark"] #app-main-content form.rounded-2xl:not([class*="bg-"]):not([class*="neumorphic"]) {
+    background-color: #2b2d31;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 5px 5px 12px #18191c, -5px -5px 12px #383b42;
+  }
+
+  #app-main-content input,
+  #app-main-content select,
+  #app-main-content textarea {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 2.75rem;
+  }
+
+  #app-main-content button {
+    max-width: 100%;
+    min-width: 0;
+    touch-action: manipulation;
+  }
+
+  #app-main-content .overflow-x-auto {
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #app-main-content img,
+  #app-main-content video {
+    max-width: 100%;
+    height: auto;
+  }
+}
