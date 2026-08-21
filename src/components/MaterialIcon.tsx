@@ -2,6 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard,
   Package,
+  PackagePlus,
   Coins,
   Receipt,
   BarChart3,
@@ -66,6 +67,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   dashboard: LayoutDashboard,
   inventory: Package,
   inventory_2: Package,
+  add_box: PackagePlus,
   payments: Coins,
   receipt_long: Receipt,
   bar_chart: BarChart3,
