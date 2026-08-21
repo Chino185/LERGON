@@ -29,7 +29,8 @@ import {
   Activity,
   Trash2,
   AlertCircle,
-  Truck
+  Truck,
+  X
 } from 'lucide-react';
 import MaterialIcon from './MaterialIcon';
 import NeumorphicSelect, { NeumorphicSelectOption } from './NeumorphicSelect';
@@ -84,6 +85,7 @@ export default function ReportScreen({
   const [copiedCSV, setCopiedCSV] = useState(false);
   const [copiedJSON, setCopiedJSON] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [showRestockDetailModal, setShowRestockDetailModal] = useState(false);
 
   const { formatAmount } = useCurrency();
 
@@ -248,9 +250,47 @@ export default function ReportScreen({
   const totalRestockCapitalInvested = useMemo(() => {
     return restockMovements.reduce((acc, adj) => {
       const item = inventory.find(i => i.id === adj.itemId);
-      const cost = item ? item.unitCost : 0;
+      const cost = adj.unitPriceSnapshot ?? item?.unitCost ?? 0;
       return acc + (Math.abs(adj.qtyChanged) * cost);
     }, 0);
+  }, [restockMovements, inventory]);
+
+  const restockDetailItems = useMemo(() => {
+    const grouped = new Map<string, {
+      itemId: string;
+      itemName: string;
+      sku: string;
+      quantity: number;
+      capital: number;
+      events: number;
+      lastRestocked: string;
+    }>();
+
+    restockMovements.forEach(adj => {
+      const item = inventory.find(i => i.id === adj.itemId);
+      const unitCost = adj.unitPriceSnapshot ?? item?.unitCost ?? 0;
+      const existing = grouped.get(adj.itemId);
+      const quantity = Math.abs(adj.qtyChanged);
+      const next = existing || {
+        itemId: adj.itemId,
+        itemName: adj.itemName || item?.name || 'Inventory item',
+        sku: item?.sku || 'N/A',
+        quantity: 0,
+        capital: 0,
+        events: 0,
+        lastRestocked: adj.date
+      };
+
+      next.quantity += quantity;
+      next.capital += quantity * unitCost;
+      next.events += 1;
+      if (new Date(adj.date).getTime() > new Date(next.lastRestocked).getTime()) {
+        next.lastRestocked = adj.date;
+      }
+      grouped.set(adj.itemId, next);
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => b.capital - a.capital);
   }, [restockMovements, inventory]);
 
   // --- 4. Damaged Stock Calculations ---
@@ -650,22 +690,37 @@ export default function ReportScreen({
                   </div>
                 )}
 
-                {/* Acquisition/Procurement Stocks Card */}
-                <div className={`finnova-card p-5 transition duration-300 ${userRole === 2 ? 'sm:col-span-2 lg:col-span-1' : ''}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Inventory Capital Replenishment</span>
-                    <span className="p-1 px-2.5 text-[9px] font-extrabold rounded-full neumorphic-inset text-slate-800">Restocks</span>
+                {/* Acquisition/Procurement Stocks Card — Admin only */}
+                {userRole === 2 && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setShowRestockDetailModal(true)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setShowRestockDetailModal(true);
+                      }
+                    }}
+                    aria-label="View items purchased through inventory capital replenishment"
+                    className="finnova-card p-5 transition duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-xl focus:outline-hidden focus:ring-2 focus:ring-slate-400"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Inventory Capital Replenishment</span>
+                      <span className="p-1 px-2.5 text-[9px] font-extrabold rounded-full neumorphic-inset text-slate-800">Restocks</span>
+                    </div>
+                    <strong className="text-2xl font-black font-jakarta text-slate-900 block mt-2">{formatMoney(totalRestockCapitalInvested)}</strong>
+                    <div className="mt-3 text-xs text-slate-600 flex justify-between">
+                      <span>Total restock events:</span>
+                      <strong className="text-slate-900 font-jakarta font-extrabold">{totalRestockEvents} orders</strong>
+                    </div>
+                    <div className="mt-1.5 text-xs text-slate-600 flex justify-between border-t border-slate-200/50 pt-1.5">
+                      <span>Total physical pieces:</span>
+                      <strong className="text-slate-900 font-jakarta font-extrabold">{totalUnitsRestocked} units</strong>
+                    </div>
+                    <span className="block text-[9px] text-slate-500 mt-3 font-semibold">Click to view replenished items</span>
                   </div>
-                  <strong className="text-2xl font-black font-jakarta text-slate-900 block mt-2">{formatMoney(totalRestockCapitalInvested)}</strong>
-                  <div className="mt-3 text-xs text-slate-600 flex justify-between">
-                    <span>Total restock events:</span>
-                    <strong className="text-slate-900 font-jakarta font-extrabold">{totalRestockEvents} orders</strong>
-                  </div>
-                  <div className="mt-1.5 text-xs text-slate-600 flex justify-between border-t border-slate-200/50 pt-1.5">
-                    <span>Total physical pieces:</span>
-                    <strong className="text-slate-900 font-jakarta font-extrabold">{totalUnitsRestocked} units</strong>
-                  </div>
-                </div>
+                )}
 
               </div>
 
@@ -955,24 +1010,26 @@ export default function ReportScreen({
                   </div>
                 )}
 
-                {/* Restocks Audit general panel */}
-                <div className="finnova-card p-5 transition duration-300">
-                  <span className="text-[10px] uppercase font-bold text-slate-700 tracking-wider block">Total Restocks Tracker</span>
-                  <div className="flex justify-between items-end mt-1.5">
-                    <div>
-                      <strong className="text-xl font-extrabold text-slate-900 block font-jakarta">{formatMoney(totalRestockCapitalInvested)}</strong>
-                      <span className="text-[10px] text-slate-500 block mt-0.5">Procurement purchase capital spent</span>
+                {/* Restocks Audit general panel — Admin only */}
+                {userRole === 2 && (
+                  <div className="finnova-card p-5 transition duration-300">
+                    <span className="text-[10px] uppercase font-bold text-slate-700 tracking-wider block">Total Restocks Tracker</span>
+                    <div className="flex justify-between items-end mt-1.5">
+                      <div>
+                        <strong className="text-xl font-extrabold text-slate-900 block font-jakarta">{formatMoney(totalRestockCapitalInvested)}</strong>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">Procurement purchase capital spent</span>
+                      </div>
+                      <div className="neumorphic-inset text-right p-1.5 px-3 rounded-full text-xs font-black text-slate-900">
+                        {totalRestockEvents} deliveries
+                      </div>
                     </div>
-                    <div className="neumorphic-inset text-right p-1.5 px-3 rounded-full text-xs font-black text-slate-900">
-                      {totalRestockEvents} deliveries
-                    </div>
-                  </div>
 
-                  <div className="flex justify-between items-center text-xs text-slate-600 border-t border-slate-200/50 mt-4 pt-3.5">
-                    <span>Total physical components stacked:</span>
-                    <strong className="text-slate-900 font-bold">{totalUnitsRestocked} units</strong>
+                    <div className="flex justify-between items-center text-xs text-slate-600 border-t border-slate-200/50 mt-4 pt-3.5">
+                      <span>Total physical components stacked:</span>
+                      <strong className="text-slate-900 font-bold">{totalUnitsRestocked} units</strong>
+                    </div>
                   </div>
-                </div>
+                )}
 
               </div>
 
@@ -1336,9 +1393,94 @@ export default function ReportScreen({
             </motion.div>
           )}
 
-        </AnimatePresence>
-      </div>
+                </AnimatePresence>
 
+        {/* ADMIN-ONLY MODAL: INVENTORY CAPITAL REPLENISHMENT DETAILS */}
+        {userRole === 2 && showRestockDetailModal && (
+          <div
+            className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+            onClick={() => setShowRestockDetailModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              onClick={(event) => event.stopPropagation()}
+              className="neumorphic-card w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl border border-white/90 dark:border-slate-700/80 text-slate-900 dark:text-white"
+            >
+              <div className="neumorphic-inset bg-[#ebf0f7] dark:bg-[#0f172a] p-4 flex items-center justify-between border-b border-white/80 dark:border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-sm flex items-center gap-1.5">
+                    <PackageCheck size={16} /> Replenished Inventory Items
+                  </h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-300 mt-1">Items purchased using inventory replenishment capital.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRestockDetailModal(false)}
+                  className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-3 py-1.5 cursor-pointer"
+                  aria-label="Close replenished inventory items"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-5 overflow-y-auto max-h-[calc(85vh-76px)] space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div className="neumorphic-inset rounded-xl p-3">
+                    <span className="block text-[9px] uppercase font-bold text-slate-500">Capital used</span>
+                    <strong className="block mt-1 font-extrabold">{formatMoney(totalRestockCapitalInvested)}</strong>
+                  </div>
+                  <div className="neumorphic-inset rounded-xl p-3">
+                    <span className="block text-[9px] uppercase font-bold text-slate-500">Restock events</span>
+                    <strong className="block mt-1 font-extrabold">{totalRestockEvents}</strong>
+                  </div>
+                  <div className="neumorphic-inset rounded-xl p-3 col-span-2 sm:col-span-1">
+                    <span className="block text-[9px] uppercase font-bold text-slate-500">Physical units</span>
+                    <strong className="block mt-1 font-extrabold">{totalUnitsRestocked}</strong>
+                  </div>
+                </div>
+
+                <div className="neumorphic-inset rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-left text-xs">
+                      <thead>
+                        <tr className="neumorphic-table-header text-[9px] uppercase tracking-wide">
+                          <th className="p-3">Item purchased</th>
+                          <th className="p-3 text-right">Units</th>
+                          <th className="p-3 text-right">Events</th>
+                          <th className="p-3 text-right">Capital used</th>
+                          <th className="p-3 text-right">Last restock</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200/60 dark:divide-slate-700/60">
+                        {restockDetailItems.map(item => (
+                          <tr key={item.itemId} className="text-slate-700 dark:text-slate-200">
+                            <td className="p-3">
+                              <strong className="block text-slate-900 dark:text-white">{item.itemName}</strong>
+                              <span className="block text-[9px] text-slate-500 font-mono">SKU: {item.sku}</span>
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold">{item.quantity}</td>
+                            <td className="p-3 text-right font-mono">{item.events}</td>
+                            <td className="p-3 text-right font-mono font-bold">{formatMoney(item.capital)}</td>
+                            <td className="p-3 text-right text-[10px] text-slate-500 whitespace-nowrap">
+                              {new Date(item.lastRestocked).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </td>
+                          </tr>
+                        ))}
+                        {restockDetailItems.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-8 text-center text-slate-500">No approved restock items have been recorded yet.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
