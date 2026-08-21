@@ -79,6 +79,8 @@ function RestockVerificationRow({
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
 
   // Resolution states (when on_hold)
   const [resolvedQty, setResolvedQty] = useState<number | ''>('');
@@ -92,30 +94,54 @@ function RestockVerificationRow({
       return;
     }
 
-    setErrorMsg('');
-    setSuccessMsg('');
+    if (isVerifying || isResolving) return;
 
-    if (onVerifyRestock) {
-      const result = await onVerifyRestock(restock.id, Number(adminQty), notes);
-      if (result === 'resolved_matched') {
-        setSuccessMsg('Match successful! Stock quantities verified and added to system.');
-      } else if (result === 'on_hold') {
-        setErrorMsg('Discrepancy detected! This restock has been put On Hold. Please query the attendant.');
+    setErrorMsg('');
+    setSuccessMsg('Submitting verification…');
+    setIsVerifying(true);
+
+    try {
+      if (onVerifyRestock) {
+        const result = await onVerifyRestock(restock.id, Number(adminQty), notes);
+        if (result === 'resolved_matched') {
+          setSuccessMsg('Match successful! Stock quantities verified and added to system.');
+        } else if (result === 'on_hold') {
+          setSuccessMsg('');
+          setErrorMsg('Discrepancy detected! This restock has been put On Hold. Please query the attendant.');
+        } else if (result === 'error') {
+          setSuccessMsg('');
+          setErrorMsg('Verification could not be completed. Please try again.');
+        }
       }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
   const handleResolveConflictSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (resolvedQty === '') {
-      alert('Please enter the finalized resolved quantity.');
+      setErrorMsg('Please enter the finalized resolved quantity.');
       return;
     }
+    if (isVerifying || isResolving) return;
 
-    if (onVerifyRestock) {
-      const result = await onVerifyRestock(restock.id, restock.adminInputQty || 0, resolutionNotes || 'Conflict resolved by Admin', Number(resolvedQty));
-      if (result === 'error') return;
-      alert('Discrepancy resolved successfully! Stock updated.');
+    setErrorMsg('');
+    setSuccessMsg('Saving approved resolution…');
+    setIsResolving(true);
+
+    try {
+      if (onVerifyRestock) {
+        const result = await onVerifyRestock(restock.id, restock.adminInputQty || 0, resolutionNotes || 'Conflict resolved by Admin', Number(resolvedQty));
+        if (result === 'error') {
+          setSuccessMsg('');
+          setErrorMsg('The discrepancy resolution could not be completed. Please try again.');
+          return;
+        }
+        setSuccessMsg('Discrepancy resolved successfully. Stock updated.');
+      }
+    } finally {
+      setIsResolving(false);
     }
   };
 
@@ -168,8 +194,9 @@ function RestockVerificationRow({
                 required
                 placeholder="Counted pcs"
                 value={adminQty}
+                disabled={isVerifying || isResolving}
                 onChange={(e) => setAdminQty(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-28 rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs text-center"
+                className="w-28 rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs text-center disabled:opacity-60"
               />
             </div>
 
@@ -179,16 +206,19 @@ function RestockVerificationRow({
                 type="text"
                 placeholder="e.g. Broken packages found"
                 value={notes}
+                disabled={isVerifying || isResolving}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-48 rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs"
+                className="w-48 rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs disabled:opacity-60"
               />
             </div>
 
             <button
               type="submit"
-              className="neumorphic-btn text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-white py-2 px-4 rounded-xl text-xs transition cursor-pointer h-9 shrink-0 flex items-center justify-center gap-1"
+              disabled={isVerifying || isResolving}
+              className="neumorphic-btn text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-white py-2 px-4 rounded-xl text-xs transition cursor-pointer h-9 shrink-0 flex items-center justify-center gap-1 disabled:opacity-60 disabled:cursor-wait"
+              aria-busy={isVerifying}
             >
-              Verify
+              {isVerifying ? <><Loader2 size={12} className="animate-spin" /> Verifying…</> : 'Verify'}
             </button>
           </form>
         ) : (
@@ -255,8 +285,9 @@ function RestockVerificationRow({
               required
               placeholder="Correct quantity pcs"
               value={resolvedQty}
+              disabled={isResolving || isVerifying}
               onChange={(e) => setResolvedQty(e.target.value === '' ? '' : Number(e.target.value))}
-              className="w-full rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs"
+              className="w-full rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs disabled:opacity-60"
             />
           </div>
 
@@ -267,28 +298,34 @@ function RestockVerificationRow({
               required
               placeholder="e.g. Attendant entered wrong product box size"
               value={resolutionNotes}
+              disabled={isResolving || isVerifying}
               onChange={(e) => setResolutionNotes(e.target.value)}
-              className="w-full rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs"
+              className="w-full rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs disabled:opacity-60"
             />
           </div>
 
           <div className="flex items-end">
             <button
               type="submit"
-              className="neumorphic-btn text-emerald-700 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-white w-full py-2 rounded-xl text-xs transition cursor-pointer h-9 flex items-center justify-center gap-1"
+              disabled={isResolving || isVerifying}
+              className="neumorphic-btn text-emerald-700 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-white w-full py-2 rounded-xl text-xs transition cursor-pointer h-9 flex items-center justify-center gap-1 disabled:opacity-60 disabled:cursor-wait"
+              aria-busy={isResolving}
             >
-              Resolve & Approve Stock
+              {isResolving ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : 'Resolve & Approve Stock'}
             </button>
           </div>
         </motion.form>
       )}
 
       {/* Message feedback alerts */}
-      {errorMsg && !isOnHold && (
-        <p className="text-[10.5px] text-red-600 font-bold mt-2">{errorMsg}</p>
+      {errorMsg && (
+        <p role="alert" className="text-[10.5px] text-red-600 dark:text-red-300 font-bold mt-2">{errorMsg}</p>
       )}
       {successMsg && (
-        <p className="text-[10.5px] text-emerald-650 font-bold mt-2">{successMsg}</p>
+        <p role="status" className="text-[10.5px] text-emerald-650 dark:text-emerald-300 font-bold mt-2 flex items-center gap-1">
+          {(isVerifying || isResolving) && <Loader2 size={11} className="animate-spin" />}
+          {successMsg}
+        </p>
       )}
     </div>
   );
