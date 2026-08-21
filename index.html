@@ -36,20 +36,15 @@
               ? authState.user.id
               : null;
           }
-          var lastUserUid = authenticatedUserUid || localStorage.getItem('lergon_last_user_uid');
-          if (lastUserUid) {
-            savedUserTheme = localStorage.getItem('lergon_theme_' + lastUserUid);
-          }
-          if (!savedUserTheme && !authenticatedUserUid) {
-            var userKeys = Object.keys(localStorage).filter(function (key) {
-              return key.indexOf('lergon_theme_') === 0;
-            });
-            if (userKeys.length === 1) {
-              savedUserTheme = localStorage.getItem(userKeys[0]);
-            }
+          // Only the user in the currently persisted Supabase session may
+          // provide the authenticated first-paint theme. Never use the last
+          // user UID after sign-out because that leaks one account's theme
+          // into the landing page or the next account.
+          if (authenticatedUserUid) {
+            savedUserTheme = localStorage.getItem('lergon_theme_' + authenticatedUserUid);
           }
         } catch (_) { }
-        var hasAuthenticatedSession = Boolean(authenticatedUserUid) || localStorage.getItem('lergon_session_active') === 'true';
+        var hasAuthenticatedSession = Boolean(authenticatedUserUid);
         // During an authenticated refresh, never fall back to the landing
         // page key. If the per-user value is not available yet, light is the
         // safe default and Supabase hydration will replace it if needed.

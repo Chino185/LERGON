@@ -173,6 +173,12 @@ const cleanPhoneForWhatsApp = (num: string): string => {
   return num.replace(/\D/g, ''); // Removes all non-numeric characters
 };
 
+const applyRootTheme = (theme: 'light' | 'dark') => {
+  const root = document.documentElement;
+  root.classList.toggle('dark', theme === 'dark');
+  root.setAttribute('data-theme', theme);
+};
+
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<string>(getInitialActiveScreen);
   const [initialOpenAddModal, setInitialOpenAddModal] = useState<boolean>(false);
@@ -441,15 +447,22 @@ export default function App() {
     return `velo_ic_user_prefs_org_${orgId}_role_${roleTag}`;
   };
 
-  const loadEffectiveConfig = (orgId: string, role: UserRole | null, orgList?: Organization[]): BusinessConfig => {
+  const loadEffectiveConfig = (orgId: string, role: UserRole | null, orgList?: Organization[], userUid?: string): BusinessConfig => {
     const activeList = orgList || organizations;
     const currentOrg = activeList.find(o => o.id === orgId);
 
-    const orgConfig = getLocalState<BusinessConfig>(getOrgStorageKey(CONFIG_KEY, orgId), {
+    const storedOrgConfig = getLocalState<BusinessConfig>(getOrgStorageKey(CONFIG_KEY, orgId), {
       ...INITIAL_BUSINESS_CONFIG,
       businessName: currentOrg?.name || '',
       email: role === 5 ? (currentOrg?.attendantEmail || '') : (currentOrg?.adminEmail || '')
     });
+    // Theme is never organization-owned. Ignore legacy themeMode values that
+    // may still exist in older shared org config records.
+    const { themeMode: _legacyOrgTheme, ...orgConfigWithoutTheme } = storedOrgConfig;
+    const orgConfig: BusinessConfig = {
+      ...orgConfigWithoutTheme,
+      themeMode: 'light'
+    };
 
     const registeredEmail = role === 5 ? currentOrg?.attendantEmail : currentOrg?.adminEmail;
     if (registeredEmail && (!orgConfig.email || orgConfig.email !== registeredEmail)) {
@@ -472,17 +485,18 @@ export default function App() {
     const userPrefKey = getUserPrefStorageKey(orgId, role);
     const userPrefs = getLocalState<{
       languageCode?: string;
-      themeMode?: 'light' | 'dark' | 'system';
     } | null>(userPrefKey, null);
-
-    if (!userPrefs) {
-      return orgConfig;
-    }
+    const storedUserTheme = userUid
+      ? localStorage.getItem(`lergon_theme_${userUid}`)
+      : null;
+    const userThemeMode: 'light' | 'dark' | undefined = storedUserTheme === 'dark' || storedUserTheme === 'light'
+      ? storedUserTheme
+      : undefined;
 
     return {
       ...orgConfig,
-      languageCode: userPrefs.languageCode !== undefined ? userPrefs.languageCode : orgConfig.languageCode,
-      themeMode: userPrefs.themeMode !== undefined ? userPrefs.themeMode : orgConfig.themeMode
+      languageCode: userPrefs?.languageCode !== undefined ? userPrefs.languageCode : orgConfig.languageCode,
+      themeMode: userThemeMode || (userUid ? 'light' : orgConfig.themeMode)
     };
   };
 
@@ -1043,10 +1057,17 @@ export default function App() {
     let profileChannel: any = null;
 
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Every auth transition gets a fresh bootstrap barrier. This prevents
+      // the previous account's theme from remaining mounted while the next
+      // account's profile preference is being fetched.
+      setAuthBootstrapReady(false);
+
       // Keep the loading shell visible until the profile theme has been
       // applied. Rendering earlier is what causes a dark user to flash light.
       if (session?.user) {
         const user = session.user;
+        const cachedUserTheme = localStorage.getItem(`lergon_theme_${user.id}`);
+        applyRootTheme(cachedUserTheme === 'dark' ? 'dark' : 'light');
         console.log('[Supabase Auth Listener] Active session for:', user.email, 'UID:', user.id);
         try {
           localStorage.setItem('lergon_session_active', 'true');
@@ -1055,12 +1076,6 @@ export default function App() {
         }
         setIsLoggedIn(true);
         setCurrentUserUid(user.id);
-        try {
-          localStorage.setItem('lergon_last_user_uid', user.id);
-        } catch (error) {
-          console.warn('[Theme] Unable to persist last authenticated user:', error);
-        }
-
         // Fetch initial profile data
         const { data: profileData } = await supabase
           .from('profiles')
@@ -1139,16 +1154,11 @@ export default function App() {
 
           if (profileData.theme_preference) {
             if (profileData.theme_preference === 'dark') {
-              document.documentElement.classList.add('dark');
-              document.documentElement.setAttribute('data-theme', 'dark');
+              applyRootTheme('dark');
             } else {
-              document.documentElement.classList.remove('dark');
-              document.documentElement.setAttribute('data-theme', 'light');
+              applyRootTheme('light');
             }
             const backendTheme = profileData.theme_preference === 'dark' ? 'dark' : 'light';
-            const prefKey = getUserPrefStorageKey(profileData.business_id || '', roleStr === 'admin' ? 2 : 5);
-            const existingPrefs = getLocalState<Record<string, unknown>>(prefKey, {});
-            saveLocalState(prefKey, { ...existingPrefs, themeMode: backendTheme });
             localStorage.setItem(`lergon_theme_${user.id}`, backendTheme);
             setConfig(prev => ({ ...prev, themeMode: backendTheme }));
           }
@@ -1193,18 +1203,9 @@ export default function App() {
                   setReadNotificationIds([]);
                 }
 
-                if (data.theme_preference) {
-                  if (data.theme_preference === 'dark') {
-                    document.documentElement.classList.add('dark');
-                    document.documentElement.setAttribute('data-theme', 'dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                    document.documentElement.setAttribute('data-theme', 'light');
-                  }
-                  const backendTheme = data.theme_preference === 'dark' ? 'dark' : 'light';
-                  const prefKey = getUserPrefStorageKey(data.business_id || '', roleStr === 'admin' ? 2 : 5);
-                  const existingPrefs = getLocalState<Record<string, unknown>>(prefKey, {});
-                  saveLocalState(prefKey, { ...existingPrefs, themeMode: backendTheme });
+                  if (data.theme_preference) {
+                    const backendTheme = data.theme_preference === 'dark' ? 'dark' : 'light';
+                    applyRootTheme(backendTheme);
                   localStorage.setItem(`lergon_theme_${user.id}`, backendTheme);
                   setConfig(prev => ({ ...prev, themeMode: backendTheme }));
                 }
@@ -1245,6 +1246,7 @@ export default function App() {
           .subscribe();
 
       } else {
+        applyRootTheme(isLandingDark ? 'dark' : 'light');
         console.log('[Supabase Auth Listener] User signed out or inactive.');
         try {
           localStorage.removeItem('lergon_session_active');
@@ -1344,8 +1346,8 @@ export default function App() {
   }, [currentUserRole, activeScreen]);
 
   useEffect(() => {
-    if (isLoggedIn && currentOrgId) {
-      const effective = loadEffectiveConfig(currentOrgId, currentUserRole, organizations);
+    if (authBootstrapReady && isLoggedIn && currentOrgId && currentUserUid) {
+      const effective = loadEffectiveConfig(currentOrgId, currentUserRole, organizations, currentUserUid);
       if (backendProfilePhone !== null) {
         if (currentUserRole === 2) {
           effective.phone = backendProfilePhone;
@@ -1357,7 +1359,7 @@ export default function App() {
       }
       setConfig(effective);
     }
-  }, [currentOrgId, currentUserRole, isLoggedIn, organizations, backendProfilePhone]);
+  }, [authBootstrapReady, currentOrgId, currentUserRole, currentUserUid, isLoggedIn, organizations, backendProfilePhone]);
 
   // Fetch real inventory, credits, transactions, and activity logs from Cloud Firestore onSnapshot Subscriptions
   useEffect(() => {
@@ -2334,20 +2336,22 @@ export default function App() {
     // theme and all unrelated config values during every save.
     newConfig = { ...config, ...newConfig };
 
-    // 1. Save user personal preferences under user-role specific storage key
+    // 1. Save language under the tenant-role preference key. Theme is
+    //    intentionally excluded because it belongs to the authenticated UID.
     const userPrefKey = getUserPrefStorageKey(currentOrgId, currentUserRole);
-    const userPrefs = {
-      languageCode: newConfig.languageCode,
-      themeMode: newConfig.themeMode
-    };
-    saveLocalState(userPrefKey, userPrefs);
+    const existingUserPrefs = getLocalState<Record<string, unknown>>(userPrefKey, {});
+    saveLocalState(userPrefKey, {
+      ...existingUserPrefs,
+      languageCode: newConfig.languageCode
+    });
 
     // 2. If Admin (role 2), also save organization-wide business settings
     //    locally, and push the currency to Supabase so every device and
     //    every teammate sees the same base currency in real time instead
     //    of it being stuck in this browser's local storage.
     if (currentUserRole === 2) {
-      saveLocalState(getOrgStorageKey(CONFIG_KEY, currentOrgId), newConfig);
+      const { themeMode: _ignoredThemeMode, ...orgScopedConfig } = newConfig;
+      saveLocalState(getOrgStorageKey(CONFIG_KEY, currentOrgId), orgScopedConfig);
 
       const currencyChanged =
         newConfig.currency !== config.currency ||
@@ -2385,11 +2389,9 @@ export default function App() {
         });
     }
 
-    if (newConfig.themeMode === 'light' || newConfig.themeMode === 'dark') {
-      const root = document.documentElement;
-      root.classList.toggle('dark', newConfig.themeMode === 'dark');
-      root.setAttribute('data-theme', newConfig.themeMode);
-      localStorage.setItem(`lergon_theme_${currentUserUid || 'anonymous'}`, newConfig.themeMode);
+    if ((newConfig.themeMode === 'light' || newConfig.themeMode === 'dark') && currentUserUid) {
+      applyRootTheme(newConfig.themeMode);
+      localStorage.setItem(`lergon_theme_${currentUserUid}`, newConfig.themeMode);
     }
 
     if (currentUserUid && (newConfig.themeMode === 'light' || newConfig.themeMode === 'dark') && newConfig.themeMode !== config.themeMode) {

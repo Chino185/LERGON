@@ -453,36 +453,29 @@ export default function Navigation({
   // but must not make the main notification badge appear unread.
   const unreadNotificationCount = unreadCriticalCount;
 
-  const userThemeStorageKey = currentUserUid ? `lergon_theme_${currentUserUid}` : 'theme';
-  const [localDarkMode, setLocalDarkMode] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark') || localStorage.getItem(userThemeStorageKey) === 'dark';
-    }
-    return false;
-  });
+  const userThemeStorageKey = currentUserUid ? `lergon_theme_${currentUserUid}` : null;
+  const [localDarkMode, setLocalDarkMode] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!currentUserUid) return;
+    if (!currentUserUid) {
+      setLocalDarkMode(false);
+      return;
+    }
     const savedTheme = localStorage.getItem(`lergon_theme_${currentUserUid}`);
     if (savedTheme === 'dark' || savedTheme === 'light') {
       setLocalDarkMode(savedTheme === 'dark');
     }
   }, [currentUserUid]);
 
-  const isDarkMode = themeMode ? themeMode === 'dark' : localDarkMode;
+  const isDarkMode = themeMode === 'dark' || (themeMode !== 'light' && localDarkMode);
 
   useEffect(() => {
-    const effectiveDarkMode = themeMode ? themeMode === 'dark' : localDarkMode;
-    if (effectiveDarkMode) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-      localStorage.setItem(userThemeStorageKey, 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.setAttribute('data-theme', 'light');
-      localStorage.setItem(userThemeStorageKey, 'light');
-    }
-  }, [themeMode, localDarkMode]);
+    if (!currentUserUid || !userThemeStorageKey) return;
+    const effectiveDarkMode = themeMode === 'dark' || (themeMode !== 'light' && localDarkMode);
+    document.documentElement.classList.toggle('dark', effectiveDarkMode);
+    document.documentElement.setAttribute('data-theme', effectiveDarkMode ? 'dark' : 'light');
+    localStorage.setItem(userThemeStorageKey, effectiveDarkMode ? 'dark' : 'light');
+  }, [themeMode, localDarkMode, currentUserUid, userThemeStorageKey]);
 
   return (
     <div id="app-shell" className="relative min-h-screen crextio-canvas overflow-x-hidden flex flex-col text-slate-900 font-sans">
@@ -566,7 +559,9 @@ export default function Navigation({
                 const root = document.documentElement;
                 root.classList.toggle('dark', nextTheme === 'dark');
                 root.setAttribute('data-theme', nextTheme);
-                localStorage.setItem(userThemeStorageKey, nextTheme);
+                if (userThemeStorageKey) {
+                  localStorage.setItem(userThemeStorageKey, nextTheme);
+                }
                 setLocalDarkMode(nextTheme === 'dark');
                 onThemeChange?.(nextTheme);
               }}
