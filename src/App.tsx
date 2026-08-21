@@ -190,6 +190,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [authBootstrapReady, setAuthBootstrapReady] = useState<boolean>(false);
   const [currentUserUid, setCurrentUserUid] = useState<string>('');
+  const [backendProfilePhone, setBackendProfilePhone] = useState<string | null>(null);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [backendNotifications, setBackendNotifications] = useState<BackendNotification[]>([]);
 
@@ -1130,6 +1131,7 @@ export default function App() {
             setCurrentUserRole(null);
             setCurrentOrgId('');
             setCurrentUserUid('');
+            setBackendProfilePhone(null);
             setReadNotificationIds([]);
             setAuthBootstrapReady(true);
             return;
@@ -1154,6 +1156,7 @@ export default function App() {
           // Pull the user's own contact number back from the backend (the
           // source of truth) into local config, so it shows correctly on
           // this device/session even if it was last set somewhere else.
+          setBackendProfilePhone(typeof profileData.phone === 'string' ? profileData.phone : '');
           if (typeof profileData.phone === 'string') {
             setConfig(prev => (
               roleStr === 'admin'
@@ -1186,6 +1189,7 @@ export default function App() {
                   setCurrentUserRole(null);
                   setCurrentOrgId('');
                   setCurrentUserUid('');
+                  setBackendProfilePhone(null);
                   setReadNotificationIds([]);
                 }
 
@@ -1227,6 +1231,7 @@ export default function App() {
 
                 // Keep the locally-shown contact number in sync with the
                 // backend if it changes elsewhere (e.g. another device).
+                setBackendProfilePhone(typeof data.phone === 'string' ? data.phone : '');
                 if (typeof data.phone === 'string') {
                   setConfig(prev => (
                     roleStr === 'admin'
@@ -1250,6 +1255,7 @@ export default function App() {
         setCurrentUserRole(null);
         setCurrentOrgId('');
         setCurrentUserUid('');
+        setBackendProfilePhone(null);
         setReadNotificationIds([]);
         if (profileChannel) {
           supabase.removeChannel(profileChannel);
@@ -1340,9 +1346,18 @@ export default function App() {
   useEffect(() => {
     if (isLoggedIn && currentOrgId) {
       const effective = loadEffectiveConfig(currentOrgId, currentUserRole, organizations);
+      if (backendProfilePhone !== null) {
+        if (currentUserRole === 2) {
+          effective.phone = backendProfilePhone;
+          effective.adminPhone = backendProfilePhone;
+        } else if (currentUserRole === 5) {
+          effective.phone = backendProfilePhone;
+          effective.attendantPhone = backendProfilePhone;
+        }
+      }
       setConfig(effective);
     }
-  }, [currentOrgId, currentUserRole, isLoggedIn, organizations]);
+  }, [currentOrgId, currentUserRole, isLoggedIn, organizations, backendProfilePhone]);
 
   // Fetch real inventory, credits, transactions, and activity logs from Cloud Firestore onSnapshot Subscriptions
   useEffect(() => {
