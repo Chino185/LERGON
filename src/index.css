@@ -1480,6 +1480,44 @@ span[class*="bg-red-"] {
   #app-main-content [class*="grid-cols-"] {
     min-width: 0;
   }
+  #app-main-content .flex,
+  #app-main-content .grid,
+  #app-main-content section,
+  #app-main-content article,
+  #app-main-content li {
+    min-width: 0;
+    max-width: 100%;
+  }
+  #app-main-content .flex > *,
+  #app-main-content .grid > * {
+    min-width: 0;
+  }
+  #app-main-content button,
+  #app-main-content a {
+    overflow-wrap: anywhere;
+  }
+  #app-main-content button.neumorphic-btn.text-white,
+  #app-main-content button.neumorphic-button.text-white,
+  #app-main-content button.neu-button.text-white,
+  #app-main-content a.neumorphic-btn.text-white,
+  #app-main-content a.neumorphic-button.text-white,
+  #app-main-content a.neu-button.text-white {
+    color: #0f172a !important;
+  }
+  .dark #app-main-content button.neumorphic-btn.text-white,
+  [data-theme="dark"] #app-main-content button.neumorphic-btn.text-white,
+  .dark #app-main-content button.neumorphic-button.text-white,
+  [data-theme="dark"] #app-main-content button.neumorphic-button.text-white,
+  .dark #app-main-content button.neu-button.text-white,
+  [data-theme="dark"] #app-main-content button.neu-button.text-white,
+  .dark #app-main-content a.neumorphic-btn.text-white,
+  [data-theme="dark"] #app-main-content a.neumorphic-btn.text-white,
+  .dark #app-main-content a.neumorphic-button.text-white,
+  [data-theme="dark"] #app-main-content a.neumorphic-button.text-white,
+  .dark #app-main-content a.neu-button.text-white,
+  [data-theme="dark"] #app-main-content a.neu-button.text-white {
+    color: #ffffff !important;
+  }
 
   /* Public landing page: keep the compact navigation scrollable and keep
      both hero actions visible as full-width neumorphic touch controls. */
@@ -1493,23 +1531,37 @@ span[class*="bg-red-"] {
   .landing-header > div {
     min-width: 0;
     max-width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    row-gap: 0.35rem;
   }
   .landing-nav-links {
+    order: 2;
+    flex: 1 1 auto;
     min-width: 0;
-    max-width: calc(100vw - 9.75rem);
+    max-width: 100%;
+    overflow-x: visible;
+    justify-content: stretch;
     scrollbar-width: none;
   }
   .landing-nav-links::-webkit-scrollbar {
     display: none;
   }
   .landing-nav-links a {
-    min-height: 2.75rem;
+    min-height: 2.5rem;
+    min-width: 0;
+    flex: 1 1 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding-inline: 0.75rem;
+    padding-inline: 0.35rem;
+    font-size: 0.7rem;
   }
   .landing-right-actions {
+    order: 1;
+    width: 100%;
+    justify-content: flex-end;
+    margin-left: auto;
     gap: 0.35rem;
   }
   .landing-right-actions > button {
@@ -1528,7 +1580,7 @@ span[class*="bg-red-"] {
   }
   .landing-hero {
     min-height: calc(100dvh - 0.5rem);
-    padding: 7rem 1rem 3rem;
+    padding: 9.25rem 1rem 3rem;
   }
   .landing-hero h1 {
     max-width: 100%;
