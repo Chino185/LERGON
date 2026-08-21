@@ -1042,7 +1042,8 @@ export default function App() {
     let profileChannel: any = null;
 
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setAuthBootstrapReady(true);
+      // Keep the loading shell visible until the profile theme has been
+      // applied. Rendering earlier is what causes a dark user to flash light.
       if (session?.user) {
         const user = session.user;
         console.log('[Supabase Auth Listener] Active session for:', user.email, 'UID:', user.id);
@@ -1130,6 +1131,7 @@ export default function App() {
             setCurrentOrgId('');
             setCurrentUserUid('');
             setReadNotificationIds([]);
+            setAuthBootstrapReady(true);
             return;
           }
 
@@ -1254,6 +1256,10 @@ export default function App() {
           profileChannel = null;
         }
       }
+
+      // Authenticated theme and profile state have now been applied, so it is
+      // safe for React to replace the bootstrap loading shell with the app.
+      setAuthBootstrapReady(true);
     });
 
     return () => {
