@@ -539,7 +539,7 @@ export function subscribeToRestockRequests(
   const fetchRequests = () => {
     supabase
       .from('restock_requests')
-      .select('*, inventory_items(product_title)')
+      .select('*, inventory_items(product_title), profiles(display_username, email)')
       .eq('business_id', businessId)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
@@ -548,20 +548,27 @@ export function subscribeToRestockRequests(
           return;
         }
         if (data) {
-          onUpdate(data.map(d => ({
+          onUpdate(data.map(d => {
+            const submittingProfile = Array.isArray(d.profiles) ? d.profiles[0] : d.profiles;
+            const profileName = String(submittingProfile?.display_username || '').trim();
+            const profileEmail = String(submittingProfile?.email || '').trim();
+            const submittedBy = profileName || (profileEmail ? profileEmail.split('@')[0] : '') || 'Attendant';
+
+            return {
             id: d.id,
             itemId: d.item_id,
             itemName: d.inventory_items?.product_title || 'Item',
             attendantQty: d.attendant_qty,
             attendantNotes: d.discrepancy_notes || '',
             date: d.created_at,
-            submittedBy: d.submitted_by || 'Attendant',
+            submittedBy,
             status: d.status as any,
             adminInputQty: d.admin_input_qty,
             discrepancyNotes: d.discrepancy_notes,
             resolvedAt: d.resolved_at,
             resolvedQty: d.resolved_qty
-          })));
+            };
+          }));
         }
       });
   };
