@@ -510,19 +510,17 @@ export default function GeminiAssistantOverlay({
         };
 
         recognition.onend = () => {
+          setIsWakeWordListening(false);
           if (active && !wakeTriggerInProgressRef.current && !isVoiceConnected && voiceStatus !== "connecting") {
-            // Restart listening continuously
+            // Chromium can permanently invalidate a SpeechRecognition instance
+            // after onend. Create a fresh instance instead of calling start()
+            // again on the old object.
+            recognitionRef.current = null;
             setTimeout(() => {
               if (active && !wakeTriggerInProgressRef.current && !isVoiceConnected && voiceStatus !== "connecting") {
-                try {
-                  recognition.start();
-                } catch (e) {
-                  // Ignore start failure
-                }
+                initRecognition();
               }
-            }, 1000);
-          } else {
-            setIsWakeWordListening(false);
+            }, 450);
           }
         };
 
@@ -534,9 +532,17 @@ export default function GeminiAssistantOverlay({
     };
 
     initRecognition();
+    const restartWakeListener = () => {
+      if (document.visibilityState === 'hidden' || !active || wakeTriggerInProgressRef.current || isVoiceConnected || voiceStatus === 'connecting') return;
+      if (!recognitionRef.current) initRecognition();
+    };
+    window.addEventListener('focus', restartWakeListener);
+    document.addEventListener('visibilitychange', restartWakeListener);
 
     return () => {
       active = false;
+      window.removeEventListener('focus', restartWakeListener);
+      document.removeEventListener('visibilitychange', restartWakeListener);
       if (recognition) {
         try {
           recognition.stop();
@@ -916,9 +922,10 @@ export default function GeminiAssistantOverlay({
           }
 
           if (name === "change_theme" && actionResult.success) {
-            const requestedTheme = args.theme === 'dark' ? 'dark' : 'light';
-            onUpdateConfig?.({ ...config, themeMode: requestedTheme });
-            setConfig?.(previous => ({ ...previous, themeMode: requestedTheme }));
+            const requestedTheme = String(args.theme || '').toLowerCase() === 'dark' ? 'dark' : 'light';
+            document.documentElement.classList.toggle('dark', requestedTheme === 'dark');
+            document.documentElement.setAttribute('data-theme', requestedTheme);
+            onUpdateConfig?.({ themeMode: requestedTheme } as BusinessConfig);
             return;
           }
 
