@@ -388,6 +388,61 @@ function queryActivityLogServer(adjustments: any[] = [], transactions: any[] = [
   return `=== HISTORICAL QUERY ACTIVITY LOG RESULTS (${matches.length} entries matched) ===\n${lines.join('\n')}`;
 }
 
+function queryPageContextServer(applicationContext: any, page: string, searchQuery = "") {
+  const normalizedPage = String(page || "").trim().toLowerCase();
+  const pageData = applicationContext?.pages?.[normalizedPage];
+
+  if (!pageData) {
+    return {
+      success: false,
+      error: "PAGE_CONTEXT_UNAVAILABLE",
+      message: `No live context is available for the '${normalizedPage || "requested"}' page.`
+    };
+  }
+
+  if (pageData.unavailable) {
+    return {
+      success: false,
+      error: "UNAUTHORIZED_PAGE",
+      message: pageData.reason || "Administrator permission is required for this page."
+    };
+  }
+
+  const query = String(searchQuery || "").trim().toLowerCase();
+  if (!query) {
+    return { success: true, page: normalizedPage, data: pageData };
+  }
+
+  const matchesQuery = (value: any): boolean => {
+    try {
+      return JSON.stringify(value).toLowerCase().includes(query);
+    } catch {
+      return false;
+    }
+  };
+
+  const filterValue = (value: any): any => {
+    if (Array.isArray(value)) {
+      return value.filter(entry => matchesQuery(entry));
+    }
+    if (value && typeof value === "object") {
+      const filteredEntries = Object.entries(value)
+        .filter(([, entry]) => matchesQuery(entry))
+        .reduce((result, [key, entry]) => ({ ...result, [key]: entry }), {} as Record<string, any>);
+      return Object.keys(filteredEntries).length > 0 ? filteredEntries : undefined;
+    }
+    return matchesQuery(value) ? value : undefined;
+  };
+
+  return {
+    success: true,
+    page: normalizedPage,
+    searchQuery,
+    data: filterValue(pageData) || {},
+    message: `Returned current role-filtered '${normalizedPage}' page data matching '${searchQuery}'.`
+  };
+}
+
 // API Endpoints for Gemini Intelligence Center (Smart audits & calculations)
 app.post("/api/gemini/analyze-inventory", async (req, res) => {
   const { inventory = [], adjustments = [], config = {}, deepAnalysis } = req.body;
@@ -863,6 +918,7 @@ const wss = new WebSocketServer({ noServer: true });
 wss.on("connection", (clientWs: WebSocket) => {
   console.log("WebSocket client connected to Live API bridge");
   let liveSession: any = null;
+  let latestApplicationContext: any = {};
   let sessionTimeoutTimer: NodeJS.Timeout | null = null;
 
   // Enforce maximum continuous voice session duration to prevent token exhaustion
@@ -903,10 +959,11 @@ wss.on("connection", (clientWs: WebSocket) => {
         } = msg;
 
         const isAdministrator = userRole === 2 || userRole === "2";
+        latestApplicationContext = applicationContext || {};
         const visiblePendingRestocks = isAdministrator
           ? pendingRestocks
-          : pendingRestocks.filter((restock: any) => !applicationContext?.operator?.name || restock.submittedBy === applicationContext.operator.name);
-        const applicationContextJson = JSON.stringify(applicationContext || {});
+          : pendingRestocks.filter((restock: any) => !latestApplicationContext?.operator?.name || restock.submittedBy === latestApplicationContext.operator.name);
+        const applicationContextJson = JSON.stringify(latestApplicationContext);
         const blockedAttendantActions = new Set([
           "delete_inventory_item",
           "correct_dashboard_kpi",
@@ -1034,6 +1091,13 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
 
         Here is the complete role-filtered application context for every page. Use the matching page section when the operator asks about Dashboard, Inventory, Transactions, Credit, Invoice, Reports, Notifications, Settings, or Activity Log. Never answer from a page marked unavailable:
         ${applicationContextJson}
+
+        LIVE STATE TRACKING DIRECTIVE:
+        - Treat the application context, dashboard KPI snapshot, and returned page-query data as the current source of truth for this business.
+        - Before answering an exact question about an item quantity, item price, balance, notification, transaction, activity, page record, or KPI, call query_page_data for the relevant page. Do not rely on memory, examples, or a previous turn.
+        - When explaining how an activity changed the business, use that activity record's kpiImpact fields and timestamp. Explain the change briefly as: activity, operator, time, KPI impact.
+        - After a mutation or realtime update, prefer the newest returned page-query data over older prompt text.
+        - Never say that you cannot access the app data when the requested page query returns data. If the query returns no match, say exactly that no matching record was found.
         
         You can read all this information to answer any specific audit, reconciliation, cost, profit, debt, replenishment, notification, invoice, report, settings, or history question asked by the operator instantly with exact data values.
         Acknowledge low stock alerts or severe overdue debts when asked, and recommend actions verbally. Use a friendly but professional tone. Do not use markdown notation in your speech (e.g., avoid asterisks or bullet lists, speak in smooth complete sentences).`;
@@ -1357,6 +1421,25 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                       }
                     },
                     {
+                      name: "query_page_data",
+                      description: "Read-only tool that returns the exact current role-filtered data for one LERGON page. You MUST call this before answering a page-specific question about Dashboard, Inventory, Transactions, Credit, Invoice, Reports, Notifications, Settings, or Activity Log. Never guess page data from memory or from another page. Attendants receive only the pages and records authorized for their role.",
+                      parameters: {
+                        type: Type.OBJECT,
+                        properties: {
+                          page: {
+                            type: Type.STRING,
+                            description: "Page to inspect. Must be one of: dashboard, inventory, transactions, credit, invoice, report, notifications, settings, activity_log.",
+                            enum: ["dashboard", "inventory", "transactions", "credit", "invoice", "report", "notifications", "settings", "activity_log"]
+                          },
+                          searchQuery: {
+                            type: Type.STRING,
+                            description: "Optional item, customer, transaction, notification, or other phrase to narrow the page data."
+                          }
+                        },
+                        required: ["page"]
+                      }
+                    },
+                    {
                       name: "query_activity_log",
                       description: "Queries historical activity log entries across inventory restocks, sales, damages, credit transactions, price changes, or audit logs. Use this on-demand tool when the user asks about historical actions, sales, or restocks outside the recent rolling window.",
                       parameters: {
@@ -1468,7 +1551,8 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                     const requestedPage = typeof call.args?.page === "string" ? call.args.page : "";
                     const blockedByRole = !isAdministrator && (
                       blockedAttendantActions.has(call.name) ||
-                      (call.name === "navigate_to_page" && ["settings", "activity_log"].includes(requestedPage))
+                      (call.name === "navigate_to_page" && ["settings", "activity_log"].includes(requestedPage)) ||
+                      (call.name === "query_page_data" && ["settings", "activity_log"].includes(requestedPage))
                     );
 
                     let toolResponsePayload: any = blockedByRole
@@ -1482,7 +1566,13 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                           message: `Successfully executed ${call.name} in user interface.`
                         };
 
-                    if (!blockedByRole && call.name === "query_activity_log") {
+                                        if (!blockedByRole && call.name === "query_page_data") {
+                      toolResponsePayload = queryPageContextServer(
+                        latestApplicationContext,
+                        typeof call.args?.page === "string" ? call.args.page : "",
+                        typeof call.args?.searchQuery === "string" ? call.args.searchQuery : ""
+                      );
+                    } else if (!blockedByRole && call.name === "query_activity_log") {
                       const queryResultText = queryActivityLogServer(adjustments, transactions, inventory, creditAccounts, call.args);
                       toolResponsePayload = {
                         success: true,
@@ -1490,14 +1580,16 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                       };
                     }
 
-                    // Forward tool call details to client
-                    clientWs.send(JSON.stringify({
-                      type: "tool_call",
-                      name: call.name,
-                      args: call.args,
-                      result: toolResponsePayload.matchingLogs,
-                      blocked: blockedByRole
-                    }));
+                    // Only mutating/navigation tools are forwarded to the browser action dispatcher.
+                    if (!["query_page_data", "query_activity_log"].includes(call.name)) {
+                      clientWs.send(JSON.stringify({
+                        type: "tool_call",
+                        name: call.name,
+                        args: call.args,
+                        result: toolResponsePayload.matchingLogs,
+                        blocked: blockedByRole
+                      }));
+                    }
 
                     // Respond back to Gemini Live API immediately to complete the call transaction
                     if (liveSession) {
@@ -1550,6 +1642,9 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
         }
       } else if (msg.type === "realtime_activity" || msg.type === "activity_update") {
         const { activitySummary, recentActivityContext, currentDataSnapshot } = msg;
+        if (currentDataSnapshot?.applicationContext) {
+          latestApplicationContext = currentDataSnapshot.applicationContext;
+        }
         console.log("Real-time activity update received for active Gemini Live session:", activitySummary);
         if (liveSession) {
           try {

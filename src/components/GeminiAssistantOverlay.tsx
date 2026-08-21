@@ -286,7 +286,7 @@ export default function GeminiAssistantOverlay({
             transactions: transactions.slice(0, 30),
             pendingRestocks,
             dashboardKpis: {
-              stockInHandValue: calculateDashboardStockInHand(inventory),
+              ...calculateDashboardMetrics(inventory, creditAccounts, adjustments, transactions),
               stockInHandBasis: "sum of current inventory quantity multiplied by current unit price"
             },
             applicationContext: buildRoleAwareApplicationContext()
@@ -312,9 +312,10 @@ export default function GeminiAssistantOverlay({
           transactions: transactions.slice(0, 30),
           pendingRestocks,
           dashboardKpis: {
-            stockInHandValue: calculateDashboardStockInHand(inventory),
+            ...calculateDashboardMetrics(inventory, creditAccounts, adjustments, transactions),
             stockInHandBasis: "sum of current inventory quantity multiplied by current unit price"
-          }
+          },
+          applicationContext: buildRoleAwareApplicationContext()
         }
       }));
     }
@@ -526,12 +527,109 @@ export default function GeminiAssistantOverlay({
     };
   }, [autoWakeEnabled, isVoiceConnected, voiceStatus]);
 
-  const calculateDashboardStockInHand = (items: InventoryItem[]) => {
-    return items.reduce((total, item) => {
-      const quantity = Number(item.quantity) || 0;
-      const unitPrice = Number(item.unitPrice) || 0;
-      return total + quantity * unitPrice;
+  const calculateDashboardMetrics = (
+    items: InventoryItem[],
+    accounts: CreditAccount[],
+    stockAdjustments: StockAdjustment[],
+    ledgerTransactions: CreditTransaction[]
+  ) => {
+    const stockInHandRetailValue = items.reduce((total, item) => {
+      return total + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
     }, 0);
+    const receivablesTotal = accounts
+      .filter(account => account.type === "receivable" && account.status !== "settled")
+      .reduce((total, account) => total + (Number(account.remainingAmount) || 0), 0);
+
+    const persistedTotals = ledgerTransactions.reduce((totals, transaction) => {
+      const transactionType = transaction.transactionType;
+      const lineItems = Array.isArray(transaction.lineItems) ? transaction.lineItems : [];
+      const saleLines = lineItems.filter(line => line.item_id && line.quantity && line.unit_price !== undefined);
+      if (transactionType === "repayment") {
+        const account = accounts.find(entry => entry.id === transaction.creditAccountId);
+        if (account?.type === "receivable") {
+          totals.paidCredit += Number(transaction.amount) || 0;
+          totals.hasPersistedMovement = true;
+        }
+        return totals;
+      }
+      if (saleLines.length === 0) return totals;
+      const amount = saleLines.reduce((sum, line) => {
+        return sum + Math.abs(Number(line.quantity) || 0) * (Number(line.unit_price) || 0);
+      }, 0);
+      if (transactionType === "sell") totals.cash += amount;
+      if (transactionType === "credit") totals.credit += amount;
+      totals.hasPersistedMovement = true;
+      return totals;
+    }, { cash: 0, credit: 0, paidCredit: 0, hasPersistedMovement: false });
+
+    const saleTotals = persistedTotals.hasPersistedMovement
+      ? persistedTotals
+      : stockAdjustments
+        .filter(adjustment => adjustment.type === "sale_out")
+        .reduce((totals, adjustment) => {
+          const item = items.find(entry => entry.id === adjustment.itemId);
+          const amount = Math.abs(Number(adjustment.qtyChanged) || 0) * (Number(adjustment.unitPriceSnapshot ?? item?.unitPrice) || 0);
+          const notes = (adjustment.notes || "").toLowerCase();
+          const isCredit = Boolean(adjustment.creditAccountId) || /credit|credited|crediting|sold on credit|on credit|debt|receivable|billed|pay later|unpaid|terms/.test(notes);
+          if (isCredit) totals.credit += amount;
+          else totals.cash += amount;
+          return totals;
+        }, { cash: 0, credit: 0, paidCredit: 0, hasPersistedMovement: false });
+
+    const valueSold = saleTotals.cash + saleTotals.paidCredit;
+    const totalInventoryValue = stockInHandRetailValue + valueSold + receivablesTotal;
+    return {
+      stockInHandValue: Math.max(0, totalInventoryValue - valueSold - receivablesTotal),
+      totalInventoryValue,
+      valueSold,
+      assetOnCredit: receivablesTotal,
+      cashSalesValue: saleTotals.cash,
+      paidCreditValue: saleTotals.paidCredit,
+      creditSalesValue: saleTotals.credit
+    };
+  };
+
+  const calculateDashboardStockInHand = (
+    items: InventoryItem[],
+    accounts: CreditAccount[] = creditAccounts,
+    stockAdjustments: StockAdjustment[] = adjustments,
+    ledgerTransactions: CreditTransaction[] = transactions
+  ) => calculateDashboardMetrics(items, accounts, stockAdjustments, ledgerTransactions).stockInHandValue;
+
+  const calculateTransactionKpiImpact = (transaction: CreditTransaction, accounts: CreditAccount[]) => {
+    const amount = Number(transaction.amount) || 0;
+    const account = accounts.find(entry => entry.id === transaction.creditAccountId);
+    if (transaction.type === "pay" && account?.type === "receivable") {
+      return { totalInventoryValue: 0, stockInHand: 0, valueSold: amount, assetOnCredit: -amount };
+    }
+    if ((transaction.type === "borrow" || transaction.type === "charge") && account?.type === "receivable") {
+      return { totalInventoryValue: 0, stockInHand: 0, valueSold: 0, assetOnCredit: amount };
+    }
+    return { totalInventoryValue: 0, stockInHand: 0, valueSold: 0, assetOnCredit: 0 };
+  };
+
+  const calculateActivityKpiImpact = (adjustment: StockAdjustment, items: InventoryItem[], accounts: CreditAccount[]) => {
+    const item = items.find(entry => entry.id === adjustment.itemId);
+    const amount = Math.abs(Number(adjustment.qtyChanged) || 0) * (Number(adjustment.unitPriceSnapshot ?? item?.unitPrice) || 0);
+    const notes = (adjustment.notes || "").toLowerCase();
+    const isCreditSale = adjustment.type === "sale_out" && (Boolean(adjustment.creditAccountId) || /credit|credited|on credit|debt|receivable|pay later|unpaid|terms/.test(notes));
+    const zero = { totalInventoryValue: 0, stockInHand: 0, valueSold: 0, assetOnCredit: 0 };
+    if (adjustment.type === "purchase_in" || adjustment.type === "initial_stock" || adjustment.type === "returned") {
+      return { totalInventoryValue: amount, stockInHand: amount, valueSold: 0, assetOnCredit: 0 };
+    }
+    if (adjustment.type === "damaged") {
+      return { totalInventoryValue: -amount, stockInHand: -amount, valueSold: 0, assetOnCredit: 0 };
+    }
+    if (adjustment.type === "sale_out") {
+      return isCreditSale
+        ? { totalInventoryValue: 0, stockInHand: -amount, valueSold: 0, assetOnCredit: amount }
+        : { totalInventoryValue: 0, stockInHand: -amount, valueSold: amount, assetOnCredit: 0 };
+    }
+    if (adjustment.type === "audit_adjustment") {
+      const signedAmount = Number(adjustment.qtyChanged) >= 0 ? amount : -amount;
+      return { totalInventoryValue: signedAmount, stockInHand: signedAmount, valueSold: 0, assetOnCredit: 0 };
+    }
+    return zero;
   };
 
   const buildRoleAwareApplicationContext = () => {
@@ -573,7 +671,8 @@ export default function GeminiAssistantOverlay({
       paymentMethod: transaction.paymentMethod,
       performedBy: transaction.performedBy,
       isFlagged: transaction.isFlagged,
-      isResolved: transaction.isResolved
+      isResolved: transaction.isResolved,
+      kpiImpact: calculateTransactionKpiImpact(transaction, creditAccounts)
     }));
     const safeAdjustments = adjustments.map(adjustment => ({
       id: adjustment.id,
@@ -588,7 +687,8 @@ export default function GeminiAssistantOverlay({
       performedBy: adjustment.performedBy,
       isFlagged: adjustment.isFlagged,
       isResolved: adjustment.isResolved,
-      correctionNotes: adjustment.correctionNotes
+      correctionNotes: adjustment.correctionNotes,
+      kpiImpact: calculateActivityKpiImpact(adjustment, inventory, creditAccounts)
     }));
     const safeNotifications = backendNotifications
       .filter(notification => isAdministrator || !/restock validation|pending restock|activity log|system settings|currency change|invite pin|business profile/i.test(`${notification.eventKey} ${notification.title} ${notification.message}`))
@@ -609,7 +709,8 @@ export default function GeminiAssistantOverlay({
     const safePendingRestocks = isAdministrator
       ? pendingRestocks
       : pendingRestocks.filter(restock => !currentUserName || restock.submittedBy === currentUserName);
-    const stockInHandValue = calculateDashboardStockInHand(inventory);
+    const dashboardMetrics = calculateDashboardMetrics(inventory, creditAccounts, adjustments, transactions);
+    const sessionActivityLog = activityLogger.getSessionLogs();
 
     return {
       currentScreen: activeScreen,
@@ -630,9 +731,8 @@ export default function GeminiAssistantOverlay({
       },
       pages: {
         dashboard: {
-          stockInHandValue,
+          ...dashboardMetrics,
           stockInHandBasis: "current inventory quantity multiplied by current unit price",
-          totalInventoryValue: stockInHandValue,
           inventoryItemCount: safeInventory.length,
           lowStockItems: safeInventory.filter(item => item.quantity > 0 && item.quantity <= item.reorderPoint).map(item => ({ id: item.id, name: item.name, quantity: item.quantity, reorderPoint: item.reorderPoint }))
         },
@@ -657,7 +757,8 @@ export default function GeminiAssistantOverlay({
           adjustments: safeAdjustments,
           transactions: safeTransactions,
           creditAccounts: safeCreditAccounts,
-          stockInHandValue
+          ...dashboardMetrics,
+          activityKpiImpactModel: "Each activity includes kpiImpact showing its change to totalInventoryValue, stockInHand, valueSold, and assetOnCredit."
         },
         notifications: {
           notifications: safeNotifications
@@ -669,6 +770,9 @@ export default function GeminiAssistantOverlay({
           ? { adjustments: safeAdjustments, transactions: safeTransactions }
           : { unavailable: true, reason: "Administrator permission is required." }
       },
+      sessionActivityLog,
+      generatedAt: new Date().toISOString(),
+      source: "live Supabase-backed React state",
       restrictions: isAdministrator
         ? []
         : ["Settings and Activity Log are unavailable to Attendants.", "Organization-wide settings, invite management, KPI overrides, deletion, and administrative corrections require Administrator permission."]
@@ -702,7 +806,7 @@ export default function GeminiAssistantOverlay({
 
       ws.onopen = () => {
         const liveData = latestLiveDataRef.current;
-        const stockInHandValue = calculateDashboardStockInHand(liveData.inventory);
+        const dashboardMetrics = calculateDashboardMetrics(liveData.inventory, liveData.creditAccounts, liveData.adjustments, liveData.transactions);
         const applicationContext = buildRoleAwareApplicationContext();
         const recentCtx = getRecentActivityContext(liveData.adjustments, liveData.transactions, liveData.inventory, liveData.creditAccounts, 20);
         ws.send(JSON.stringify({
@@ -714,7 +818,7 @@ export default function GeminiAssistantOverlay({
           transactions: liveData.transactions,
           pendingRestocks: liveData.pendingRestocks,
           dashboardKpis: {
-            stockInHandValue,
+            ...dashboardMetrics,
             stockInHandBasis: "sum of current inventory quantity multiplied by current unit price"
           },
           applicationContext,
