@@ -2551,12 +2551,12 @@ export default function App() {
           </div>
         </div>
       ) : !isLoggedIn ? (
-        <div className="relative min-h-screen bg-slate-100 dark:bg-[#0A0E1A] text-slate-900 dark:text-white font-sans overflow-x-hidden flex flex-col selection:bg-blue-500/30 transition-colors duration-700">
+        <div className="landing-shell relative min-h-screen bg-slate-100 dark:bg-[#0A0E1A] text-slate-900 dark:text-white font-sans overflow-x-hidden flex flex-col selection:bg-blue-500/30 transition-colors duration-700">
           {/* Custom Cosmic Canvas Scroll Scrubbing Background */}
           <LandingPageBackground currentBg={landingBg} onToggleBg={setLandingBg} isDarkMode={isLandingDark} />
 
           {/* Top Navigation Bar with Inspiration Notch */}
-          <header className="fixed top-0 left-0 right-0 z-50 neu-flat rounded-none border-b border-white/90 dark:border-slate-800/80 px-3 sm:px-6 lg:px-12 py-2.5 sm:py-3 transition-all shadow-xl backdrop-blur-md">
+          <header className="landing-header fixed top-0 left-0 right-0 z-50 neu-flat rounded-none border-b border-white/90 dark:border-slate-800/80 px-3 sm:px-6 lg:px-12 py-2.5 sm:py-3 transition-all shadow-xl backdrop-blur-md">
 
             {/* Center Notch Container with Logo (visible on large screens) */}
             <div
@@ -2570,7 +2570,7 @@ export default function App() {
 
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
               {/* Left Nav Links - smoothly scrollable on compact screens */}
-              <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar whitespace-nowrap py-0.5">
+              <div className="landing-nav-links flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar whitespace-nowrap py-0.5">
                 {/* Compact Logo for small/minimized windows */}
                 <div
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -2599,7 +2599,7 @@ export default function App() {
               </div>
 
               {/* Right Nav Links */}
-              <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+              <div className="landing-right-actions flex items-center gap-1.5 sm:gap-3 shrink-0">
                 {/* Landing Page Dark/Light Theme Mode Toggle Button */}
                 <button
                   type="button"
@@ -2629,7 +2629,7 @@ export default function App() {
           {/* Main Landing Sections Overlay Container */}
           <main className="relative z-10 w-full flex-1">
             {/* --- SECTION 1: HERO (Main Headline & Hook) --- */}
-            <section id="hero" className="relative min-h-[88vh] flex flex-col items-center justify-center text-center px-4 sm:px-6 pt-24 sm:pt-28 pb-16 overflow-hidden">
+            <section id="hero" className="landing-hero relative min-h-[88vh] flex flex-col items-center justify-center text-center px-4 sm:px-6 pt-24 sm:pt-28 pb-16 overflow-hidden">
               <div className="max-w-4xl mx-auto space-y-6 flex flex-col items-center relative z-10">
 
                 {/* Main Headline (h1, parallax-fast) */}
@@ -2643,7 +2643,7 @@ export default function App() {
                 </p>
 
                 {/* Primary Action Buttons */}
-                <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
+                <div className="landing-hero-actions pt-4 flex flex-wrap items-center justify-center gap-4">
                   {/* Primary CTA (neu-button active-tab) */}
                   <button
                     onClick={() => { setActiveView('register'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
