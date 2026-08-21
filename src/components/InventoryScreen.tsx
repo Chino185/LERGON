@@ -38,7 +38,6 @@ import MaterialIcon from './MaterialIcon';
 import { downloadCSV, formatCSVDateTime, formatCSVCurrency, formatCSVNumber } from '../utils/csvExporter';
 import {
   subscribeToDamageReports,
-  subscribeToRestockRequests,
   reportDamagedStockTransaction,
   subscribeToBusinessCategories,
   saveBusinessCategories,
@@ -61,7 +60,7 @@ interface InventoryScreenProps {
   onDamageReported?: (itemId: string, quantityDamaged: number) => void;
   userRole?: number;
   pendingRestocks?: PendingRestock[];
-  onVerifyRestock?: (id: string, adminQty: number, notes?: string, forceResolveValue?: number) => 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error';
+  onVerifyRestock?: (id: string, adminQty: number, notes?: string, forceResolveValue?: number) => Promise<'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error'> | 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error';
   inventoryTabOverride?: 'active_stock' | 'damaged_audit' | 'restock_validations' | null;
   onClearInventoryTabOverride?: () => void;
 }
@@ -73,7 +72,7 @@ function RestockVerificationRow({
 }: {
   key?: React.Key,
   restock: PendingRestock,
-  onVerifyRestock?: (id: string, adminQty: number, notes?: string, forceResolveValue?: number) => 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error',
+  onVerifyRestock?: (id: string, adminQty: number, notes?: string, forceResolveValue?: number) => Promise<'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error'> | 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error',
   config: BusinessConfig
 }) {
   const [adminQty, setAdminQty] = useState<number | ''>('');
@@ -86,7 +85,7 @@ function RestockVerificationRow({
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [showResolutionForm, setShowResolutionForm] = useState(false);
 
-  const handleSubmitVerification = (e: React.FormEvent) => {
+  const handleSubmitVerification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adminQty === '') {
       setErrorMsg('Please enter a count quantity.');
@@ -97,7 +96,7 @@ function RestockVerificationRow({
     setSuccessMsg('');
 
     if (onVerifyRestock) {
-      const result = onVerifyRestock(restock.id, Number(adminQty), notes);
+      const result = await onVerifyRestock(restock.id, Number(adminQty), notes);
       if (result === 'resolved_matched') {
         setSuccessMsg('Match successful! Stock quantities verified and added to system.');
       } else if (result === 'on_hold') {
@@ -106,7 +105,7 @@ function RestockVerificationRow({
     }
   };
 
-  const handleResolveConflictSubmit = (e: React.FormEvent) => {
+  const handleResolveConflictSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (resolvedQty === '') {
       alert('Please enter the finalized resolved quantity.');
@@ -114,7 +113,8 @@ function RestockVerificationRow({
     }
 
     if (onVerifyRestock) {
-      onVerifyRestock(restock.id, restock.adminInputQty || 0, resolutionNotes || 'Conflict resolved by Admin', Number(resolvedQty));
+      const result = await onVerifyRestock(restock.id, restock.adminInputQty || 0, resolutionNotes || 'Conflict resolved by Admin', Number(resolvedQty));
+      if (result === 'error') return;
       alert('Discrepancy resolved successfully! Stock updated.');
     }
   };
@@ -327,17 +327,11 @@ export default function InventoryScreen({
   // from the authenticated Supabase session) instead of being guessed
   // from the config object.
 
-  // Damage reports and restock requests are only subscribed here (no
-  // duplicate elsewhere), so they keep their own realtime stream.
-  // Inventory itself is NOT re-subscribed here: App.tsx already owns a
-  // live Supabase Realtime subscription for inventory_items AND performs
-  // an optimistic local update the instant an item is added, so items
-  // show up immediately. A second subscription here used to fight over
-  // the same Realtime channel name (inventory_${businessId}), tearing
-  // down App.tsx's channel and forcing this screen to wait on its own
-  // round trip before new items appeared.
+  // Inventory items, pending restock requests, and their notifications are
+  // owned by App.tsx. Keeping one restock subscription prevents this screen
+  // from replacing App.tsx's channel and leaving Admin verification or the
+  // Notifications page with stale pending-request state.
   const [realtimeDamageReports, setRealtimeDamageReports] = useState<DamageReport[] | null>(null);
-  const [realtimeRestocks, setRealtimeRestocks] = useState<PendingRestock[] | null>(null);
 
   useEffect(() => {
     if (!businessId || businessId === 'default') return;
@@ -346,18 +340,13 @@ export default function InventoryScreen({
       setRealtimeDamageReports(reports);
     });
 
-    const unsubRestocks = subscribeToRestockRequests(businessId, (restocks) => {
-      setRealtimeRestocks(restocks);
-    });
-
     return () => {
       unsubDamages();
-      unsubRestocks();
     };
   }, [businessId]);
 
   const activeInventory = inventory;
-  const activePendingRestocks = realtimeRestocks !== null ? realtimeRestocks : pendingRestocks;
+  const activePendingRestocks = pendingRestocks;
 
   const pendingCount = useMemo(() => {
     return activePendingRestocks?.filter(r => r.status === 'pending').length || 0;
@@ -1782,9 +1771,9 @@ export default function InventoryScreen({
                     <RestockVerificationRow
                       key={restock.id}
                       restock={restock}
-                      onVerifyRestock={(id, adminQty, notes, forceValue) => {
+                      onVerifyRestock={async (id, adminQty, notes, forceValue) => {
                         if (onVerifyRestock) {
-                          return onVerifyRestock(id, adminQty, notes, forceValue);
+                          return await onVerifyRestock(id, adminQty, notes, forceValue);
                         }
                         return (restock.attendantQty === adminQty || forceValue !== undefined) ? 'resolved_matched' : 'on_hold';
                       }}
@@ -1814,7 +1803,7 @@ export default function InventoryScreen({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 text-slate-700 dark:text-slate-200">
-                      {pendingRestocks.filter(r => r.status === 'resolved').slice(0, 10).map((r) => (
+                      {activePendingRestocks.filter(r => r.status === 'resolved' || r.status === 'approved').slice(0, 10).map((r) => (
                         <tr key={r.id} className="hover:bg-slate-50/50 transition">
                           <td className="p-3 font-bold text-slate-900 dark:text-white">{r.itemName}</td>
                           <td className="p-3 text-center font-mono font-medium">{r.attendantQty}</td>

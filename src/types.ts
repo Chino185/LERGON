@@ -155,7 +155,7 @@ export interface PendingRestock {
   attendantNotes: string;
   date: string;
   submittedBy: string;
-  status: 'pending' | 'on_hold' | 'resolved';
+  status: 'pending' | 'on_hold' | 'resolved' | 'approved';
   adminInputQty?: number;
   discrepancyNotes?: string;
   resolvedAt?: string;

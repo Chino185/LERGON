@@ -88,10 +88,22 @@ export default function NotificationsScreen({
     }
   };
 
-  // Build the complete list of system notifications/alerts
+  // Build the complete list of system notifications/alerts.
+  // Backend notifications remain the source of truth for persisted events;
+  // pending restock requests are merged below because they arrive from the
+  // dedicated realtime restock_requests subscription.
   const criticalNotifications = useMemo(() => {
-    if (backendNotifications !== undefined) {
-      return backendNotifications
+    const list: Array<{
+      id: string;
+      title: string;
+      description: string;
+      type: 'error' | 'warning' | 'success';
+      date: string;
+      category: string;
+      targetScreen: string;
+      targetTab?: string;
+    }> = backendNotifications !== undefined
+      ? backendNotifications
         .filter(notification => notification.isActive)
         .map(notification => ({
           id: notification.eventKey || notification.id,
@@ -102,20 +114,13 @@ export default function NotificationsScreen({
           category: notification.category === 'inventory' ? 'Inventory' : notification.category === 'credit' ? 'Credit' : 'System',
           targetScreen: notification.targetScreen,
           targetTab: notification.targetTab
-        }));
-    }
+        }))
+      : [];
 
-    const list: Array<{
-      id: string;
-      title: string;
-      description: string;
-      type: 'error' | 'warning' | 'success';
-      date: string;
-      category: string;
-      targetScreen: string;
-      targetTab?: string;
-    }> = [];
-
+    // Synthetic fallback alerts are used only when the backend notification
+    // stream is unavailable. Pending restock alerts are intentionally added
+    // after this block so they remain visible with backend low-stock alerts.
+    if (backendNotifications === undefined) {
     // 1. Inventory stock levels monitoring
     inventory.forEach(item => {
       if (item.quantity === 0) {
@@ -224,7 +229,11 @@ export default function NotificationsScreen({
       });
     }
 
-    // 6. Restock validation alerts for Admin
+    }
+
+    // 6. Restock validation alerts for Admin. These are sourced from the
+    // realtime restock_requests feed and merged into the same notification
+    // list as persisted backend notifications.
     if (userRole === 2 && pendingRestocks) {
       pendingRestocks.forEach(r => {
         if (r.status === 'pending') {

@@ -1873,12 +1873,12 @@ export default function App() {
     return result;
   };
 
-  const handleVerifyRestock = (
+  const handleVerifyRestock = async (
     id: string,
     adminQty: number,
     discrepancyNotes?: string,
     forceResolveValue?: number
-  ): 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error' => {
+  ): Promise<'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error'> => {
     const pending = pendingRestocks.find(r => r.id === id);
     if (!pending) return 'error';
 
@@ -1887,7 +1887,7 @@ export default function App() {
     const status = (isForced || isMatch) ? 'approved' : 'on_hold';
     const targetQty = isForced ? Number(forceResolveValue) : adminQty;
 
-    verifyRestockRequestTransaction(
+    const result = await verifyRestockRequestTransaction(
       currentOrgId,
       currentUserUid || '',
       currentUserRole || 2,
@@ -1897,46 +1897,46 @@ export default function App() {
       targetQty,
       discrepancyNotes,
       isForced ? Number(forceResolveValue) : undefined
-    ).then(result => {
-      if (result.result === 'error' || !result.success) {
-        alert(result.error || 'Failed to persist restock verification.');
-        return;
-      }
+    );
 
-      if (status !== 'on_hold') {
-        const now = new Date().toISOString();
-        setInventory(prev => prev.map(item => item.id === pending.itemId
-          ? { ...item, quantity: item.quantity + targetQty, lastUpdated: now }
-          : item
-        ));
-        setAdjustments(prev => [{
-          id: `optimistic-restock-${id}`,
-          itemId: pending.itemId,
-          itemName: pending.itemName,
-          qtyChanged: targetQty,
-          type: 'purchase_in',
-          date: now,
-          notes: discrepancyNotes || pending.attendantNotes || 'Restock approved by Administrator',
-          performedBy: currentUserUid || ''
-        }, ...prev.filter(adjustment => adjustment.id !== `optimistic-restock-${id}`)]);
-        setPendingRestocks(prev => prev.map(request => request.id === id
-          ? {
-            ...request,
-            status: 'resolved',
-            adminInputQty: targetQty,
-            discrepancyNotes: discrepancyNotes || request.discrepancyNotes,
-            resolvedAt: now,
-            resolvedQty: targetQty
-          }
-          : request
-        ));
-      } else {
-        setPendingRestocks(prev => prev.map(request => request.id === id
-          ? { ...request, status: 'on_hold', adminInputQty: targetQty, discrepancyNotes }
-          : request
-        ));
-      }
-    });
+    if (result.result === 'error' || !result.success) {
+      alert(result.error || 'Failed to persist restock verification.');
+      return 'error';
+    }
+
+    if (status !== 'on_hold') {
+      const now = new Date().toISOString();
+      setInventory(prev => prev.map(item => item.id === pending.itemId
+        ? { ...item, quantity: item.quantity + targetQty, lastUpdated: now }
+        : item
+      ));
+      setAdjustments(prev => [{
+        id: `optimistic-restock-${id}`,
+        itemId: pending.itemId,
+        itemName: pending.itemName,
+        qtyChanged: targetQty,
+        type: 'purchase_in',
+        date: now,
+        notes: discrepancyNotes || pending.attendantNotes || 'Restock approved by Administrator',
+        performedBy: currentUserUid || ''
+      }, ...prev.filter(adjustment => adjustment.id !== `optimistic-restock-${id}`)]);
+      setPendingRestocks(prev => prev.map(request => request.id === id
+        ? {
+          ...request,
+          status: 'resolved',
+          adminInputQty: targetQty,
+          discrepancyNotes: discrepancyNotes || request.discrepancyNotes,
+          resolvedAt: now,
+          resolvedQty: targetQty
+        }
+        : request
+      ));
+    } else {
+      setPendingRestocks(prev => prev.map(request => request.id === id
+        ? { ...request, status: 'on_hold', adminInputQty: targetQty, discrepancyNotes }
+        : request
+      ));
+    }
 
     if (status === 'on_hold') return 'on_hold';
     return isForced ? 'resolved_forced' : 'resolved_matched';
