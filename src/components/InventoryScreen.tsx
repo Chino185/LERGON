@@ -134,24 +134,24 @@ function RestockVerificationRow({
   const isOnHold = restock.status === 'on_hold';
 
   return (
-    <div className={`p-4 border rounded-xl shadow-2xs transition ${isOnHold ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200 bg-slate-50/30'
+    <div className={`neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] p-4 border rounded-2xl transition text-slate-900 dark:text-white ${isOnHold ? 'border-amber-300/70 dark:border-amber-500/40 ring-1 ring-amber-300/30 dark:ring-amber-500/20' : 'border-white/90 dark:border-slate-700/80'
       }`}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Info Area */}
         <div className="space-y-1 text-left">
           <div className="flex items-center gap-2">
-            <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isOnHold ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'
+            <span className={`neumorphic-inset inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isOnHold ? 'bg-amber-100/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200' : 'bg-[#ebf0f7] dark:bg-[#202225] text-slate-700 dark:text-slate-200'
               }`}>
               {isOnHold ? 'ON HOLD' : 'PENDING'}
             </span>
             <span className="text-[10px] text-slate-400 font-mono">{formattedDate}</span>
           </div>
-          <h4 className="text-sm font-bold text-slate-900">{restock.itemName}</h4>
-          <p className="text-[11px] text-slate-500 font-medium">
-            Submitted by: <strong className="text-slate-700">{restock.submittedBy}</strong>
+          <h4 className="text-sm font-bold text-slate-900 dark:text-white">{restock.itemName}</h4>
+          <p className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">
+            Submitted by: <strong className="text-slate-700 dark:text-slate-200">{restock.submittedBy}</strong>
           </p>
           {restock.attendantNotes && (
-            <p className="text-[10.5px] text-slate-500 leading-relaxed italic bg-white/50 border border-slate-100 px-2 py-1 rounded mt-1 max-w-xl">
+              <p className="neumorphic-inset text-[10.5px] text-slate-500 dark:text-slate-300 leading-relaxed italic bg-[#ebf0f7] dark:bg-[#0f172a] border border-white/80 dark:border-slate-700 px-2 py-1 rounded-xl mt-1 max-w-xl">
               &ldquo;{restock.attendantNotes}&rdquo;
             </p>
           )}
@@ -186,7 +186,7 @@ function RestockVerificationRow({
 
             <button
               type="submit"
-              className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition shadow-2xs cursor-pointer h-9 shrink-0 flex items-center justify-center gap-1"
+              className="neumorphic-btn text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-white py-2 px-4 rounded-xl text-xs transition cursor-pointer h-9 shrink-0 flex items-center justify-center gap-1"
             >
               Verify
             </button>
@@ -194,15 +194,15 @@ function RestockVerificationRow({
         ) : (
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
             {/* On Hold Discrepancy details & Query Actions */}
-            <div className="text-left bg-white p-3 border border-amber-200 rounded-lg max-w-sm space-y-1.5 shadow-3xs">
-              <div className="text-[10px] font-extrabold text-amber-800 uppercase flex items-center gap-1">
+            <div className="neumorphic-inset text-left bg-[#ebf0f7] dark:bg-[#0f172a] p-3 border border-amber-200/70 dark:border-amber-500/40 rounded-xl max-w-sm space-y-1.5">
+              <div className="text-[10px] font-extrabold text-amber-800 dark:text-amber-200 uppercase flex items-center gap-1">
                 <AlertTriangle size={12} className="text-amber-500" /> Count Discrepancy Found!
               </div>
-              <div className="text-[10.5px] text-slate-700 grid grid-cols-2 gap-x-2">
-                <span>Attendant Logged:</span> <strong className="text-slate-900">{restock.attendantQty} pcs</strong>
-                <span>Admin Logged:</span> <strong className="text-slate-900">{restock.adminInputQty} pcs</strong>
+              <div className="text-[10.5px] text-slate-700 dark:text-slate-200 grid grid-cols-2 gap-x-2">
+                <span>Attendant Logged:</span> <strong className="text-slate-900 dark:text-white">{restock.attendantQty} pcs</strong>
+                <span>Admin Logged:</span> <strong className="text-slate-900 dark:text-white">{restock.adminInputQty} pcs</strong>
               </div>
-              <div className="text-[10px] text-slate-500 truncate max-w-[240px]">
+              <div className="text-[10px] text-slate-500 dark:text-slate-300 truncate max-w-[240px]">
                 {restock.discrepancyNotes}
               </div>
             </div>
@@ -213,7 +213,7 @@ function RestockVerificationRow({
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 text-center leading-none"
+                  className="neumorphic-btn text-emerald-700 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-white py-1.5 px-3 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 text-center leading-none"
                 >
                   <Phone size={12} /> Query Attendant
                 </a>
@@ -221,7 +221,7 @@ function RestockVerificationRow({
                 <button
                   type="button"
                   onClick={() => alert(`Attendant phone details:\n- Attendant: ${restock.attendantQty} pcs\n- Admin: ${restock.adminInputQty} pcs`)}
-                  className="py-1.5 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg text-xs transition cursor-pointer flex items-center justify-center gap-1.5 leading-none"
+                  className="neumorphic-btn text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white py-1.5 px-3 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 leading-none"
                 >
                   Query Attendant
                 </button>
@@ -230,7 +230,7 @@ function RestockVerificationRow({
               <button
                 type="button"
                 onClick={() => setShowResolutionForm(!showResolutionForm)}
-                className="py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs transition shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 leading-none"
+                className="neumorphic-btn text-amber-700 dark:text-amber-200 hover:text-amber-900 dark:hover:text-white py-1.5 px-3 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 leading-none"
               >
                 Resolve Discrepancy
               </button>
@@ -245,10 +245,10 @@ function RestockVerificationRow({
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           onSubmit={handleResolveConflictSubmit}
-          className="mt-4 pt-4 border-t border-amber-200 grid grid-cols-1 md:grid-cols-3 gap-3 text-left"
+          className="neumorphic-inset mt-4 p-4 border border-amber-200/70 dark:border-amber-500/40 grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl text-left"
         >
           <div>
-            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Final Agreed Quantity</label>
+            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Final Agreed Quantity</label>
             <input
               type="number"
               min="0"
@@ -261,7 +261,7 @@ function RestockVerificationRow({
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Resolution / Correction Note</label>
+            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Resolution / Correction Note</label>
             <input
               type="text"
               required
@@ -275,7 +275,7 @@ function RestockVerificationRow({
           <div className="flex items-end">
             <button
               type="submit"
-              className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition shadow-2xs cursor-pointer h-9 flex items-center justify-center gap-1"
+              className="neumorphic-btn text-emerald-700 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-white w-full py-2 rounded-xl text-xs transition cursor-pointer h-9 flex items-center justify-center gap-1"
             >
               Resolve & Approve Stock
             </button>
@@ -1101,9 +1101,9 @@ export default function InventoryScreen({
           <button
             type="button"
             onClick={() => setInventoryTab('restock_validations')}
-            className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${inventoryTab === 'restock_validations'
-              ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${inventoryTab === 'restock_validations'
+              ? 'neumorphic-inset bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white font-extrabold'
+              : 'neumorphic-btn text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
           >
             <span>Restock Validations</span>
@@ -1725,31 +1725,31 @@ export default function InventoryScreen({
         <div className="space-y-6">
           {/* Header section with Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="finnova-card p-5 text-slate-900 text-left">
+            <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] p-5 text-slate-900 dark:text-white text-left">
               <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider flex items-center gap-1">
-                <PackageCheck size={13} className="text-slate-800" /> Pending Validations
+                <PackageCheck size={13} className="text-slate-800 dark:text-slate-200" /> Pending Validations
               </span>
-              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 font-sans">
+              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 dark:text-white font-sans">
                 {activePendingRestocks?.filter(r => r.status === 'pending').length || 0} items
               </strong>
               <p className="text-[9.5px] text-slate-500 font-medium mt-1">Awaiting blind admin verification</p>
             </div>
 
-            <div className="finnova-card p-5 text-slate-900 text-left">
+            <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] p-5 text-slate-900 dark:text-white text-left">
               <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider flex items-center gap-1">
-                <ShieldAlert size={13} className="text-slate-800" /> On Hold (Conflicts)
+                <ShieldAlert size={13} className="text-slate-800 dark:text-slate-200" /> On Hold (Conflicts)
               </span>
-              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 font-sans">
+              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 dark:text-white font-sans">
                 {activePendingRestocks?.filter(r => r.status === 'on_hold').length || 0} items
               </strong>
               <p className="text-[9.5px] text-slate-500 font-medium mt-1">Discrepancies found & query open</p>
             </div>
 
-            <div className="finnova-card p-5 text-slate-900 text-left">
+            <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] p-5 text-slate-900 dark:text-white text-left">
               <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider flex items-center gap-1">
-                <CheckCircle2 size={13} className="text-slate-800" /> Resolved / Approved
+                <CheckCircle2 size={13} className="text-slate-800 dark:text-slate-200" /> Resolved / Approved
               </span>
-              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 font-sans">
+              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 dark:text-white font-sans">
                 {activePendingRestocks?.filter(r => r.status === 'resolved' || r.status === 'approved').length || 0} items
               </strong>
               <p className="text-[9.5px] text-slate-500 font-medium mt-1">Successfully added to physical inventory</p>
@@ -1757,9 +1757,9 @@ export default function InventoryScreen({
           </div>
 
           {/* Verification section */}
-          <div className="finnova-card p-6 space-y-6 text-left">
+          <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] border border-white/90 dark:border-slate-700/80 p-6 space-y-6 text-slate-900 dark:text-white text-left">
             <div>
-              <h3 className="font-bold text-sm text-slate-900">Verify Pending Restock Quantities</h3>
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">Verify Pending Restock Quantities</h3>
               <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
                 Enter your independently counted stock quantity for each restock submission below. If your count matches the attendant's log, the restock is approved automatically. Otherwise, it will be marked "On Hold" so you can query the attendant and resolve any discrepancies.
               </p>
@@ -1794,8 +1794,8 @@ export default function InventoryScreen({
 
             {/* History of Resolved Restocks */}
             {activePendingRestocks && activePendingRestocks.filter(r => r.status === 'resolved' || r.status === 'approved').length > 0 && (
-              <div className="pt-6 border-t border-slate-100">
-                <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider mb-3">Validation History (Latest Resolved)</h4>
+              <div className="pt-6 border-t border-white/70 dark:border-slate-700/70">
+                <h4 className="font-bold text-xs text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-3">Validation History (Latest Resolved)</h4>
                 <div className="overflow-x-auto neumorphic-card border border-white/90 dark:border-slate-700/80 rounded-2xl">
                   <table className="w-full text-left text-[11px] border-collapse">
                     <thead>
@@ -1810,10 +1810,10 @@ export default function InventoryScreen({
                         <th className="p-3">Resolution Details</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 text-slate-700 dark:text-slate-200">
                       {pendingRestocks.filter(r => r.status === 'resolved').slice(0, 10).map((r) => (
                         <tr key={r.id} className="hover:bg-slate-50/50 transition">
-                          <td className="p-3 font-bold text-slate-900">{r.itemName}</td>
+                          <td className="p-3 font-bold text-slate-900 dark:text-white">{r.itemName}</td>
                           <td className="p-3 text-center font-mono font-medium">{r.attendantQty}</td>
                           <td className="p-3 text-center font-mono font-medium">{r.adminInputQty ?? 'N/A'}</td>
                           <td className="p-3 text-center font-mono font-bold text-emerald-600">{r.resolvedQty}</td>
@@ -1822,7 +1822,7 @@ export default function InventoryScreen({
                             {new Date(r.resolvedAt || r.date).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </td>
                           <td className="p-3 max-w-xs truncate" title={r.discrepancyNotes || 'Automatically approved (quantities matched)'}>
-                            <span className="text-[10px] text-slate-500 leading-snug">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-300 leading-snug">
                               {r.discrepancyNotes || 'Auto-approved (matched)'}
                             </span>
                           </td>
