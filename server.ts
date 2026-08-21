@@ -900,6 +900,19 @@ wss.on("connection", (clientWs: WebSocket) => {
           isWakeWordTriggered = false
         } = msg;
 
+        const isAdministrator = userRole === 2 || userRole === "2";
+        const blockedAttendantActions = new Set([
+          "delete_inventory_item",
+          "correct_dashboard_kpi",
+          "update_business_profile",
+          "change_currency",
+          "generate_attendant_invite_pin",
+          "clear_transactions_only",
+          "reset_seed_data",
+          "wipe_storage",
+          "query_activity_log"
+        ]);
+
         const inventoryContext = inventory.map((i: any) =>
           `- Name: ${i.name} (ID: ${i.id || "N/A"}, SKU: ${i.sku || "N/A"}, Stock: ${i.quantity} ${i.unit || "units"}, Reorder at: ${i.reorderPoint}, Unit Cost: ${i.unitCost || 0}, Price: ${i.unitPrice}, Category: ${i.category || "General"}, Supplier: ${i.supplier || i.supplierName || "N/A"})`
         ).join("\n");
@@ -920,7 +933,7 @@ wss.on("connection", (clientWs: WebSocket) => {
           `- Restock Draft: Item: ${r.itemName || "ID: " + r.itemId} - Qty proposed: ${r.attendantQty} - Status: ${r.status} - Notes: ${r.attendantNotes || "None"} - Submitted by: ${r.submittedBy} - Date: ${r.date || "N/A"}`
         ).join("\n");
 
-        const systemInstruction = `Your name is RICHARD. You are RICHARD, a business partner with 30 years of hands-on experience running multi-category retail operations for "${businessName}". You think and speak like an experienced operator — not a chatbot — and every answer should read like advice from someone who has personally run a store, made payroll, and cleaned up bad inventory counts. You are precise, you never estimate when exact data is available, and you always state which formula you used so the user can verify it.
+        const systemInstruction = `Your name is RICHARD. You are RICHARD, a concise, practical business partner for "${businessName}". Use the live records supplied in this session as the source of truth. Never invent records, names, amounts, permissions, or completed actions. When the answer is available in live data, give the exact answer first.
 
 CORE DEFINITIONS (use these exact formulas — do not substitute standard accounting definitions unless the user explicitly asks for "at cost" figures):
 1. Stock In Hand (unsold inventory value) = Σ (Quantity in Hand × Selling Price) for every unsold unit
@@ -934,21 +947,25 @@ DATA PROVENANCE RULE:
 Names, items, or figures that appear ONLY inside tool descriptions, parameter examples, or instructional phrasing in this system prompt (e.g. as an "e.g." illustration) are documentation only and are NOT real records. A name or item only counts as real data if it also appears in the actual inventory list, credit account list, adjustments log, or transaction ledger sections provided below in this prompt. If a name/item appears in BOTH an example and the real data below, treat it as real — the real data below is the single source of truth, and matching an example name is coincidental, not disqualifying. When unsure whether something is real seed data or a documentation example, check the real data sections below before answering; never assume based on the tool description text.
 
 RULES:
-- Always ask which basis (selling price vs cost price) if the user says just "inventory value" and it's not clear from context — a 30-year veteran never assumes; they clarify definitions before quoting a number, because "inventory value" means different things to different stakeholders.
-- When given data, show your math before the final total so errors are catchable.
+- If the user says only "inventory value" and the basis is genuinely ambiguous, ask one short clarification. Otherwise answer using the app's defined dashboard basis.
+- For a data question, answer in one or two short sentences maximum. State the exact number, name, status, or date requested. Do not explain formulas, show working, repeat the question, or add recommendations unless the user asks.
 - Never blend cost-price and selling-price figures in the same sum.
-- If a number you compute doesn't match a total already shown in the app's dashboard, flag the discrepancy explicitly rather than silently reporting your own figure as correct.
-- If the inventory, credit accounts, and transaction logs are all empty, treat this as a brand-new business setup: don't invent history, and instead guide the operator on what to add first (starting inventory, supplier accounts, opening stock counts) like a partner walking them through day one.
+- If a calculated figure disagrees with a dashboard total, state the discrepancy briefly instead of silently replacing the dashboard value.
+- If the supplied records are empty, say that no records are available and give one short next step; never invent history.
 
-The operator of the store is talking to you directly using voice. Keep your spoken responses extremely concise, direct, helpful, and natural. Speak as if you are on a quick phone call.
+The operator is speaking to you directly. Keep spoken replies brief, natural, and phone-call concise. Stop your current answer when the operator starts speaking and listen to the new request.
         
 BACKGROUND NOISE CANCELLATION & COMMAND FOCUS DIRECTIVE:
 You are operating in an environment with ambient background noise, office hum, side conversations, or audio chatter.
 You MUST filter out all background noise fragments, trailing filler phrases, or irrelevant ambient chatter. Focus strictly on direct commands directed at you or the business inventory/credit system. Ignore background speech that is not directed at you or does not relate to system operations.
         
-        The current user has the role of ${userRole === 2 ? "Administrator" : "Attendant"}.
+        The current user has the role of ${isAdministrator ? "Administrator" : "Attendant"}.
+
+        You may read the live inventory, credit, transaction, adjustment, pending-restock, notification, and dashboard data provided in this session. Do not claim to have access to data that is not present in those records.
+
+        ${isAdministrator ? `Administrator permissions: You may perform the actions exposed by the tools, subject to confirmation rules below. You may open Settings and Activity Log.` : `Attendant permissions: You may perform only the ordinary operational actions allowed by the application, such as reading business data, navigating to operational pages, recording permitted sales, submitting restock requests, recording permitted credit activity, and changing your own assistant display preference when a tool supports it. You must never call or claim to complete these restricted actions: delete_inventory_item, correct_dashboard_kpi, update_business_profile, change_currency, generate_attendant_invite_pin, clear_transactions_only, reset_seed_data, wipe_storage, or query_activity_log. You must not open Settings or Activity Log. If the Attendant asks for a restricted action, say in one sentence that Administrator permission is required and do not call a tool.`}
         
-        You have complete read-access to the entire system data across every screen and corner of the inventory, stock adjustments, credit accounts, transaction ledger, and pending restocks.
+        You have complete read-access to the live records supplied for inventory, stock adjustments, credit accounts, transaction ledger, and pending restocks.
         
         You have the capability to navigate to any page in the application when requested by the operator.
         Use the 'navigate_to_page' tool to change the screen. The available pages are:
@@ -962,7 +979,7 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
         - 'settings' (Business profile configurations, tenant codes, password settings)
         ${userRole === 2 ? "- 'activity_log' (Sensitive security actions and staff activity audit log)" : ""}
         
-        CRITICAL: Only navigate to 'activity_log' if the user role is Administrator. If the role is Attendant, they are not authorized to view the 'activity_log' page.
+        CRITICAL: Only navigate to 'activity_log' or 'settings' if the user role is Administrator. If the role is Attendant, those pages are not authorized.
 
         SCROLLING CAPABILITIES:
         You can scroll the current viewport or page when requested.
@@ -1434,12 +1451,24 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                   for (const call of message.toolCall.functionCalls) {
                     console.log("🤖 [GEMINI LIVE SERVER] Received function call request from AI:", call.name, call.args);
 
-                    let toolResponsePayload: any = {
-                      success: true,
-                      message: `Successfully executed ${call.name} in user interface.`
-                    };
+                    const requestedPage = typeof call.args?.page === "string" ? call.args.page : "";
+                    const blockedByRole = !isAdministrator && (
+                      blockedAttendantActions.has(call.name) ||
+                      (call.name === "navigate_to_page" && ["settings", "activity_log"].includes(requestedPage))
+                    );
 
-                    if (call.name === "query_activity_log") {
+                    let toolResponsePayload: any = blockedByRole
+                      ? {
+                          success: false,
+                          error: "UNAUTHORIZED_ACTION",
+                          message: "Administrator permission is required for this action. No change was made."
+                        }
+                      : {
+                          success: true,
+                          message: `Successfully executed ${call.name} in user interface.`
+                        };
+
+                    if (!blockedByRole && call.name === "query_activity_log") {
                       const queryResultText = queryActivityLogServer(adjustments, transactions, inventory, creditAccounts, call.args);
                       toolResponsePayload = {
                         success: true,
@@ -1452,7 +1481,8 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                       type: "tool_call",
                       name: call.name,
                       args: call.args,
-                      result: toolResponsePayload.matchingLogs
+                      result: toolResponsePayload.matchingLogs,
+                      blocked: blockedByRole
                     }));
 
                     // Respond back to Gemini Live API immediately to complete the call transaction
@@ -1505,12 +1535,15 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
           clientWs.send(JSON.stringify({ type: "error", error: "Failed to establish Live session: " + err.message }));
         }
       } else if (msg.type === "realtime_activity" || msg.type === "activity_update") {
-        const { activitySummary, recentActivityContext } = msg;
+        const { activitySummary, recentActivityContext, currentDataSnapshot } = msg;
         console.log("Real-time activity update received for active Gemini Live session:", activitySummary);
         if (liveSession) {
           try {
+            const liveSnapshotText = currentDataSnapshot
+              ? `\nLATEST DATA SNAPSHOT (source of truth):\n${JSON.stringify(currentDataSnapshot)}`
+              : "";
             await liveSession.sendRealtimeInput({
-              text: `[REALTIME OPERATIONAL SYSTEM NOTICE]: A new action was just performed in the app: "${activitySummary}". System context is updated.\n${recentActivityContext || ''}`
+              text: `[REALTIME OPERATIONAL SYSTEM NOTICE]: A new action was just performed in the app: "${activitySummary}". Replace stale values with the latest snapshot below.\n${recentActivityContext || ''}${liveSnapshotText}`
             });
           } catch (sendErr) {
             console.warn("Failed to push real-time activity update to liveSession:", sendErr);

@@ -28,7 +28,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, PendingRestock } from "../types";
 import { getRecentActivityContext, queryActivityLog, activityLogger } from "../utils/activityLogger";
-import { executeAppAction, validateActionPermission, ACTION_METADATA } from "../utils/actionRegistry";
+import { executeAppActionAsync, validateActionPermission } from "../utils/actionRegistry";
 
 interface GeminiAssistantOverlayProps {
   inventory: InventoryItem[];
@@ -107,6 +107,7 @@ export default function GeminiAssistantOverlay({
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const nextStartTimeRef = useRef<number>(0);
+  const activeSourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
   const recognitionRef = useRef<any>(null);
 
   // DSP Audio Ref pointers for thread safe callback read
@@ -266,13 +267,20 @@ export default function GeminiAssistantOverlay({
         wsRef.current.send(JSON.stringify({
           type: "realtime_activity",
           activitySummary: summary,
-          recentActivityContext: recentCtx
+          recentActivityContext: recentCtx,
+          currentDataSnapshot: {
+            inventory,
+            creditAccounts,
+            adjustments: adjustments.slice(0, 30),
+            transactions: transactions.slice(0, 30),
+            pendingRestocks
+          }
         }));
       }
     });
 
     return () => unsubscribe();
-  }, [adjustments, transactions, inventory, creditAccounts]);
+  }, [adjustments, transactions, inventory, creditAccounts, pendingRestocks]);
 
   useEffect(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -280,10 +288,17 @@ export default function GeminiAssistantOverlay({
       wsRef.current.send(JSON.stringify({
         type: "realtime_activity",
         activitySummary: "System state sync updated recent activity context.",
-        recentActivityContext: recentCtx
+        recentActivityContext: recentCtx,
+        currentDataSnapshot: {
+          inventory,
+          creditAccounts,
+          adjustments: adjustments.slice(0, 30),
+          transactions: transactions.slice(0, 30),
+          pendingRestocks
+        }
       }));
     }
-  }, [adjustments, transactions, inventory, creditAccounts]);
+  }, [adjustments, transactions, inventory, creditAccounts, pendingRestocks]);
 
   // Text-To-Speech variables and states
   const [isSpeakingBriefing, setIsSpeakingBriefing] = useState(false);
@@ -532,7 +547,7 @@ export default function GeminiAssistantOverlay({
         }));
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = async (event) => {
         const msg = JSON.parse(event.data);
         
         if (msg.type === "status" && msg.status === "ready") {
@@ -543,22 +558,31 @@ export default function GeminiAssistantOverlay({
           setVoiceStatus("speaking");
           playAudioChunk(msg.audio);
         } else if (msg.type === "interrupted") {
-          nextStartTimeRef.current = 0;
+          stopAudioPlayback();
           setVoiceStatus("listening");
         } else if (msg.type === "navigate") {
-          const allowedPages = ["dashboard", "inventory", "credit", "transactions", "notifications", "report", "invoice", "settings"];
+          const allowedPages = ["dashboard", "inventory", "credit", "transactions", "notifications", "report", "invoice"];
           if (userRole === 2) {
-            allowedPages.push("activity_log");
+            allowedPages.push("settings", "activity_log");
           }
           if (allowedPages.includes(msg.page)) {
             setActiveScreen(msg.page);
           }
         } else if (msg.type === "tool_call") {
           const { name, args } = msg;
+          const permission = validateActionPermission(name, userRole ?? 5);
+          const restrictedAttendantPage = name === "navigate_to_page" && userRole !== 2 && ["settings", "activity_log"].includes(args?.page);
+          if (msg.blocked || !permission.allowed || restrictedAttendantPage) {
+            const reason = permission.reason || "Administrator permission is required for this action. No change was made.";
+            addCorrectionToast("AI Action Blocked", reason);
+            console.warn("Blocked Gemini action:", name, args, reason);
+            return;
+          }
+
           console.log("🤖 [GEMINI LIVE OVERLAY] Executing tool call request from AI:", name, args);
 
           // Execute centralized action registry handler
-          const actionResult = executeAppAction(name, args, {
+          const actionResult = await executeAppActionAsync(name, args, {
             inventory,
             setInventory,
             adjustments,
@@ -1224,6 +1248,26 @@ export default function GeminiAssistantOverlay({
     }
   };
 
+  const stopAudioPlayback = () => {
+    const activeSources = activeSourceNodesRef.current.splice(0);
+    for (const source of activeSources) {
+      try {
+        source.onended = null;
+        source.stop();
+      } catch {
+        // A source may already have ended; stopping it is intentionally best-effort.
+      }
+      try {
+        source.disconnect();
+      } catch {
+        // Ignore nodes that are already disconnected.
+      }
+    }
+
+    const outputAudioCtx = outputAudioCtxRef.current;
+    nextStartTimeRef.current = outputAudioCtx?.currentTime ?? 0;
+  };
+
   const playAudioChunk = (base64PCM: string) => {
     const outputAudioCtx = outputAudioCtxRef.current;
     if (!outputAudioCtx) return;
@@ -1239,6 +1283,7 @@ export default function GeminiAssistantOverlay({
     const source = outputAudioCtx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(outputAudioCtx.destination);
+    activeSourceNodesRef.current.push(source);
 
     const currentTime = outputAudioCtx.currentTime;
     if (nextStartTimeRef.current < currentTime) {
@@ -1249,6 +1294,12 @@ export default function GeminiAssistantOverlay({
     nextStartTimeRef.current += audioBuffer.duration;
 
     source.onended = () => {
+      activeSourceNodesRef.current = activeSourceNodesRef.current.filter(node => node !== source);
+      try {
+        source.disconnect();
+      } catch {
+        // Ignore nodes that are already disconnected.
+      }
       if (outputAudioCtx.currentTime >= nextStartTimeRef.current - 0.05) {
         setVoiceStatus("listening");
       }
@@ -1256,6 +1307,7 @@ export default function GeminiAssistantOverlay({
   };
 
   const disconnectVoiceSession = () => {
+    stopAudioPlayback();
     setIsNoiseGateActive(false);
     setCurrentRms(0);
 
