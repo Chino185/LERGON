@@ -2604,17 +2604,18 @@ export default function App() {
               onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsLandingMobileMenuOpen(false); }}
               className="hidden lg:flex absolute left-1/2 -translate-x-1/2 -top-0.5 neu-flat border border-white/90 dark:border-slate-700/80 px-6 sm:px-8 py-1.5 sm:py-2 rounded-b-2xl shadow-xl items-center justify-center cursor-pointer z-50 hover:scale-105 transition-all"
             >
-              <span className="font-quantum tracking-[0.15em] text-sm sm:text-base font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#0052D4] via-[#65C7F7] to-[#9CECFB] dark:from-[#9CECFB] dark:to-[#0052D4]">
+              <span className="font-quantum tracking-[0.15em] text-sm sm:text-base font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#0052D4] via-[#65C7F7] to-[#9CECFB] dark:from-[#9CECFB] dark:via-[#65C7F7] dark:to-[#0052D4]">
                 LERGON
               </span>
             </div>
 
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2.5">
-              {/* Left Brand Logo & Desktop Nav */}
+              {/* Left Brand Logo (Mobile) & Desktop Nav Links */}
               <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                {/* On mobile: Compact Logo */}
                 <div
                   onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsLandingMobileMenuOpen(false); }}
-                  className="flex items-center gap-2 cursor-pointer select-none group"
+                  className="lg:hidden flex items-center gap-2 cursor-pointer select-none group"
                 >
                   <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0052D4] via-[#4364F7] to-[#65C7F7] flex items-center justify-center text-white text-xs font-black shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform">
                     L
@@ -2625,19 +2626,19 @@ export default function App() {
                 </div>
 
                 {/* Desktop Nav Links (hidden on mobile, visible on lg+) */}
-                <nav className="hidden lg:flex items-center gap-1.5 ml-3 pl-3 border-l border-slate-200 dark:border-slate-800">
-                  <a href="#hero" className="text-xs font-bold text-slate-800 dark:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
+                <nav className="hidden lg:flex items-center gap-2">
+                  <a href="#hero" className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
                     Home
                   </a>
-                  <a href="#feature-showcase" className="text-xs font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
+                  <a href="#feature-showcase" className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
                     Features
                   </a>
-                  <a href="#solutions" className="text-xs font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
+                  <a href="#solutions" className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
                     Solutions
                   </a>
                   <a
                     href="#faq"
-                    className="text-xs font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0"
+                    className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0"
                   >
                     FAQ
                   </a>
@@ -2653,33 +2654,37 @@ export default function App() {
                   className="w-9 h-9 rounded-full neu-button border border-white/80 dark:border-slate-700/60 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center shadow-md text-amber-500 dark:text-sky-300 shrink-0"
                   title={isLandingDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 >
-                  {isLandingDark ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-sky-400" />}
+                  <span className="material-symbols-rounded text-base">
+                    {isLandingDark ? "light_mode" : "dark_mode"}
+                  </span>
                 </button>
 
-                {/* Login Button (hidden on very small mobile, accessible via mobile menu or sm+) */}
+                {/* Login Button (hidden on mobile, visible on desktop lg+) */}
                 <button
                   onClick={() => { setActiveView('signin'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
-                  className="hidden sm:inline-flex text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button transition-all cursor-pointer"
+                  className="hidden lg:inline-flex text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-4 py-1.5 rounded-full neu-button transition-all cursor-pointer"
                 >
                   Login
                 </button>
 
-                {/* Register CTA Button */}
+                {/* Register CTA Button (hidden on mobile, visible on desktop lg+) */}
                 <button
                   onClick={() => { setActiveView('register'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
-                  className="neu-button active-tab text-white font-extrabold text-xs sm:text-sm px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                  className="hidden lg:inline-flex neu-button active-tab text-white font-extrabold text-xs sm:text-sm px-4 sm:px-6 py-1.5 sm:py-2 rounded-full shadow-lg transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Register
                 </button>
 
-                {/* Mobile Menu Toggle Button (lg:hidden) */}
+                {/* Mobile Menu Toggle Button (lg:hidden - only on mobile!) */}
                 <button
                   type="button"
                   onClick={() => setIsLandingMobileMenuOpen(!isLandingMobileMenuOpen)}
                   className="lg:hidden w-9 h-9 rounded-full neu-button border border-white/80 dark:border-slate-700/60 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center text-slate-800 dark:text-white shadow-md shrink-0"
                   aria-label="Toggle navigation menu"
                 >
-                  {isLandingMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+                  <span className="material-symbols-rounded text-lg">
+                    {isLandingMobileMenuOpen ? "close" : "menu"}
+                  </span>
                 </button>
               </div>
             </div>
@@ -3167,7 +3172,11 @@ export default function App() {
                     >
                       <span>{faq.q}</span>
                       <div className="w-9 h-9 rounded-xl neu-inset flex items-center justify-center text-[#0052D4] dark:text-[#9CECFB] shrink-0">
-                        {activeFaqIndex === idx ? <Minus size={18} /> : <Plus size={18} />}
+                        {activeFaqIndex === idx ? (
+                          <span className="material-symbols-rounded text-lg">remove</span>
+                        ) : (
+                          <span className="material-symbols-rounded text-lg">add</span>
+                        )}
                       </div>
                     </button>
 
@@ -3236,7 +3245,7 @@ export default function App() {
                   }}
                   className="absolute top-5 right-5 w-9 h-9 rounded-full neumorphic-circle border border-white/80 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all cursor-pointer z-20 bg-slate-100 dark:bg-slate-900 shadow-sm"
                 >
-                  <X size={18} />
+                  <span className="material-symbols-rounded text-lg">close</span>
                 </button>
 
                 {/* Modal Header */}

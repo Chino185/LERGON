@@ -1496,12 +1496,12 @@ span[class*="bg-red-"] {
   #app-main-content a {
     overflow-wrap: anywhere;
   }
-  #app-main-content button.neumorphic-btn.text-white,
-  #app-main-content button.neumorphic-button.text-white,
-  #app-main-content button.neu-button.text-white,
-  #app-main-content a.neumorphic-btn.text-white,
-  #app-main-content a.neumorphic-button.text-white,
-  #app-main-content a.neu-button.text-white {
+  #app-main-content button.neumorphic-btn.text-white:not(.active-tab):not([class*="bg-"]),
+  #app-main-content button.neumorphic-button.text-white:not(.active-tab):not([class*="bg-"]),
+  #app-main-content button.neu-button.text-white:not(.active-tab):not([class*="bg-"]),
+  #app-main-content a.neumorphic-btn.text-white:not(.active-tab):not([class*="bg-"]),
+  #app-main-content a.neumorphic-button.text-white:not(.active-tab):not([class*="bg-"]),
+  #app-main-content a.neu-button.text-white:not(.active-tab):not([class*="bg-"]) {
     color: #0f172a !important;
   }
   .dark #app-main-content button.neumorphic-btn.text-white,
@@ -1519,7 +1519,7 @@ span[class*="bg-red-"] {
     color: #ffffff !important;
   }
 
-  /* Public landing page: Clean, unified single-row mobile navigation and spacious hero */
+  /* Public landing page: Clean mobile navigation and rich tactile neumorphism */
   .landing-shell {
     min-width: 0;
     width: 100%;
@@ -1537,7 +1537,7 @@ span[class*="bg-red-"] {
   }
   .landing-hero {
     min-height: calc(100dvh - 0.5rem);
-    padding: 6rem 1rem 3rem;
+    padding: 6.5rem 1rem 3rem;
   }
   .landing-hero h1 {
     max-width: 100%;
@@ -1552,7 +1552,7 @@ span[class*="bg-red-"] {
   .landing-hero-actions {
     width: 100%;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.875rem;
   }
   .landing-hero-actions > button {
     width: min(100%, 22rem);
@@ -1561,5 +1561,31 @@ span[class*="bg-red-"] {
     justify-content: center;
     text-align: center;
     line-height: 1.2;
+    box-shadow: 6px 6px 16px rgba(166, 180, 200, 0.38), -6px -6px 16px rgba(255, 255, 255, 0.95) !important;
+  }
+  .landing-hero-actions > button.active-tab {
+    box-shadow: 0 10px 25px rgba(0, 82, 212, 0.45) !important;
+  }
+  .dark .landing-hero-actions > button {
+    box-shadow: 6px 6px 16px rgba(0, 0, 0, 0.55), -5px -5px 14px rgba(255, 255, 255, 0.05) !important;
+  }
+  .dark .landing-hero-actions > button.active-tab {
+    box-shadow: 0 10px 28px rgba(0, 82, 212, 0.55) !important;
+  }
+
+  /* Full tactile neumorphism preserved across all cards and insets on mobile */
+  .neu-flat {
+    box-shadow: 7px 7px 20px rgba(160, 175, 200, 0.38), -7px -7px 20px rgba(255, 255, 255, 0.95) !important;
+  }
+  .dark .neu-flat,
+  [data-theme="dark"] .neu-flat {
+    box-shadow: 7px 7px 22px rgba(0, 0, 0, 0.65), -5px -5px 16px rgba(255, 255, 255, 0.04) !important;
+  }
+  .neu-inset {
+    box-shadow: inset 3px 3px 8px rgba(160, 175, 200, 0.4), inset -3px -3px 8px rgba(255, 255, 255, 0.9) !important;
+  }
+  .dark .neu-inset,
+  [data-theme="dark"] .neu-inset {
+    box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.65), inset -3px -3px 8px rgba(255, 255, 255, 0.03) !important;
   }
 }
