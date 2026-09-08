@@ -46,9 +46,10 @@ import {
   Loader2,
   LogIn,
   RotateCw,
-  RefreshCw
+  RefreshCw,
+  Menu
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   InventoryItem,
   StockAdjustment,
@@ -202,6 +203,7 @@ export default function App() {
 
   // --- Landing Page & Auth Modal States ---
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [isLandingMobileMenuOpen, setIsLandingMobileMenuOpen] = useState<boolean>(false);
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
   const [isLandingDark, setIsLandingDark] = useState<boolean>(() => {
@@ -2595,11 +2597,11 @@ export default function App() {
           <LandingPageBackground currentBg={landingBg} onToggleBg={setLandingBg} isDarkMode={isLandingDark} />
 
           {/* Top Navigation Bar with Inspiration Notch */}
-          <header className="landing-header fixed top-0 left-0 right-0 z-50 neu-flat rounded-none border-b border-white/90 dark:border-slate-800/80 px-3 sm:px-6 lg:px-12 py-2.5 sm:py-3 transition-all shadow-xl backdrop-blur-md">
+          <header className="landing-header fixed top-0 left-0 right-0 z-50 neu-flat rounded-none border-b border-white/90 dark:border-slate-800/80 px-3.5 sm:px-6 lg:px-12 py-2.5 sm:py-3 transition-all shadow-xl backdrop-blur-md">
 
             {/* Center Notch Container with Logo (visible on large screens) */}
             <div
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsLandingMobileMenuOpen(false); }}
               className="hidden lg:flex absolute left-1/2 -translate-x-1/2 -top-0.5 neu-flat border border-white/90 dark:border-slate-700/80 px-6 sm:px-8 py-1.5 sm:py-2 rounded-b-2xl shadow-xl items-center justify-center cursor-pointer z-50 hover:scale-105 transition-all"
             >
               <span className="font-quantum tracking-[0.15em] text-sm sm:text-base font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#0052D4] via-[#65C7F7] to-[#9CECFB] dark:from-[#9CECFB] dark:to-[#0052D4]">
@@ -2607,62 +2609,171 @@ export default function App() {
               </span>
             </div>
 
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-              {/* Left Nav Links - smoothly scrollable on compact screens */}
-              <div className="landing-nav-links flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar whitespace-nowrap py-0.5">
-                {/* Compact Logo for small/minimized windows */}
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2.5">
+              {/* Left Brand Logo & Desktop Nav */}
+              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                 <div
-                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  className="lg:hidden flex items-center gap-1.5 pr-2.5 border-r border-slate-300 dark:border-[#0052D4]/30 mr-1 cursor-pointer shrink-0"
+                  onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsLandingMobileMenuOpen(false); }}
+                  className="flex items-center gap-2 cursor-pointer select-none group"
                 >
-                  <span className="font-quantum tracking-wider text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#0052D4] via-[#65C7F7] to-[#9CECFB] dark:from-[#9CECFB] dark:to-[#0052D4]">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0052D4] via-[#4364F7] to-[#65C7F7] flex items-center justify-center text-white text-xs font-black shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform">
+                    L
+                  </div>
+                  <span className="font-quantum tracking-wider text-sm sm:text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-[#0052D4] via-[#4364F7] to-[#65C7F7] dark:from-[#9CECFB] dark:via-[#65C7F7] dark:to-[#0052D4]">
                     LERGON
                   </span>
                 </div>
 
-                <a href="#hero" className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-white px-3 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
-                  Home
-                </a>
-                <a href="#feature-showcase" className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
-                  Features
-                </a>
-                <a href="#solutions" className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
-                  Solutions
-                </a>
-                <a
-                  href="#faq"
-                  className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0"
-                >
-                  FAQ
-                </a>
+                {/* Desktop Nav Links (hidden on mobile, visible on lg+) */}
+                <nav className="hidden lg:flex items-center gap-1.5 ml-3 pl-3 border-l border-slate-200 dark:border-slate-800">
+                  <a href="#hero" className="text-xs font-bold text-slate-800 dark:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
+                    Home
+                  </a>
+                  <a href="#feature-showcase" className="text-xs font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
+                    Features
+                  </a>
+                  <a href="#solutions" className="text-xs font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0">
+                    Solutions
+                  </a>
+                  <a
+                    href="#faq"
+                    className="text-xs font-semibold text-slate-600 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button border border-transparent hover:border-slate-300 dark:hover:border-[#0052D4]/30 transition-all shrink-0"
+                  >
+                    FAQ
+                  </a>
+                </nav>
               </div>
 
-              {/* Right Nav Links */}
-              <div className="landing-right-actions flex items-center gap-1.5 sm:gap-3 shrink-0">
-                {/* Landing Page Dark/Light Theme Mode Toggle Button */}
+              {/* Right Action Controls */}
+              <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+                {/* Theme Mode Toggle Button */}
                 <button
                   type="button"
                   onClick={toggleLandingDark}
-                  className="p-2 rounded-full neu-button border border-white/80 dark:border-slate-700/60 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center shadow-md text-amber-500 dark:text-sky-300"
+                  className="w-9 h-9 rounded-full neu-button border border-white/80 dark:border-slate-700/60 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center shadow-md text-amber-500 dark:text-sky-300 shrink-0"
                   title={isLandingDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 >
                   {isLandingDark ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-sky-400" />}
                 </button>
 
+                {/* Login Button (hidden on very small mobile, accessible via mobile menu or sm+) */}
                 <button
                   onClick={() => { setActiveView('signin'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
-                  className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button transition-all cursor-pointer"
+                  className="hidden sm:inline-flex text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-full neu-button transition-all cursor-pointer"
                 >
                   Login
                 </button>
+
+                {/* Register CTA Button */}
                 <button
                   onClick={() => { setActiveView('register'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
-                  className="neu-button active-tab text-white font-extrabold text-xs sm:text-sm px-4 sm:px-6 py-1.5 sm:py-2 rounded-full shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                  className="neu-button active-tab text-white font-extrabold text-xs sm:text-sm px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full shadow-lg transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Register
                 </button>
+
+                {/* Mobile Menu Toggle Button (lg:hidden) */}
+                <button
+                  type="button"
+                  onClick={() => setIsLandingMobileMenuOpen(!isLandingMobileMenuOpen)}
+                  className="lg:hidden w-9 h-9 rounded-full neu-button border border-white/80 dark:border-slate-700/60 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center text-slate-800 dark:text-white shadow-md shrink-0"
+                  aria-label="Toggle navigation menu"
+                >
+                  {isLandingMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+                </button>
               </div>
             </div>
+
+            {/* Mobile Dropdown Navigation Menu */}
+            <AnimatePresence>
+              {isLandingMobileMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ duration: 0.16, ease: 'easeOut' }}
+                  className="lg:hidden absolute left-3 right-3 top-full mt-2 rounded-2xl neu-flat border border-white/90 dark:border-slate-700/80 shadow-2xl p-3.5 backdrop-blur-2xl bg-white/95 dark:bg-[#0A0E1A]/95 text-slate-900 dark:text-white z-50 overflow-hidden"
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <a
+                      href="#hero"
+                      onClick={() => setIsLandingMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-blue-500">home</span>
+                        Home
+                      </span>
+                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                    </a>
+                    <a
+                      href="#feature-showcase"
+                      onClick={() => setIsLandingMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 transition"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-cyan-500">featured_play_list</span>
+                        Features
+                      </span>
+                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                    </a>
+                    <a
+                      href="#solutions"
+                      onClick={() => setIsLandingMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 transition"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-indigo-500">lightbulb</span>
+                        Solutions
+                      </span>
+                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                    </a>
+                    <a
+                      href="#faq"
+                      onClick={() => setIsLandingMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 transition"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-teal-500">help</span>
+                        FAQ
+                      </span>
+                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                    </a>
+
+                    <div className="pt-2 mt-1 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLandingMobileMenuOpen(false);
+                          setActiveView('signin');
+                          setShowAuthModal(true);
+                          setLoginError('');
+                          setForgotError('');
+                          setSuccess(null);
+                        }}
+                        className="w-full py-2.5 rounded-xl neu-button text-xs font-extrabold text-slate-800 dark:text-white transition cursor-pointer"
+                      >
+                        Sign In to Your Business
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLandingMobileMenuOpen(false);
+                          setActiveView('register');
+                          setShowAuthModal(true);
+                          setLoginError('');
+                          setForgotError('');
+                          setSuccess(null);
+                        }}
+                        className="w-full py-2.5 rounded-xl neu-button active-tab text-white text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-lg shadow-blue-500/25"
+                      >
+                        Register Account
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </header>
 
           {/* Main Landing Sections Overlay Container */}

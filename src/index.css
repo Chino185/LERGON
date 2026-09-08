@@ -1519,78 +1519,35 @@ span[class*="bg-red-"] {
     color: #ffffff !important;
   }
 
-  /* Public landing page: keep the compact navigation scrollable and keep
-     both hero actions visible as full-width neumorphic touch controls. */
+  /* Public landing page: Clean, unified single-row mobile navigation and spacious hero */
   .landing-shell {
     min-width: 0;
     width: 100%;
   }
   .landing-header {
-    padding: 0.5rem;
+    padding: 0.625rem 0.875rem;
   }
   .landing-header > div {
     min-width: 0;
     max-width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    row-gap: 0.35rem;
-  }
-  .landing-nav-links {
-    order: 2;
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: 100%;
-    overflow-x: visible;
-    justify-content: stretch;
-    scrollbar-width: none;
-  }
-  .landing-nav-links::-webkit-scrollbar {
-    display: none;
-  }
-  .landing-nav-links a {
-    min-height: 2.5rem;
-    min-width: 0;
-    flex: 1 1 0;
-    display: inline-flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    padding-inline: 0.35rem;
-    font-size: 0.7rem;
-  }
-  .landing-right-actions {
-    order: 1;
-    width: 100%;
-    justify-content: flex-end;
-    margin-left: auto;
-    gap: 0.35rem;
-  }
-  .landing-right-actions > button {
-    min-height: 2.75rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    white-space: nowrap;
-  }
-  .landing-right-actions > button:first-child {
-    width: 2.75rem;
-    padding: 0;
-  }
-  .landing-right-actions > button:not(:first-child) {
-    padding-inline: 0.75rem;
+    justify-content: space-between;
+    row-gap: 0;
   }
   .landing-hero {
     min-height: calc(100dvh - 0.5rem);
-    padding: 9.25rem 1rem 3rem;
+    padding: 6rem 1rem 3rem;
   }
   .landing-hero h1 {
     max-width: 100%;
-    font-size: clamp(2.35rem, 10.5vw, 4rem);
-    line-height: 1.04;
+    font-size: clamp(2rem, 9.5vw, 3.5rem);
+    line-height: 1.08;
     overflow-wrap: anywhere;
   }
   .landing-hero p {
-    max-width: 35rem;
-    font-size: clamp(1rem, 4.25vw, 1.35rem);
+    max-width: 32rem;
+    font-size: clamp(0.95rem, 3.8vw, 1.25rem);
   }
   .landing-hero-actions {
     width: 100%;
@@ -1598,11 +1555,11 @@ span[class*="bg-red-"] {
     gap: 0.75rem;
   }
   .landing-hero-actions > button {
-    width: min(100%, 23rem);
-    min-height: 3.75rem;
-    padding: 0.875rem 1rem;
+    width: min(100%, 22rem);
+    min-height: 3.5rem;
+    padding: 0.875rem 1.25rem;
     justify-content: center;
     text-align: center;
-    line-height: 1.15;
+    line-height: 1.2;
   }
 }
