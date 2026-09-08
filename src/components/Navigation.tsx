@@ -145,6 +145,7 @@ export default function Navigation({
   }, [lowStockItems.length]);
 
   // Main navigation items with Google Fonts Material Symbols icons
+  // All navigation items for desktop top bar and mobile hamburger
   const navItems = [
     { id: 'dashboard', name: translate('dashboard', config.languageCode), materialIcon: 'dashboard' },
     { id: 'inventory', name: translate('inventory', config.languageCode), materialIcon: 'inventory_2' },
@@ -154,6 +155,38 @@ export default function Navigation({
     ...(userRole === 2 ? [{ id: 'activity_log', name: 'Activity', materialIcon: 'shield' }] : []),
     { id: 'invoice', name: translate('invoiceGenerator', config.languageCode), materialIcon: 'description' }
   ];
+
+  // Primary bottom bar tabs — always visible on mobile
+  const bottomBarPrimaryTabs = [
+    { id: 'dashboard', label: 'Home', materialIcon: 'dashboard' },
+    { id: 'inventory', label: 'Stock', materialIcon: 'inventory_2' },
+    { id: 'credit', label: 'Credit', materialIcon: 'payments' },
+    { id: 'transactions', label: 'Ledger', materialIcon: 'receipt_long' },
+  ];
+
+  // Overflow items that go under the "More" tab
+  const bottomBarOverflowItems = navItems.filter(
+    item => !bottomBarPrimaryTabs.some(p => p.id === item.id)
+  );
+
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
+  const mobileMoreRef = React.useRef<HTMLDivElement>(null);
+
+  // Close "More" overflow when clicking outside
+  React.useEffect(() => {
+    if (!isMobileMoreOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (mobileMoreRef.current && !mobileMoreRef.current.contains(target) && !target.closest('#mobile-more-trigger')) {
+        setIsMobileMoreOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside, true);
+    return () => document.removeEventListener('click', handleClickOutside, true);
+  }, [isMobileMoreOpen]);
+
+  // Whether the active screen is in the overflow ("More") group
+  const isActiveInOverflow = bottomBarOverflowItems.some(item => item.id === activeScreen);
 
   const handleDropdownItemClick = (screenId: string) => {
     setActiveScreen(screenId);
@@ -488,7 +521,7 @@ export default function Navigation({
       </div>
 
       {/* TOP FLOATING PILL NAVIGATION HEADER (CREXTIO & FINNOVA AESTHETIC) */}
-      <header className="no-print sticky top-0 z-50 py-2.5 px-4 sm:px-6 xl:px-8 bg-[#ebf0f7] border-b border-slate-200/60 shadow-xs select-none">
+      <header className="no-print sticky top-0 z-50 py-2.5 px-4 sm:px-6 xl:px-8 bg-[#ebf0f7]/85 dark:bg-[#2b2d31]/82 border-b border-slate-200/60 dark:border-white/[0.06] shadow-xs select-none">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
 
           {/* Left Brand Identity Capsule */}
@@ -1022,6 +1055,114 @@ export default function Navigation({
           </div>
         </main>
       </div>
+
+      {/* ================================================================
+          MOBILE BOTTOM NAVIGATION BAR — Professional fixed tab bar
+          Visible only below xl breakpoint (matching desktop nav hide point)
+          ================================================================ */}
+      <nav className="mobile-bottom-nav xl:hidden no-print" aria-label="Mobile navigation">
+        {bottomBarPrimaryTabs.map(tab => {
+          const isActive = activeScreen === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveScreen(tab.id);
+                setIsMobileMenuOpen(false);
+                setIsMobileMoreOpen(false);
+              }}
+              className={`mobile-bottom-nav-item${isActive ? ' active' : ''}`}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <MaterialIcon name={tab.materialIcon} size={20} />
+              <span>{tab.label}</span>
+              {tab.id === 'notifications' && unreadNotificationCount > 0 && (
+                <span className="mobile-bottom-nav-badge">{unreadNotificationCount}</span>
+              )}
+            </button>
+          );
+        })}
+
+        {/* "More" overflow tab */}
+        <div className="relative flex-1 flex items-stretch">
+          <button
+            type="button"
+            id="mobile-more-trigger"
+            onClick={() => setIsMobileMoreOpen(!isMobileMoreOpen)}
+            className={`mobile-bottom-nav-item w-full${isActiveInOverflow ? ' active' : ''}`}
+          >
+            <MaterialIcon name="more_horiz" size={20} />
+            <span>More</span>
+            {/* Show notification badge on More if notifications screen is in overflow and has unread */}
+            {bottomBarOverflowItems.some(i => i.id === 'notifications') && unreadNotificationCount > 0 && (
+              <span className="mobile-bottom-nav-badge">{unreadNotificationCount}</span>
+            )}
+          </button>
+
+          {/* More overflow popup */}
+          <AnimatePresence>
+            {isMobileMoreOpen && (
+              <motion.div
+                ref={mobileMoreRef}
+                initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.96 }}
+                transition={{ duration: 0.14, ease: 'easeOut' }}
+                className="absolute bottom-full right-0 mb-2 w-52 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white z-50"
+              >
+                <div className="p-1.5 space-y-0.5">
+                  {bottomBarOverflowItems.map(item => {
+                    const isActive = activeScreen === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveScreen(item.id);
+                          setIsMobileMoreOpen(false);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer text-left ${
+                          isActive
+                            ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
+                            : 'neumorphic-btn text-slate-700 dark:text-slate-300 border border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
+                        }`}
+                      >
+                        <MaterialIcon name={item.materialIcon} size={18} className={isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
+                        <span>{item.name}</span>
+                        {item.id === 'notifications' && unreadNotificationCount > 0 && (
+                          <span className="ml-auto px-1.5 py-0.5 text-[9px] font-black bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 rounded-full leading-none border border-red-500 dark:border-red-400">
+                            {unreadNotificationCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {/* Settings quick-link */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveScreen('settings');
+                      setIsMobileMoreOpen(false);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer text-left ${
+                      activeScreen === 'settings'
+                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
+                        : 'neumorphic-btn text-slate-700 dark:text-slate-300 border border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
+                    }`}
+                  >
+                    <MaterialIcon name="settings" size={18} className={activeScreen === 'settings' ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
+                    <span>{translate('settings', config.languageCode)}</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </nav>
     </div>
   );
 }

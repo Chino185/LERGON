@@ -3227,8 +3227,8 @@ export default function App() {
 
           {/* --- AUTH MODAL OVERLAY (SIGN IN / REGISTER / FORGOT PASSCODE) --- */}
           {showAuthModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-              <div className="w-full max-w-[430px] neumorphic-card border border-white/80 dark:border-slate-700/80 rounded-[2rem] p-7 sm:p-8 relative overflow-hidden bg-white dark:bg-[#15171a] shadow-xl">
+            <div className="auth-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+              <div className="auth-modal-sheet w-full max-w-[430px] neumorphic-card border border-white/80 dark:border-slate-700/80 rounded-[2rem] p-7 sm:p-8 relative overflow-hidden overflow-y-auto bg-white dark:bg-[#15171a] shadow-xl max-h-[calc(100dvh-2rem)]">
 
                 {/* Close Button */}
                 <button
