@@ -535,7 +535,7 @@ export default function Navigation({
                 setIsNotificationOpen(false);
                 setIsDropdownOpen(false);
               }}
-              className="xl:hidden p-2 text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-white neumorphic-btn cursor-pointer"
+              className="lg:!hidden xl:!hidden p-2 text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-white neumorphic-btn cursor-pointer"
               aria-label="Toggle navigation menu"
             >
               {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -552,7 +552,7 @@ export default function Navigation({
           </div>
 
           {/* Center Pill Navbar Track (Crextio & Finnova Style) */}
-          <nav className="hidden xl:flex items-center">
+          <nav className="hidden lg:flex items-center">
             <div className="pill-nav-track flex items-center gap-1.5 p-1.5">
               {navItems.map(item => {
                 const isActive = activeScreen === item.id;
@@ -727,7 +727,7 @@ export default function Navigation({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -8 }}
                 transition={{ duration: 0.12, ease: 'easeOut' }}
-                className="xl:hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
+                className="lg:!hidden xl:!hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
               >
                 <div className="p-3.5 neumorphic-inset rounded-none border-0 border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
                   <span className="font-bold text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300">Navigation Menu</span>
@@ -1060,7 +1060,7 @@ export default function Navigation({
           MOBILE BOTTOM NAVIGATION BAR — Professional fixed tab bar
           Visible only below xl breakpoint (matching desktop nav hide point)
           ================================================================ */}
-      <nav className="mobile-bottom-nav xl:hidden no-print" aria-label="Mobile navigation">
+      <nav className="mobile-bottom-nav lg:!hidden xl:!hidden no-print" aria-label="Mobile navigation">
         {bottomBarPrimaryTabs.map(tab => {
           const isActive = activeScreen === tab.id;
           return (

@@ -1972,3 +1972,14 @@ body,
     font-size: 0.8125rem;
   }
 }
+
+/* Ensure mobile menu triggers and dropdowns are never visible on desktop views */
+@media (min-width: 1024px) {
+  #landing-mobile-menu-trigger,
+  #landing-mobile-menu,
+  #mobile-menu-trigger,
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
