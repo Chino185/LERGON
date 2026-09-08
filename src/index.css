@@ -1820,3 +1820,124 @@ html {
     overscroll-behavior-y: contain;
   }
 }
+
+/* ========================================================================
+   FINAL RESPONSIVE POLISH
+   Keep the authenticated shell pinned to the visual viewport, then let the
+   content region own scrolling. This avoids the common mobile failure mode
+   where the bottom bar overlaps the last card or the browser chrome creates
+   a second, awkward scroll container.
+   ======================================================================== */
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+}
+
+#app-shell {
+  min-height: 100dvh;
+}
+
+#app-main-content {
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+
+#app-main-content > div {
+  min-width: 0;
+}
+
+@media (max-width: 1279px) {
+  #app-shell {
+    min-height: 100dvh;
+  }
+
+  #app-shell > header {
+    padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+  }
+
+  #app-shell > header > div {
+    width: 100%;
+  }
+
+  #app-main-content {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-bottom-nav {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .mobile-bottom-nav-item {
+    min-height: 3.25rem;
+  }
+}
+
+@media (max-width: 767px) {
+  #app-shell > header {
+    padding-inline: 0.75rem;
+  }
+
+  #app-shell > header > div {
+    gap: 0.5rem;
+  }
+
+  #app-shell > header .neumorphic-card {
+    max-width: min(11rem, calc(100vw - 8.5rem));
+    padding-inline: 0.75rem;
+  }
+
+  #app-shell > header .neumorphic-card span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #app-main-content {
+    padding-top: 0.875rem;
+    padding-inline: 0.75rem;
+  }
+
+  /* Full-width sheets read better on a phone than a narrow centered modal. */
+  #app-main-content .fixed.inset-0 > div,
+  #app-main-content .fixed.inset-0 > form,
+  #app-main-content .fixed.inset-0 > section {
+    border-radius: 1.25rem;
+  }
+
+  /* Avoid tiny action controls in dense data views while preserving icon-only
+     buttons, which already receive the circle treatment above. */
+  #app-main-content button:not(.neumorphic-circle),
+  #app-main-content a[role="button"]:not(.neumorphic-circle) {
+    min-height: 2.625rem;
+  }
+
+  .mobile-bottom-nav-item {
+    font-size: 0.6875rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .mobile-bottom-nav-item svg,
+  .mobile-bottom-nav-item .material-symbols-rounded,
+  .mobile-bottom-nav-item .material-symbols-outlined {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
