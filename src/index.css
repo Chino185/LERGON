@@ -1941,3 +1941,34 @@ body,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Landing-page mobile navigation: keep the menu inside the viewport and make
+   every destination comfortably tappable. */
+#landing-mobile-menu {
+  max-height: calc(100dvh - 5.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+#landing-mobile-menu a,
+#landing-mobile-menu button {
+  min-height: 2.75rem;
+  touch-action: manipulation;
+}
+
+@media (max-width: 767px) {
+  #landing-mobile-menu {
+    left: 0.75rem;
+    right: 0.75rem;
+    max-height: calc(100dvh - 5rem);
+    padding: 0.75rem;
+    border-radius: 1.25rem;
+  }
+
+  #landing-mobile-menu a,
+  #landing-mobile-menu button {
+    min-height: 3rem;
+    font-size: 0.8125rem;
+  }
+}
