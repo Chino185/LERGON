@@ -1383,12 +1383,12 @@ html {
    MOBILE BOTTOM NAVIGATION BAR SYSTEM
    ========================================================================== */
 .mobile-bottom-nav {
+  display: none;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 48;
-  display: flex;
   align-items: stretch;
   justify-content: space-around;
   height: calc(3.75rem + env(safe-area-inset-bottom, 0px));
@@ -1491,10 +1491,10 @@ html {
   border-color: #f87171;
 }
 
-/* Hide bottom nav on desktop breakpoints */
-@media (min-width: 1280px) {
+/* Show bottom nav only on mobile/tablet (below xl breakpoint) */
+@media (max-width: 1279px) {
   .mobile-bottom-nav {
-    display: none;
+    display: flex;
   }
 }
 
