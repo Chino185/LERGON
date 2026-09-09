@@ -16,11 +16,11 @@ import {
   Clock,
   Receipt,
   Shield,
-  Menu,
   X,
   Sparkles,
   Sun,
-  Moon
+  Moon,
+  MoreHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BackendNotification, BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, Organization, PendingRestock } from '../types';
@@ -155,6 +155,14 @@ export default function Navigation({
     ...(userRole === 2 ? [{ id: 'activity_log', name: 'Activity', materialIcon: 'shield' }] : []),
     { id: 'invoice', name: translate('invoiceGenerator', config.languageCode), materialIcon: 'description' }
   ];
+
+  // Primary destinations get a dedicated slot on the mobile bottom tab bar so
+  // switching screens on a phone is a single tap instead of opening a menu
+  // first. Everything else (plus quick settings/theme/logout) lives in the
+  // "More" bottom sheet, reached via the 5th tab.
+  const mobileBottomNavIds = ['dashboard', 'inventory', 'credit', 'transactions'];
+  const bottomNavItems = navItems.filter(item => mobileBottomNavIds.includes(item.id));
+  const moreSheetNavItems = navItems.filter(item => !mobileBottomNavIds.includes(item.id));
 
   const handleDropdownItemClick = (screenId: string) => {
     setActiveScreen(screenId);
@@ -494,21 +502,6 @@ export default function Navigation({
 
           {/* Left Brand Identity Capsule */}
           <div className="flex items-center gap-3">
-            {/* Mobile Hamburger Menu Button */}
-            <button
-              type="button"
-              id="mobile-menu-trigger"
-              onClick={() => {
-                setIsMobileMenuOpen(!isMobileMenuOpen);
-                setIsNotificationOpen(false);
-                setIsDropdownOpen(false);
-              }}
-              className="xl:hidden p-2 text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-white neumorphic-btn cursor-pointer"
-              aria-label="Toggle navigation menu"
-            >
-              {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
-
             <div className="flex items-center gap-2.5 neumorphic-card px-4 py-1.5 rounded-full select-none">
               <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-sky-400 via-cyan-400 to-blue-500 flex items-center justify-center text-white text-[11px] font-black shadow-xs">
                 L
@@ -686,47 +679,118 @@ export default function Navigation({
             </div>
           </div>
 
-          {/* Mobile Hamburger Menu Dropdown Overlay */}
+          {/* "More" Bottom Sheet — reached from the mobile bottom tab bar.
+              Holds secondary destinations plus quick settings/theme/logout
+              so nothing that used to live in the old hamburger menu is lost. */}
           <AnimatePresence>
             {isMobileMenuOpen && (
-              <motion.div
-                ref={mobileMenuRef}
-                initial={{ opacity: 0, scale: 0.95, y: -8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                transition={{ duration: 0.12, ease: 'easeOut' }}
-                className="mobile-navigation-drawer xl:hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
-              >
-                <div className="mobile-navigation-list p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain touch-pan-y">
-                  {navItems.map(item => {
-                    const isActive = activeScreen === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveScreen(item.id);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 text-xs font-bold transition cursor-pointer text-left rounded-xl border ${isActive
-                          ? 'neumorphic-btn text-sky-700 dark:text-sky-300 border-sky-300/80 dark:border-sky-500/50 font-extrabold'
-                          : 'neumorphic-btn text-slate-700 dark:text-slate-300 border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
-                          }`}
-                      >
-                        <div className="flex items-center gap-3.5">
+              <>
+                <motion.div
+                  key="more-sheet-backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="xl:hidden fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-[1px]"
+                />
+                <motion.div
+                  key="more-sheet-panel"
+                  ref={mobileMenuRef}
+                  initial={{ y: '100%' }}
+                  animate={{ y: 0 }}
+                  exit={{ y: '100%' }}
+                  transition={{ type: 'spring', damping: 30, stiffness: 280 }}
+                  className="mobile-more-sheet xl:hidden fixed left-0 right-0 bottom-0 z-50 neumorphic-card rounded-t-3xl border border-b-0 border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white"
+                  style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                >
+                  <div className="flex justify-center pt-2.5 pb-1">
+                    <div className="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+                  </div>
+                  <div className="px-4 pb-2 pt-1 flex items-center justify-between">
+                    <span className="font-bold text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300">More</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="w-7 h-7 neumorphic-circle flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
+                      aria-label="Close menu"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  <div className="px-3 pb-2 max-h-[70dvh] overflow-y-auto overscroll-contain touch-pan-y grid grid-cols-3 gap-2.5">
+                    {moreSheetNavItems.map(item => {
+                      const isActive = activeScreen === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveScreen(item.id);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className={`relative flex flex-col items-center justify-center gap-1.5 px-2 py-3.5 text-[10.5px] font-bold transition cursor-pointer text-center rounded-2xl border ${isActive
+                            ? 'neumorphic-btn text-sky-700 dark:text-sky-300 border-sky-300/80 dark:border-sky-500/50 font-extrabold'
+                            : 'neumorphic-btn text-slate-700 dark:text-slate-300 border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
+                            }`}
+                        >
                           <MaterialIcon name={item.materialIcon} size={20} className={isActive ? 'text-sky-600 dark:text-sky-300' : 'text-slate-500 dark:text-slate-400'} />
-                          <span>{item.name}</span>
-                        </div>
-                        {item.id === 'notifications' && unreadNotificationCount > 0 && (
-                          <span className="px-2 py-0.5 text-[9px] font-black bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 rounded-full leading-none mr-2 border border-red-500 dark:border-red-400">
-                            {unreadNotificationCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.div>
+                          <span className="leading-tight">{item.name}</span>
+                          {item.id === 'notifications' && unreadNotificationCount > 0 && (
+                            <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[8px] font-black bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 rounded-full border border-red-500 dark:border-red-400">
+                              {unreadNotificationCount}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="px-3 pb-3.5 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 mt-1 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        handleDropdownItemClick('settings');
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 rounded-xl"
+                    >
+                      <MaterialIcon name="settings" size={16} className="text-slate-800 dark:text-slate-200" />
+                      <span>{translate('settings', config.languageCode)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextTheme = isDarkMode ? 'light' : 'dark';
+                        const root = document.documentElement;
+                        root.classList.toggle('dark', nextTheme === 'dark');
+                        root.setAttribute('data-theme', nextTheme);
+                        if (userThemeStorageKey) {
+                          localStorage.setItem(userThemeStorageKey, nextTheme);
+                        }
+                        setLocalDarkMode(nextTheme === 'dark');
+                        onThemeChange?.(nextTheme);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 rounded-xl"
+                    >
+                      {isDarkMode ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-slate-700" />}
+                      <span>{isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        onLogout();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 rounded-xl"
+                    >
+                      <MaterialIcon name="logout" size={16} className="text-slate-800 dark:text-slate-200" />
+                      <span>{translate('logOut', config.languageCode)}</span>
+                    </button>
+                  </div>
+                </motion.div>
+              </>
             )}
           </AnimatePresence>
 
@@ -1007,12 +1071,67 @@ export default function Navigation({
           </div>
         )}
 
-        <main id="app-main-content" className="flex-1 p-3 sm:p-4 xl:p-4 overflow-y-auto">
+        <main id="app-main-content" className="flex-1 p-3 sm:p-4 xl:p-4 pb-[calc(5.25rem+env(safe-area-inset-bottom))] xl:pb-4 overflow-y-auto">
           <div className={`${(activeScreen === 'invoice' || activeScreen === 'transactions') ? 'max-w-none xl:max-w-[1550px]' : 'max-w-7xl'} mx-auto w-full`}>
             {children}
           </div>
         </main>
       </div>
+
+      {/* MOBILE BOTTOM TAB BAR — one-tap access to primary screens, native-app style */}
+      <nav
+        id="mobile-bottom-nav"
+        className="xl:hidden fixed bottom-0 left-0 right-0 z-40 no-print neumorphic-card border-t border-white/90 dark:border-slate-700/80 rounded-t-2xl"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="grid grid-cols-5 items-stretch px-1 pt-1.5 pb-1">
+          {bottomNavItems.map(item => {
+            const isActive = activeScreen === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveScreen(item.id)}
+                className="relative flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition cursor-pointer select-none"
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <MaterialIcon
+                  name={item.materialIcon}
+                  size={22}
+                  className={isActive ? 'text-sky-600 dark:text-sky-300' : 'text-slate-500 dark:text-slate-400'}
+                />
+                <span className={`text-[9.5px] leading-none font-bold truncate max-w-full px-0.5 ${isActive ? 'text-sky-700 dark:text-sky-300 font-extrabold' : 'text-slate-500 dark:text-slate-400'}`}>
+                  {item.name}
+                </span>
+                {isActive && (
+                  <motion.span
+                    layoutId="bottom-nav-active-dot"
+                    className="absolute -top-0.5 w-1.5 h-1.5 rounded-full bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600"
+                  />
+                )}
+              </button>
+            );
+          })}
+
+          {/* "More" tab — secondary destinations + settings/theme/logout */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsMobileMenuOpen(!isMobileMenuOpen);
+              setIsDropdownOpen(false);
+              setIsNotificationOpen(false);
+            }}
+            className="relative flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition cursor-pointer select-none"
+            aria-label="More"
+            aria-expanded={isMobileMenuOpen}
+          >
+            <MoreHorizontal size={22} className={isMobileMenuOpen ? 'text-sky-600 dark:text-sky-300' : 'text-slate-500 dark:text-slate-400'} />
+            <span className={`text-[9.5px] leading-none font-bold ${isMobileMenuOpen ? 'text-sky-700 dark:text-sky-300 font-extrabold' : 'text-slate-500 dark:text-slate-400'}`}>
+              More
+            </span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

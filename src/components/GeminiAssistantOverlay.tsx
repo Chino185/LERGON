@@ -1767,7 +1767,7 @@ export default function GeminiAssistantOverlay({
             initial={{ y: 80, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 80, opacity: 0, scale: 0.95 }}
-            className="fixed bottom-24 right-6 left-6 md:left-auto md:w-96 z-50 no-print"
+            className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] xl:bottom-24 right-4 left-4 md:left-auto md:w-96 z-50 no-print"
           >
             <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#2b2d31] border border-white/90 dark:border-white/10 rounded-2xl p-4.5 shadow-2xl relative overflow-hidden flex flex-col gap-3.5">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none" />
@@ -1814,7 +1814,7 @@ export default function GeminiAssistantOverlay({
       </AnimatePresence>
 
       {/* 2. FLOATING SIRI-STYLE ORB LAUNCHER */}
-      <div className="fixed bottom-6 right-6 z-50 no-print" id="floating-siri-launcher">
+      <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 xl:bottom-6 xl:right-6 z-50 no-print" id="floating-siri-launcher">
         <div className="relative flex items-center justify-center">
           
           {/* Continuous Ambient Breathing Glow Aura (Shows Active AI State) */}
@@ -2531,7 +2531,7 @@ export default function GeminiAssistantOverlay({
       </AnimatePresence>
 
       {/* Real-time AI Data Corrections Notification List */}
-      <div id="ai-corrections-toast-container" className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 max-w-sm pointer-events-none">
+      <div id="ai-corrections-toast-container" className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 left-4 xl:left-auto xl:bottom-6 xl:right-6 z-[9999] flex flex-col gap-3 max-w-sm xl:max-w-sm mx-auto xl:mx-0 pointer-events-none">
         <AnimatePresence>
           {correctionsList.map(item => (
             <motion.div
