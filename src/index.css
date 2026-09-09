@@ -1704,9 +1704,18 @@ body,
   min-height: 100dvh;
 }
 
+#app-shell.app-shell {
+  height: 100dvh;
+  overflow: hidden;
+}
+
 #app-main-content {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior-y: contain;
   scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
 }
 
 #app-main-content > div {
@@ -1716,6 +1725,10 @@ body,
 @media (max-width: 1279px) {
   #app-shell {
     min-height: 100dvh;
+  }
+
+  #app-shell.app-shell {
+    height: 100dvh;
   }
 
   #app-shell > header {
@@ -1729,7 +1742,6 @@ body,
   #app-main-content {
     padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   }
-
 }
 
 @media (max-width: 767px) {
@@ -1755,6 +1767,62 @@ body,
   #app-main-content {
     padding-top: 0.875rem;
     padding-inline: 0.75rem;
+  }
+
+  .mobile-navigation-drawer {
+    left: 0.75rem;
+    right: 0.75rem;
+    top: 100%;
+    margin-top: 0.5rem;
+    max-height: calc(100dvh - 4.5rem);
+    display: flex;
+    flex-direction: column;
+    border-radius: 1.5rem;
+    background: rgba(235, 240, 247, 0.96);
+    backdrop-filter: blur(22px) saturate(1.25);
+    -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  }
+
+  .mobile-navigation-drawer > div:first-child {
+    flex: 0 0 auto;
+    min-height: 3.5rem;
+    padding-inline: 1rem;
+    letter-spacing: 0.12em;
+  }
+
+  .mobile-navigation-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-navigation-list > button {
+    flex: 0 0 auto;
+    min-height: 3.5rem;
+    border-radius: 1.5rem;
+    padding-inline: 1.125rem;
+    font-size: 0.8125rem;
+    box-shadow: 5px 5px 12px rgba(160, 175, 200, 0.32), -5px -5px 12px rgba(255, 255, 255, 0.88);
+  }
+
+  .mobile-navigation-list > button:active {
+    transform: scale(0.985);
+  }
+
+  .dark .mobile-navigation-drawer,
+  [data-theme="dark"] .mobile-navigation-drawer {
+    background: rgba(43, 45, 49, 0.97);
+  }
+
+  .dark .mobile-navigation-list > button,
+  [data-theme="dark"] .mobile-navigation-list > button {
+    box-shadow: 5px 5px 12px rgba(17, 18, 21, 0.62), -5px -5px 12px rgba(255, 255, 255, 0.045);
   }
 
   /* Full-width sheets read better on a phone than a narrow centered modal. */

@@ -479,7 +479,7 @@ export default function Navigation({
   }, [themeMode, localDarkMode, currentUserUid, userThemeStorageKey]);
 
   return (
-    <div id="app-shell" className="relative min-h-screen crextio-canvas overflow-x-hidden flex flex-col text-slate-900 font-sans">
+    <div id="app-shell" className="app-shell relative min-h-screen crextio-canvas overflow-x-hidden flex flex-col text-slate-900 font-sans">
 
       {/* Decorative ambient subtle background gradients */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10 select-none">
@@ -695,7 +695,7 @@ export default function Navigation({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -8 }}
                 transition={{ duration: 0.12, ease: 'easeOut' }}
-                className="xl:hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
+                className="mobile-navigation-drawer xl:hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
               >
                 <div className="p-3.5 neumorphic-inset rounded-none border-0 border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
                   <span className="font-bold text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300">Navigation Menu</span>
@@ -707,7 +707,7 @@ export default function Navigation({
                     <X size={14} />
                   </button>
                 </div>
-                <div className="p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain touch-pan-y">
+                <div className="mobile-navigation-list p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain touch-pan-y">
                   {navItems.map(item => {
                     const isActive = activeScreen === item.id;
                     return (
