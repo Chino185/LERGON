@@ -697,16 +697,6 @@ export default function Navigation({
                 transition={{ duration: 0.12, ease: 'easeOut' }}
                 className="mobile-navigation-drawer xl:hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
               >
-                <div className="p-3.5 neumorphic-inset rounded-none border-0 border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
-                  <span className="font-bold text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300">Navigation Menu</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="w-7 h-7 neumorphic-circle flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
                 <div className="mobile-navigation-list p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain touch-pan-y">
                   {navItems.map(item => {
                     const isActive = activeScreen === item.id;

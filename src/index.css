@@ -1778,22 +1778,16 @@ body,
     display: flex;
     flex-direction: column;
     border-radius: 1.5rem;
+    padding: 0.625rem;
     background: rgba(235, 240, 247, 0.96);
     backdrop-filter: blur(22px) saturate(1.25);
     -webkit-backdrop-filter: blur(22px) saturate(1.25);
   }
 
-  .mobile-navigation-drawer > div:first-child {
-    flex: 0 0 auto;
-    min-height: 3.5rem;
-    padding-inline: 1rem;
-    letter-spacing: 0.12em;
-  }
-
   .mobile-navigation-list {
     flex: 1 1 auto;
     min-height: 0;
-    padding: 0.875rem;
+    padding: 0.25rem;
     display: flex;
     flex-direction: column;
     gap: 0.625rem;
@@ -1804,11 +1798,25 @@ body,
 
   .mobile-navigation-list > button {
     flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
     min-height: 3.5rem;
     border-radius: 1.5rem;
     padding-inline: 1.125rem;
     font-size: 0.8125rem;
     box-shadow: 5px 5px 12px rgba(160, 175, 200, 0.32), -5px -5px 12px rgba(255, 255, 255, 0.88);
+  }
+
+  .mobile-navigation-list > button > div {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .mobile-navigation-list > button > div > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .mobile-navigation-list > button:active {
