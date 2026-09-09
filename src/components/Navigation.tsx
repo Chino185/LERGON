@@ -156,38 +156,6 @@ export default function Navigation({
     { id: 'invoice', name: translate('invoiceGenerator', config.languageCode), materialIcon: 'description' }
   ];
 
-  // Primary bottom bar tabs — always visible on mobile
-  const bottomBarPrimaryTabs = [
-    { id: 'dashboard', label: 'Home', materialIcon: 'dashboard' },
-    { id: 'inventory', label: 'Stock', materialIcon: 'inventory_2' },
-    { id: 'credit', label: 'Credit', materialIcon: 'payments' },
-    { id: 'transactions', label: 'Ledger', materialIcon: 'receipt_long' },
-  ];
-
-  // Overflow items that go under the "More" tab
-  const bottomBarOverflowItems = navItems.filter(
-    item => !bottomBarPrimaryTabs.some(p => p.id === item.id)
-  );
-
-  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
-  const mobileMoreRef = React.useRef<HTMLDivElement>(null);
-
-  // Close "More" overflow when clicking outside
-  React.useEffect(() => {
-    if (!isMobileMoreOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (mobileMoreRef.current && !mobileMoreRef.current.contains(target) && !target.closest('#mobile-more-trigger')) {
-        setIsMobileMoreOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside, true);
-    return () => document.removeEventListener('click', handleClickOutside, true);
-  }, [isMobileMoreOpen]);
-
-  // Whether the active screen is in the overflow ("More") group
-  const isActiveInOverflow = bottomBarOverflowItems.some(item => item.id === activeScreen);
-
   const handleDropdownItemClick = (screenId: string) => {
     setActiveScreen(screenId);
     setIsDropdownOpen(false);
@@ -535,7 +503,7 @@ export default function Navigation({
                 setIsNotificationOpen(false);
                 setIsDropdownOpen(false);
               }}
-              className="lg:!hidden xl:!hidden p-2 text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-white neumorphic-btn cursor-pointer"
+              className="xl:hidden p-2 text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-white neumorphic-btn cursor-pointer"
               aria-label="Toggle navigation menu"
             >
               {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -552,7 +520,7 @@ export default function Navigation({
           </div>
 
           {/* Center Pill Navbar Track (Crextio & Finnova Style) */}
-          <nav className="hidden lg:flex items-center">
+          <nav className="hidden xl:flex items-center">
             <div className="pill-nav-track flex items-center gap-1.5 p-1.5">
               {navItems.map(item => {
                 const isActive = activeScreen === item.id;
@@ -727,7 +695,7 @@ export default function Navigation({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -8 }}
                 transition={{ duration: 0.12, ease: 'easeOut' }}
-                className="lg:!hidden xl:!hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
+                className="xl:hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
               >
                 <div className="p-3.5 neumorphic-inset rounded-none border-0 border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
                   <span className="font-bold text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300">Navigation Menu</span>
@@ -1055,114 +1023,6 @@ export default function Navigation({
           </div>
         </main>
       </div>
-
-      {/* ================================================================
-          MOBILE BOTTOM NAVIGATION BAR — Professional fixed tab bar
-          Visible only below xl breakpoint (matching desktop nav hide point)
-          ================================================================ */}
-      <nav className="mobile-bottom-nav lg:!hidden xl:!hidden no-print" aria-label="Mobile navigation">
-        {bottomBarPrimaryTabs.map(tab => {
-          const isActive = activeScreen === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setActiveScreen(tab.id);
-                setIsMobileMenuOpen(false);
-                setIsMobileMoreOpen(false);
-              }}
-              className={`mobile-bottom-nav-item${isActive ? ' active' : ''}`}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <MaterialIcon name={tab.materialIcon} size={20} />
-              <span>{tab.label}</span>
-              {tab.id === 'notifications' && unreadNotificationCount > 0 && (
-                <span className="mobile-bottom-nav-badge">{unreadNotificationCount}</span>
-              )}
-            </button>
-          );
-        })}
-
-        {/* "More" overflow tab */}
-        <div className="relative flex-1 flex items-stretch">
-          <button
-            type="button"
-            id="mobile-more-trigger"
-            onClick={() => setIsMobileMoreOpen(!isMobileMoreOpen)}
-            className={`mobile-bottom-nav-item w-full${isActiveInOverflow ? ' active' : ''}`}
-          >
-            <MaterialIcon name="more_horiz" size={20} />
-            <span>More</span>
-            {/* Show notification badge on More if notifications screen is in overflow and has unread */}
-            {bottomBarOverflowItems.some(i => i.id === 'notifications') && unreadNotificationCount > 0 && (
-              <span className="mobile-bottom-nav-badge">{unreadNotificationCount}</span>
-            )}
-          </button>
-
-          {/* More overflow popup */}
-          <AnimatePresence>
-            {isMobileMoreOpen && (
-              <motion.div
-                ref={mobileMoreRef}
-                initial={{ opacity: 0, y: 12, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 12, scale: 0.96 }}
-                transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute bottom-full right-0 mb-2 w-52 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white z-50"
-              >
-                <div className="p-1.5 space-y-0.5">
-                  {bottomBarOverflowItems.map(item => {
-                    const isActive = activeScreen === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveScreen(item.id);
-                          setIsMobileMoreOpen(false);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer text-left ${
-                          isActive
-                            ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
-                            : 'neumorphic-btn text-slate-700 dark:text-slate-300 border border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
-                        }`}
-                      >
-                        <MaterialIcon name={item.materialIcon} size={18} className={isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
-                        <span>{item.name}</span>
-                        {item.id === 'notifications' && unreadNotificationCount > 0 && (
-                          <span className="ml-auto px-1.5 py-0.5 text-[9px] font-black bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 rounded-full leading-none border border-red-500 dark:border-red-400">
-                            {unreadNotificationCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-
-                  {/* Settings quick-link */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveScreen('settings');
-                      setIsMobileMoreOpen(false);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer text-left ${
-                      activeScreen === 'settings'
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
-                        : 'neumorphic-btn text-slate-700 dark:text-slate-300 border border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
-                    }`}
-                  >
-                    <MaterialIcon name="settings" size={18} className={activeScreen === 'settings' ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
-                    <span>{translate('settings', config.languageCode)}</span>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </nav>
     </div>
   );
 }

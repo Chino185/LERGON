@@ -1374,141 +1374,6 @@ html {
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
-.landing-header {
-  backdrop-filter: blur(16px) saturate(1.7);
-  -webkit-backdrop-filter: blur(16px) saturate(1.7);
-}
-
-/* ==========================================================================
-   MOBILE BOTTOM NAVIGATION BAR SYSTEM
-   ========================================================================== */
-.mobile-bottom-nav {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 48;
-  align-items: stretch;
-  justify-content: space-around;
-  height: calc(3.75rem + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  background-color: #ebf0f7;
-  border-top: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 -4px 16px rgba(160, 175, 200, 0.3), 0 -1px 4px rgba(160, 175, 200, 0.15);
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.dark .mobile-bottom-nav,
-[data-theme="dark"] .mobile-bottom-nav {
-  background-color: #2b2d31;
-  border-top-color: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.55), 0 -1px 4px rgba(0, 0, 0, 0.3);
-}
-
-.mobile-bottom-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.125rem;
-  flex: 1;
-  min-width: 0;
-  padding: 0.375rem 0.25rem;
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #64748b;
-  transition: color 0.15s ease, transform 0.15s ease;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  border: none;
-  background: transparent;
-  outline: none;
-}
-
-.mobile-bottom-nav-item:active {
-  transform: scale(0.92);
-}
-
-.dark .mobile-bottom-nav-item,
-[data-theme="dark"] .mobile-bottom-nav-item {
-  color: #94a3b8;
-}
-
-.mobile-bottom-nav-item.active {
-  color: #0052D4;
-  font-weight: 800;
-}
-
-.dark .mobile-bottom-nav-item.active,
-[data-theme="dark"] .mobile-bottom-nav-item.active {
-  color: #38bdf8;
-}
-
-.mobile-bottom-nav-item.active::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 1.75rem;
-  height: 0.1875rem;
-  border-radius: 0 0 9999px 9999px;
-  background: linear-gradient(90deg, #0052D4, #65C7F7);
-}
-
-.dark .mobile-bottom-nav-item.active::before,
-[data-theme="dark"] .mobile-bottom-nav-item.active::before {
-  background: linear-gradient(90deg, #38bdf8, #0052D4);
-}
-
-.mobile-bottom-nav-badge {
-  position: absolute;
-  top: 0.125rem;
-  right: calc(50% - 1rem);
-  min-width: 1rem;
-  height: 1rem;
-  padding: 0 0.25rem;
-  font-size: 0.5625rem;
-  font-weight: 900;
-  line-height: 1rem;
-  text-align: center;
-  color: #ef4444;
-  background-color: #ffffff;
-  border: 1.5px solid #ef4444;
-  border-radius: 9999px;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.dark .mobile-bottom-nav-badge,
-[data-theme="dark"] .mobile-bottom-nav-badge {
-  background-color: #1e1f22;
-  color: #f87171;
-  border-color: #f87171;
-}
-
-/* Show bottom nav only on mobile/tablet (below xl breakpoint) */
-@media (max-width: 1279px) {
-  .mobile-bottom-nav {
-    display: flex;
-  }
-}
-
-/* --- MOBILE APP-WIDE NEUMORPHIC RESPONSIVE LAYER ---
-   This layer intentionally targets only the authenticated app shell. It
-   preserves semantic colored badges/alerts and gradient active states while
-   giving neutral mobile surfaces a consistent raised/inset treatment. */
-@media (max-width: 1279px) {
-  /* Reserve space for the bottom navigation bar on authenticated app */
-  #app-shell {
-    padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px));
-  }
-}
-
 @media (max-width: 767px) {
   #app-shell,
   #app-main-content,
@@ -1865,14 +1730,6 @@ body,
     padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   }
 
-  .mobile-bottom-nav {
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
-  }
-
-  .mobile-bottom-nav-item {
-    min-height: 3.25rem;
-  }
 }
 
 @media (max-width: 767px) {
@@ -1914,18 +1771,6 @@ body,
     min-height: 2.625rem;
   }
 
-  .mobile-bottom-nav-item {
-    font-size: 0.6875rem;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-  }
-
-  .mobile-bottom-nav-item svg,
-  .mobile-bottom-nav-item .material-symbols-rounded,
-  .mobile-bottom-nav-item .material-symbols-outlined {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1972,14 +1817,3 @@ body,
     font-size: 0.8125rem;
   }
 }
-
-/* Ensure mobile menu triggers and dropdowns are never visible on desktop views */
-@media (min-width: 1024px) {
-  #landing-mobile-menu-trigger,
-  #landing-mobile-menu,
-  #mobile-menu-trigger,
-  .mobile-bottom-nav {
-    display: none !important;
-  }
-}
-
