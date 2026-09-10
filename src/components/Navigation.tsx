@@ -111,7 +111,7 @@ export default function Navigation({
 
       if (isMobileMenuOpen) {
         const isClickInsideMobileMenu = mobileMenuRef.current?.contains(target);
-        const isClickOnToggle = target.closest('#mobile-menu-trigger');
+        const isClickOnToggle = target.closest('#mobile-menu-trigger') || target.closest('#mobile-bottom-more-trigger');
         if (!isClickInsideMobileMenu && !isClickOnToggle) {
           setIsMobileMenuOpen(false);
         }
@@ -145,7 +145,7 @@ export default function Navigation({
   }, [lowStockItems.length]);
 
   // Main navigation items with Google Fonts Material Symbols icons
-  // All navigation items for desktop top bar and mobile hamburger
+  // All navigation items for desktop top bar
   const navItems = [
     { id: 'dashboard', name: translate('dashboard', config.languageCode), materialIcon: 'dashboard' },
     { id: 'inventory', name: translate('inventory', config.languageCode), materialIcon: 'inventory_2' },
@@ -155,6 +155,24 @@ export default function Navigation({
     ...(userRole === 2 ? [{ id: 'activity_log', name: 'Activity', materialIcon: 'shield' }] : []),
     { id: 'invoice', name: translate('invoiceGenerator', config.languageCode), materialIcon: 'description' }
   ];
+
+  // Primary navigation items for the mobile bottom nav bar
+  const primaryMobileNavItems = [
+    { id: 'dashboard', name: translate('dashboard', config.languageCode), shortLabel: 'Dashboard', materialIcon: 'dashboard' },
+    { id: 'inventory', name: translate('inventory', config.languageCode), shortLabel: 'Inventory', materialIcon: 'inventory_2' },
+    { id: 'credit', name: translate('creditManagement', config.languageCode), shortLabel: 'Credit', materialIcon: 'payments' },
+    { id: 'transactions', name: translate('transactions', config.languageCode), shortLabel: 'Transactions', materialIcon: 'receipt_long' },
+  ];
+
+  // Secondary navigation items displayed in the "More" bottom sheet / popover
+  const moreMobileNavItems = [
+    { id: 'report', name: translate('reports', config.languageCode), materialIcon: 'bar_chart' },
+    ...(userRole === 2 ? [{ id: 'activity_log', name: 'Activity Log', materialIcon: 'shield' }] : []),
+    { id: 'invoice', name: translate('invoiceGenerator', config.languageCode), materialIcon: 'description' },
+    { id: 'settings', name: 'Settings', materialIcon: 'settings' }
+  ];
+
+  const isMoreActive = moreMobileNavItems.some(item => item.id === activeScreen);
 
   const handleDropdownItemClick = (screenId: string) => {
     setActiveScreen(screenId);
@@ -494,7 +512,7 @@ export default function Navigation({
 
           {/* Left Brand Identity Capsule */}
           <div className="flex items-center gap-3">
-            {/* Mobile Hamburger Menu Button */}
+            {/* Mobile Hamburger Menu Button (hidden in favor of dedicated bottom nav bar) */}
             <button
               type="button"
               id="mobile-menu-trigger"
@@ -503,10 +521,10 @@ export default function Navigation({
                 setIsNotificationOpen(false);
                 setIsDropdownOpen(false);
               }}
-              className="xl:hidden w-9 h-9 rounded-full neumorphic-circle flex items-center justify-center text-slate-800 dark:text-white neu-button border border-white/80 dark:border-slate-700/80 shadow-md shrink-0 cursor-pointer active:scale-95 transition"
+              className="hidden w-9 h-9 rounded-full neumorphic-circle flex items-center justify-center text-slate-800 dark:text-white neu-button border border-white/80 dark:border-slate-700/80 shadow-md shrink-0 cursor-pointer active:scale-95 transition"
               aria-label="Toggle navigation menu"
               aria-expanded={isMobileMenuOpen}
-              aria-controls="authenticated-mobile-navigation"
+              aria-controls="authenticated-mobile-more-menu"
             >
               {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
@@ -692,57 +710,7 @@ export default function Navigation({
             </div>
           </div>
 
-          {/* Mobile Hamburger Menu Dropdown Overlay */}
-          <AnimatePresence>
-            {isMobileMenuOpen && (
-              <motion.div
-                ref={mobileMenuRef}
-                initial={{ opacity: 0, scale: 0.95, y: -8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                transition={{ duration: 0.12, ease: 'easeOut' }}
-                id="authenticated-mobile-navigation"
-                className="mobile-navigation-drawer xl:hidden z-50 absolute left-2 right-2 sm:left-4 sm:right-4 top-14 mt-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
-              >
-                <div className="mobile-navigation-list p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain touch-pan-y">
-                  {navItems.map(item => {
-                    const isActive = activeScreen === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveScreen(item.id);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 text-xs font-bold transition cursor-pointer text-left rounded-xl border mb-1.5 last:mb-0 active:scale-[0.98] ${isActive
-                          ? 'neumorphic-inset text-sky-700 dark:text-sky-300 border-sky-400/80 dark:border-sky-500/60 font-extrabold bg-sky-500/10'
-                          : 'neumorphic-btn text-slate-700 dark:text-slate-200 border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border ${isActive ? 'border-sky-400/80 text-sky-600 dark:text-sky-300' : 'border-white/80 dark:border-slate-700/70 text-slate-600 dark:text-slate-300'}`}>
-                            <MaterialIcon name={item.materialIcon} size={18} className={isActive ? 'text-sky-600 dark:text-sky-300' : 'text-slate-600 dark:text-slate-300'} />
-                          </div>
-                          <span className="font-extrabold text-xs">{item.name}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {item.id === 'notifications' && unreadNotificationCount > 0 && (
-                            <span className="px-2 py-0.5 text-[9px] font-black bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 rounded-full leading-none border border-red-500 dark:border-red-400">
-                              {unreadNotificationCount}
-                            </span>
-                          )}
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
-                            <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+
 
 
 
@@ -1021,12 +989,136 @@ export default function Navigation({
           </div>
         )}
 
-        <main id="app-main-content" className="flex-1 p-3 sm:p-4 xl:p-4">
+        <main id="app-main-content" className="flex-1 p-3 sm:p-4 xl:p-4 pb-24 xl:pb-4">
           <div className={`${(activeScreen === 'invoice' || activeScreen === 'transactions') ? 'max-w-none xl:max-w-[1550px]' : 'max-w-7xl'} mx-auto w-full`}>
             {children}
           </div>
         </main>
       </div>
+
+      {/* MORE PAGES MOBILE POPOVER SHEET */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-xs xl:hidden"
+              aria-hidden="true"
+            />
+            {/* Popover Sheet */}
+            <motion.div
+              ref={mobileMenuRef}
+              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.96 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              id="authenticated-mobile-more-menu"
+              className="fixed bottom-20 inset-x-3 sm:inset-x-6 max-w-md mx-auto z-50 neumorphic-card rounded-2xl p-3 border border-white/90 dark:border-slate-700/80 shadow-2xl bg-[#ebf0f7]/98 dark:bg-[#1a1c1e]/98 backdrop-blur-xl xl:hidden"
+            >
+              <div className="flex items-center justify-between px-2 pb-2 mb-2.5 border-b border-slate-200/60 dark:border-slate-800/80">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full neumorphic-circle flex items-center justify-center text-slate-700 dark:text-slate-300">
+                    <MaterialIcon name="apps" size={13} />
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    More Pages
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-7 h-7 neumorphic-circle flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
+                  aria-label="Close more pages menu"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {moreMobileNavItems.map(item => {
+                  const isActive = activeScreen === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveScreen(item.id);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition active:scale-95 cursor-pointer text-left ${isActive
+                        ? 'neu-button active-tab text-white shadow-md border-transparent'
+                        : 'neumorphic-btn text-slate-700 dark:text-slate-200 border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
+                        }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 ${isActive ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`}>
+                        <MaterialIcon name={item.materialIcon} size={18} className={isActive ? 'text-white' : ''} />
+                      </div>
+                      <span className="font-extrabold text-xs truncate">{item.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* MOBILE FLOATING NEUMORPHIC BOTTOM NAVIGATION BAR */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="no-print xl:hidden fixed bottom-2 inset-x-2 sm:bottom-3 sm:inset-x-4 z-40 max-w-md mx-auto pointer-events-none"
+      >
+        <div className="pointer-events-auto mobile-bottom-nav neumorphic-card rounded-2xl sm:rounded-3xl border border-white/90 dark:border-slate-700/80 shadow-2xl bg-[#ebf0f7]/95 dark:bg-[#1a1c1e]/95 backdrop-blur-lg px-1.5 py-1.5 flex items-center justify-between gap-1">
+          {primaryMobileNavItems.map(item => {
+            const isActive = activeScreen === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setActiveScreen(item.id);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl transition-all duration-150 active:scale-95 cursor-pointer select-none ${isActive
+                  ? 'neu-button active-tab text-white shadow-md'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
+                  }`}
+              >
+                <MaterialIcon name={item.materialIcon} size={19} className={isActive ? 'text-white' : ''} />
+                <span className="text-[9.5px] font-extrabold tracking-tight mt-0.5 truncate max-w-full leading-tight">
+                  {item.shortLabel}
+                </span>
+              </button>
+            );
+          })}
+
+          {/* "More" Trigger Button */}
+          <button
+            type="button"
+            id="mobile-bottom-more-trigger"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl transition-all duration-150 active:scale-95 cursor-pointer relative select-none ${isMoreActive || isMobileMenuOpen
+              ? 'neu-button active-tab text-white shadow-md'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
+              }`}
+            aria-expanded={isMobileMenuOpen}
+            aria-label="More pages"
+          >
+            <MaterialIcon name="apps" size={19} className={(isMoreActive || isMobileMenuOpen) ? 'text-white' : ''} />
+            <span className="text-[9.5px] font-extrabold tracking-tight mt-0.5 leading-tight">
+              More
+            </span>
+            {isMoreActive && !isMobileMenuOpen && (
+              <span className="absolute top-1.5 right-3.5 w-2 h-2 rounded-full bg-cyan-400 ring-2 ring-white dark:ring-slate-900" />
+            )}
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

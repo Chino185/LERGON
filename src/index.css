@@ -1840,6 +1840,15 @@ body {
     box-shadow: 5px 5px 12px rgba(17, 18, 21, 0.62), -5px -5px 12px rgba(255, 255, 255, 0.045);
   }
 
+  .mobile-bottom-nav {
+    box-shadow: 0 4px 20px rgba(160, 175, 200, 0.45), 0 -2px 10px rgba(160, 175, 200, 0.2);
+  }
+
+  .dark .mobile-bottom-nav,
+  [data-theme="dark"] .mobile-bottom-nav {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.75), 0 -2px 10px rgba(0, 0, 0, 0.4);
+  }
+
   /* Full-width sheets read better on a phone than a narrow centered modal. */
   #app-main-content .fixed.inset-0 > div,
   #app-main-content .fixed.inset-0 > form,
