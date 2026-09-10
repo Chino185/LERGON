@@ -168,8 +168,7 @@ export default function Navigation({
   const moreMobileNavItems = [
     { id: 'report', name: translate('reports', config.languageCode), materialIcon: 'bar_chart' },
     ...(userRole === 2 ? [{ id: 'activity_log', name: 'Activity Log', materialIcon: 'shield' }] : []),
-    { id: 'invoice', name: translate('invoiceGenerator', config.languageCode), materialIcon: 'description' },
-    { id: 'settings', name: 'Settings', materialIcon: 'settings' }
+    { id: 'invoice', name: translate('invoiceGenerator', config.languageCode), materialIcon: 'description' }
   ];
 
   const isMoreActive = moreMobileNavItems.some(item => item.id === activeScreen);
@@ -629,9 +628,9 @@ export default function Navigation({
                     transition={{ duration: 0.12, ease: 'easeOut' }}
                     className="z-50 absolute right-0 top-full mt-2 w-[min(15rem,calc(100vw-1.5rem))] neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
                   >
-                    {/* Dropdown Header Info block */}
-                    <div className="p-5 border-b border-slate-200/50 dark:border-slate-700/60 flex flex-col items-center text-center bg-[#ebf0f7]/60 dark:bg-[#202225]/60">
-                      <div className="w-14 h-14 neumorphic-circle text-slate-900 dark:text-white font-extrabold text-lg flex items-center justify-center select-none mb-2.5 overflow-hidden border border-white/90 dark:border-slate-700/80">
+                    {/* Dropdown Header Info block - Compact & Sleek */}
+                    <div className="p-3 border-b border-slate-200/50 dark:border-slate-700/60 flex items-center gap-2.5 bg-[#ebf0f7]/60 dark:bg-[#202225]/60">
+                      <div className="w-9 h-9 neumorphic-circle text-slate-900 dark:text-white font-extrabold text-xs flex items-center justify-center shrink-0 select-none overflow-hidden border border-white/90 dark:border-slate-700/80">
                         {displayPhoto ? (
                           <img
                             src={displayPhoto}
@@ -643,31 +642,26 @@ export default function Navigation({
                           menuLetter
                         )}
                       </div>
-                      <div className="w-full">
-                        <p className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
                           {displayName}
                         </p>
-                        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-300 truncate mt-0.5">
-                          {config.email || 'No email registered'}
+                        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          {config.email || `${config.currency} (${config.currencySymbol})`}
                         </p>
-                        <div className="mt-2.5 text-center">
-                          <span className="inline-block text-[9.5px] font-extrabold neumorphic-inset text-slate-800 dark:text-white px-3 py-1 rounded-full border border-white/50 dark:border-slate-700/80 shadow-2xs">
-                            {config.currency} ({config.currencySymbol})
-                          </span>
-                        </div>
                       </div>
                     </div>
 
                     {/* Operational Settings options */}
-                    <div className="p-2.5 space-y-2 bg-[#ebf0f7]/50 dark:bg-[#202225]/50 border-t border-slate-200/50 dark:border-slate-700/60">
+                    <div className="p-2 space-y-1.5 bg-[#ebf0f7]/50 dark:bg-[#202225]/50">
                       <button
                         type="button"
                         id="dropdown-settings"
                         onClick={() => handleDropdownItemClick('settings')}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
+                        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
                       >
-                        <div className="w-7 h-7 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 text-slate-800 dark:text-slate-200">
-                          <MaterialIcon name="settings" size={15} />
+                        <div className="w-6 h-6 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 text-slate-800 dark:text-slate-200">
+                          <MaterialIcon name="settings" size={14} />
                         </div>
                         <span>{translate('settings', config.languageCode)}</span>
                       </button>
@@ -679,10 +673,10 @@ export default function Navigation({
                           setIsDropdownOpen(false);
                           onLogout();
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
+                        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-extrabold text-rose-600 dark:text-rose-400 neumorphic-btn hover:text-rose-700 dark:hover:text-rose-300 transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
                       >
-                        <div className="w-7 h-7 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 text-rose-500">
-                          <MaterialIcon name="logout" size={15} />
+                        <div className="w-6 h-6 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 text-rose-500">
+                          <MaterialIcon name="logout" size={14} />
                         </div>
                         <span>{translate('logOut', config.languageCode)}</span>
                       </button>
