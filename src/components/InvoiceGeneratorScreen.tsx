@@ -48,6 +48,7 @@ interface InvoiceGeneratorScreenProps {
 
 interface DocRow {
   id: string;
+  itemId?: string;
   type: 'billable' | 'question' | 'conjunction' | 'blank_lines';
   title: string;
   // For billable items
@@ -274,12 +275,19 @@ export default function InvoiceGeneratorScreen({
   const handleAddBillableRow = (invItem: InventoryItem, qty: number = 1) => {
     if (!invItem || qty <= 0) return;
 
+    const catalogSellingPrice = Number((invItem as InventoryItem & { selling_price?: number; sellingPrice?: number }).unitPrice
+      ?? (invItem as any).selling_price
+      ?? (invItem as any).sellingPrice
+      ?? (invItem as any).unit_price
+      ?? 0);
+
     const newRow: DocRow = {
       id: `row-added-bill-${invItem.id}-${Date.now()}`,
+      itemId: invItem.id,
       type: 'billable',
       title: invItem.name.toUpperCase(),
       qty,
-      rate: invItem.unitPrice,
+      rate: Number.isFinite(catalogSellingPrice) ? catalogSellingPrice : 0,
       sku: invItem.sku
     };
     setRows(prev => [...prev, newRow]);
@@ -651,7 +659,7 @@ export default function InvoiceGeneratorScreen({
       if (Number.isFinite(requestedPrice) && requestedPrice >= 0) {
         setRows(previousRows => previousRows.map(row => {
           const matchesItem = row.type === 'billable' && (
-            (matchingInventoryItem && row.sku === matchingInventoryItem.sku) ||
+            (matchingInventoryItem && (row.itemId === matchingInventoryItem.id || row.sku === matchingInventoryItem.sku)) ||
             (itemName && row.title.toLowerCase() === itemName)
           );
           return matchesItem ? { ...row, rate: requestedPrice } : row;
@@ -700,7 +708,12 @@ export default function InvoiceGeneratorScreen({
           const quantity = Math.max(1, Number(requestedItem.quantity ?? requestedItem.qty ?? 1) || 1);
           // Invoice creation starts from the catalog selling price. Any
           // negotiated estimate is a separate, explicit invoice-line edit.
-          const rate = Number(inventoryItem.unitPrice) || 0;
+          const catalogSellingPrice = Number((inventoryItem as InventoryItem & { selling_price?: number; sellingPrice?: number }).unitPrice
+            ?? (inventoryItem as any).selling_price
+            ?? (inventoryItem as any).sellingPrice
+            ?? (inventoryItem as any).unit_price
+            ?? 0);
+          const rate = Number.isFinite(catalogSellingPrice) ? catalogSellingPrice : 0;
           const existingIndex = nextRows.findIndex(row => row.type === 'billable' && row.sku === inventoryItem.sku);
           if (existingIndex >= 0) {
             nextRows[existingIndex] = {
@@ -711,6 +724,7 @@ export default function InvoiceGeneratorScreen({
           } else {
             nextRows.push({
               id: `row-ai-${inventoryItem.id}-${Date.now()}-${nextRows.length}`,
+              itemId: inventoryItem.id,
               type: 'billable',
               title: inventoryItem.name.toUpperCase(),
               qty: quantity,
