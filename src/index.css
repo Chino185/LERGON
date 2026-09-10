@@ -569,11 +569,17 @@ select option:checked {
 .neumorphic-checkbox {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
+  flex-shrink: 0 !important;
+  align-self: center !important;
+  border-radius: 5px;
   background-color: #ebf0f7;
-  box-shadow: inset 2.5px 2.5px 5px #cbd3e1, inset -2.5px -2.5px 5px #ffffff;
+  box-shadow: inset 2px 2px 4px #cbd3e1, inset -2px -2px 4px #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.9);
   outline: none;
   cursor: pointer;
@@ -582,25 +588,26 @@ select option:checked {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .neumorphic-checkbox:hover {
-  box-shadow: 3px 3px 7px #c4cde0, -3px -3px 7px #ffffff;
+  box-shadow: 2px 2px 5px #c4cde0, -2px -2px 5px #ffffff;
 }
 
 .neumorphic-checkbox:checked {
   background-color: #ebf0f7;
-  box-shadow: 3px 3px 7px #cbd3e1, -3px -3px 7px #ffffff;
+  box-shadow: 2px 2px 5px #cbd3e1, -2px -2px 5px #ffffff;
   border-color: #0052D4;
 }
 
 .neumorphic-checkbox::after {
   content: '';
-  width: 6px;
-  height: 10px;
+  width: 5px;
+  height: 9px;
   border-style: solid;
   border-color: #0052D4;
-  border-width: 0 2.5px 2.5px 0;
+  border-width: 0 2px 2px 0;
   transform: rotate(45deg) scale(0);
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   margin-top: -2px;
@@ -614,14 +621,14 @@ select option:checked {
 .dark .neumorphic-checkbox,
 [data-theme="dark"] .neumorphic-checkbox {
   background-color: #0f172a;
-  box-shadow: inset 2.5px 2.5px 5px #080b10, inset -2.5px -2.5px 5px #1e293b;
+  box-shadow: inset 2px 2px 4px #080b10, inset -2px -2px 4px #1e293b;
   border-color: #1e293b;
 }
 
 .dark .neumorphic-checkbox:checked,
 [data-theme="dark"] .neumorphic-checkbox:checked {
   background-color: #1e293b;
-  box-shadow: 3px 3px 7px #080b10, -3px -3px 7px #334155;
+  box-shadow: 2px 2px 5px #080b10, -2px -2px 5px #334155;
   border-color: #334155;
 }
 

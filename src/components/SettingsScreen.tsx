@@ -1641,13 +1641,13 @@ export default function SettingsScreen({
 
                 {/* Sync control checkbox and individual custom overrides */}
                 <div className="space-y-3 pt-1">
-                  <div className="flex items-center gap-2.5 px-1">
+                  <div className="flex items-start sm:items-center gap-2.5 px-1">
                     <input
                       id="sync-with-country-toggle"
                       type="checkbox"
                       checked={syncWithCountry}
                       disabled={isAttendant}
-                      className="neumorphic-checkbox disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-[18px] h-[18px] min-w-[18px] min-h-[18px] max-w-[18px] max-h-[18px] shrink-0 mt-0.5 sm:mt-0 neumorphic-checkbox disabled:opacity-60 disabled:cursor-not-allowed"
                       onChange={(e) => {
                         const checked = e.target.checked;
                         setSyncWithCountry(checked);
@@ -1660,7 +1660,7 @@ export default function SettingsScreen({
                         }
                       }}
                     />
-                    <label htmlFor="sync-with-country-toggle" className="text-slate-900 select-none font-extrabold cursor-pointer text-[11px]">
+                    <label htmlFor="sync-with-country-toggle" className="text-slate-900 select-none font-extrabold cursor-pointer text-[11px] leading-tight">
                       Auto-link active base currency to selected Default Country changes
                     </label>
                   </div>

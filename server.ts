@@ -1236,10 +1236,11 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
         
         CRITICAL: Only navigate to 'activity_log' or 'settings' if the user role is Administrator. If the role is Attendant, those pages are not authorized.
 
-        SCROLLING CAPABILITIES:
+        SCROLLING & STOP CAPABILITIES:
         You can scroll the current screen, page, or modal when requested.
-        Use the 'scroll_page' tool when the operator says 'scroll down', 'scroll gently', 'scroll slowly', 'scroll a bit', 'scroll up', 'page down', 'page up', 'go to the top', 'go to the bottom', 'show more details', 'scroll through the page', etc.
-        Pass 'direction' ('down', 'up', 'top', 'bottom') and optional 'amount' ('gentle', 'small', 'half_page', 'full_page').
+        - When the operator says 'scroll', 'scroll down', 'scroll gently', 'scroll slowly', 'scroll a bit', 'keep scrolling', 'scroll through the page', or asks to view more content down/up, call 'scroll_page' with direction='down' (or 'up'). The page will gently and smoothly glide in that direction.
+        - When the operator says 'stop', 'hold on', 'pause', 'stop scrolling', 'that\'s good', 'stop here', 'wait', 'stay here', or 'halt', IMMEDIATELY call 'stop_scroll' (or 'scroll_page' with direction='stop') to immediately halt scrolling right at the position where the operator wants to view! Do this promptly without hesitation.
+        - If the operator asks to go to the top or bottom, call 'scroll_page' with direction='top' or direction='bottom'.
         
         CRITICAL DATA CORRECTION & TRANSACTIONAL POWERS:
         You have the power to instantly perform sales, process credit payments, record restocks, add new items/accounts, or correct data in the application state when requested by the user. Use the following tools:
@@ -1427,22 +1428,30 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                     },
                     {
                       name: "scroll_page",
-                      description: "Scrolls the page or viewport in a specified direction (down, up, to the top, or to the bottom) so the operator can view more content.",
+                      description: "Scrolls the page or active view in a specified direction. When direction is 'down' or 'up', it begins smooth, gentle continuous scrolling so the operator can view content until they say stop.",
                       parameters: {
                         type: Type.OBJECT,
                         properties: {
                           direction: {
                             type: Type.STRING,
-                            description: "The direction to scroll. Must be one of: 'down', 'up', 'top', 'bottom'.",
-                            enum: ["down", "up", "top", "bottom"]
+                            description: "The direction to scroll: 'down' (gently scrolls down), 'up' (gently scrolls up), 'top' (jumps to top), 'bottom' (jumps to bottom), or 'stop' (halts scrolling immediately).",
+                            enum: ["down", "up", "top", "bottom", "stop"]
                           },
                           amount: {
                             type: Type.STRING,
-                            description: "The amount to scroll. Must be one of: 'gentle' (slow, gentle scroll), 'small' (short scroll), 'half_page' (scrolls 50% of screen), 'full_page' (scrolls 85% of screen), or omitted for standard scrolling.",
+                            description: "Optional scroll amount: 'gentle' (continuous gentle glide until stopped), 'small', 'half_page', 'full_page'.",
                             enum: ["gentle", "small", "half_page", "full_page"]
                           }
                         },
                         required: ["direction"]
+                      }
+                    },
+                    {
+                      name: "stop_scroll",
+                      description: "Immediately halts and stops any active scrolling right where the operator wants to view when they say 'stop', 'hold on', 'pause', 'stop scrolling', 'that\'s good', 'stop here', 'stay here', or 'halt'.",
+                      parameters: {
+                        type: Type.OBJECT,
+                        properties: {}
                       }
                     },
                     {

@@ -1460,7 +1460,7 @@ export default function InvoiceGeneratorScreen({
                       type="checkbox"
                       checked={showMetaBlock}
                       onChange={(e) => setShowMetaBlock(e.target.checked)}
-                      className="neumorphic-checkbox"
+                      className="w-[18px] h-[18px] min-w-[18px] min-h-[18px] max-w-[18px] max-h-[18px] shrink-0 neumorphic-checkbox"
                     />
                     <span className="ml-1.5 text-[9px] font-bold text-slate-650">{translate('show borders on pdf', config.languageCode)}</span>
                   </label>

@@ -69,7 +69,8 @@ export const ACTION_METADATA: Record<string, { isConsequential: boolean; adminOn
   wipe_storage: { isConsequential: true, adminOnly: true },
 
   navigate_to_page: { isConsequential: false, adminOnly: false },
-  scroll_page: { isConsequential: false, adminOnly: false }
+  scroll_page: { isConsequential: false, adminOnly: false },
+  stop_scroll: { isConsequential: false, adminOnly: false }
 };
 
 export function validateActionPermission(actionName: string, userRole: number | string = 'admin'): { allowed: boolean; reason?: string } {
