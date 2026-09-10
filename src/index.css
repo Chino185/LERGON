@@ -1624,22 +1624,21 @@ html {
     box-shadow: 0 10px 28px rgba(0, 82, 212, 0.55) !important;
   }
 
-  /* Mobile auth modal — bottom sheet pattern on small screens */
+  /* Mobile auth modal — properly centered modal on small screens */
   .auth-modal-backdrop {
-    align-items: flex-end !important;
-    padding: 0 !important;
-    padding-top: 2rem !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1rem !important;
   }
   .auth-modal-sheet {
     width: 100% !important;
-    max-width: 100% !important;
-    max-height: calc(100dvh - 2rem) !important;
-    border-radius: 1.5rem 1.5rem 0 0 !important;
-    border-bottom: none !important;
+    max-width: min(26rem, calc(100vw - 2rem)) !important;
+    max-height: calc(100dvh - 2.5rem) !important;
+    border-radius: 1.5rem !important;
+    margin: auto !important;
     overflow-y: auto !important;
     overscroll-behavior-y: contain !important;
     -webkit-overflow-scrolling: touch !important;
-    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* Mobile ticker bar text overflow improvement */
@@ -1759,12 +1758,12 @@ body {
     gap: 0.5rem;
   }
 
-  #app-shell > header .neumorphic-card {
+  #app-shell > header .neumorphic-card:not(.mobile-navigation-drawer) {
     max-width: min(11rem, calc(100vw - 8.5rem));
     padding-inline: 0.75rem;
   }
 
-  #app-shell > header .neumorphic-card span {
+  #app-shell > header .neumorphic-card:not(.mobile-navigation-drawer) span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1776,8 +1775,10 @@ body {
   }
 
   .mobile-navigation-drawer {
-    left: 0.75rem;
-    right: 0.75rem;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    width: auto !important;
+    max-width: none !important;
     top: 100%;
     margin-top: 0.5rem;
     max-height: calc(100dvh - 4.5rem);
@@ -1809,7 +1810,7 @@ body {
     min-height: 3.5rem;
     border-radius: 1.5rem;
     padding-inline: 1.125rem;
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     box-shadow: 5px 5px 12px rgba(160, 175, 200, 0.32), -5px -5px 12px rgba(255, 255, 255, 0.88);
   }
 
@@ -1820,9 +1821,9 @@ body {
 
   .mobile-navigation-list > button > div > span {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
   }
 
   .mobile-navigation-list > button:active {

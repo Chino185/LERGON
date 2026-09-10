@@ -1662,24 +1662,23 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 10 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="bg-[#ebf0f7] rounded-3xl shadow-xl w-full max-w-5xl h-[90vh] xl:h-[85vh] flex flex-col overflow-hidden border border-white/80"
-              style={{ boxShadow: '10px 10px 30px #cbd3e1, -10px -10px 30px #ffffff' }}
+              className="bg-[#ebf0f7] dark:bg-[#1a1c1e] rounded-3xl shadow-xl w-full max-w-5xl h-[90vh] xl:h-[85vh] flex flex-col overflow-hidden border border-white/80 dark:border-slate-800/80 neumorphic-card"
             >
               {/* Header block */}
-              <div className="p-4 border-b border-slate-200/60 flex items-center justify-between bg-[#ebf0f7]">
+              <div className="p-4 border-b border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between bg-[#ebf0f7] dark:bg-[#1a1c1e]">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 neumorphic-circle text-slate-800 flex items-center justify-center font-bold shrink-0">
-                    <ClipboardList size={18} className="text-slate-800" />
+                  <div className="w-9 h-9 neumorphic-circle text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold shrink-0">
+                    <ClipboardList size={18} className="text-slate-800 dark:text-slate-200" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-slate-900 text-sm tracking-tight uppercase">
+                    <h3 className="font-extrabold text-slate-900 dark:text-white text-sm tracking-tight uppercase">
                       {quickAction === 'stock_in'
                         ? 'Procurement & Restock Portal'
                         : quickAction === 'stock_out_credit'
                           ? 'Credit Outflow Ledger Hub'
                           : 'Cash Sale Operations Desk'}
                     </h3>
-                    <p className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase mt-0.5">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold tracking-wide uppercase mt-0.5">
                       Batch edit quantity and process transactional logs instantaneously
                     </p>
                   </div>
@@ -1693,24 +1692,20 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                     setRestockSearchQuery('');
                     setSellSearchQuery('');
                   }}
-                  className="w-8 h-8 flex items-center justify-center neumorphic-circle text-slate-700 hover:text-black transition cursor-pointer"
+                  className="w-8 h-8 flex items-center justify-center neumorphic-circle text-slate-700 dark:text-slate-300 hover:text-black dark:hover:text-white transition cursor-pointer"
                 >
                   <X size={15} />
                 </button>
               </div>
 
               {/* Mobile Segmented Tab bar */}
-              <div className="flex xl:hidden border-b border-slate-200/60 dark:border-slate-700/60 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-1.5 shrink-0 gap-1.5 rounded-none">
+              <div className="flex xl:hidden border-b border-slate-200/60 dark:border-slate-800/60 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-1.5 shrink-0 gap-1.5 rounded-none">
                 <button
                   type="button"
                   onClick={() => setActiveMobileTab('picker')}
-                  className={`flex-1 py-1.5 px-2 text-center text-xs font-black uppercase tracking-wider rounded-lg transition ${activeMobileTab === 'picker'
-                    ? (quickAction === 'stock_in'
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : quickAction === 'stock_out_credit'
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'bg-orange-600 text-white shadow-xs')
-                    : 'text-slate-650 hover:bg-slate-200 font-bold'
+                  className={`flex-1 py-2 px-3 text-center text-xs font-black uppercase tracking-wider rounded-xl transition cursor-pointer ${activeMobileTab === 'picker'
+                    ? 'neu-button active-tab text-white shadow-md'
+                    : 'neumorphic-btn text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white font-bold'
                     }`}
                 >
                   Find Items
@@ -1718,19 +1713,15 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                 <button
                   type="button"
                   onClick={() => setActiveMobileTab('basket')}
-                  className={`flex-1 py-1.5 px-2 text-center text-xs font-black uppercase tracking-wider rounded-lg transition flex items-center justify-center gap-1.5 ${activeMobileTab === 'basket'
-                    ? (quickAction === 'stock_in'
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : quickAction === 'stock_out_credit'
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'bg-orange-600 text-white shadow-xs')
-                    : 'text-slate-650 hover:bg-slate-200 font-bold'
+                  className={`flex-1 py-2 px-3 text-center text-xs font-black uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'basket'
+                    ? 'neu-button active-tab text-white shadow-md'
+                    : 'neumorphic-btn text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white font-bold'
                     }`}
                 >
                   Added List
                   <span className={`text-[9.5px] px-1.5 py-0.5 rounded-md font-mono font-black ${activeMobileTab === 'basket'
                     ? 'bg-black/20 text-white'
-                    : 'bg-slate-200 text-slate-705'
+                    : 'neumorphic-inset text-slate-700 dark:text-slate-300'
                     }`}>
                     {basketItems.length}
                   </span>
@@ -1740,23 +1731,23 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
               {/* Master Dual-Column Landscape Container */}
               <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 xl:overflow-hidden min-h-0 neumorphic-inset bg-[#ebf0f7]/20 dark:bg-[#202225]/30 rounded-none">
                 {/* LEFT COLUMN: Product Discovery & Quick Pick */}
-                <div className={`col-span-1 xl:col-span-6 flex flex-col h-full min-h-0 border-r border-slate-200/60 bg-[#ebf0f7] ${activeMobileTab === 'picker' ? 'flex' : 'hidden xl:flex'
+                <div className={`col-span-1 xl:col-span-6 flex flex-col h-full min-h-0 border-r border-slate-200/60 dark:border-slate-800/60 bg-[#ebf0f7] dark:bg-[#1a1c1e] ${activeMobileTab === 'picker' ? 'flex' : 'hidden xl:flex'
                   }`}>
                   {/* Search and Filters Header */}
-                  <div className="p-3 border-b border-slate-200/60 bg-[#ebf0f7] space-y-2 flex-shrink-0">
+                  <div className="p-3 border-b border-slate-200/60 dark:border-slate-800/60 bg-[#ebf0f7] dark:bg-[#1a1c1e] space-y-2 flex-shrink-0">
                     <div className="relative">
                       <input
                         type="text"
                         placeholder="Search products by SKU, name, or category..."
                         value={modalSearchQuery}
                         onChange={(e) => setModalSearchQuery(e.target.value)}
-                        className="w-full text-xs rounded-xl text-slate-900 p-2.5 pl-3.5 pr-8 neumorphic-inset focus:outline-hidden transition font-medium"
+                        className="w-full text-xs rounded-xl text-slate-900 dark:text-white p-2.5 pl-3.5 pr-8 neumorphic-inset focus:outline-hidden transition font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                       {modalSearchQuery && (
                         <button
                           type="button"
                           onClick={() => setModalSearchQuery('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                         >
                           <X size={12} />
                         </button>
@@ -1764,13 +1755,13 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-slate-500 font-extrabold tracking-wider uppercase">
+                      <span className="text-[9px] text-slate-500 dark:text-slate-400 font-extrabold tracking-wider uppercase">
                         {quickAction === 'stock_in'
                           ? (!modalSearchQuery ? 'Low Stock Recommendations' : 'Search Results')
                           : 'Search Products to Add'}
                       </span>
                       {quickAction === 'stock_in' && (
-                        <span className="text-[9px] text-slate-800 font-extrabold px-2.5 py-0.5 rounded-full neumorphic-btn">
+                        <span className="text-[9px] text-slate-800 dark:text-slate-200 font-extrabold px-2.5 py-0.5 rounded-full neumorphic-btn">
                           {!modalSearchQuery ? 'Low Stock Highlighted' : 'Searching Catalog'}
                         </span>
                       )}
@@ -1815,33 +1806,33 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
 
                       if (filteredModalItems.length === 0) {
                         return (
-                          <div className="text-center py-10 neumorphic-inset rounded-2xl p-5 my-auto">
+                          <div className="text-center py-10 neumorphic-card rounded-2xl p-5 my-auto border border-white/60 dark:border-slate-800/80">
                             {quickAction === 'stock_in' ? (
                               !modalSearchQuery ? (
                                 <div className="space-y-1.5">
-                                  <p className="text-xs font-extrabold text-slate-900">Perfect! Sufficient Stock Levels</p>
-                                  <p className="text-[10px] text-slate-500 max-w-[280px] mx-auto leading-normal font-medium">
+                                  <p className="text-xs font-extrabold text-slate-900 dark:text-white">Perfect! Sufficient Stock Levels</p>
+                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 max-w-[280px] mx-auto leading-normal font-medium">
                                     No elements require an urgent restock right now. Search above by name, category, or SKU to queue items manually.
                                   </p>
                                 </div>
                               ) : (
                                 <div className="space-y-1">
-                                  <p className="text-xs font-extrabold text-slate-900">No items matched your search</p>
-                                  <p className="text-[10px] text-slate-500 font-medium">Try checking spelling or type an item SKU.</p>
+                                  <p className="text-xs font-extrabold text-slate-900 dark:text-white">No items matched your search</p>
+                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Try checking spelling or type an item SKU.</p>
                                 </div>
                               )
                             ) : (
                               !modalSearchQuery ? (
                                 <div className="space-y-1.5">
-                                  <p className="text-xs font-extrabold text-slate-900">Sell Session Active</p>
-                                  <p className="text-[10px] text-slate-500 max-w-[280px] mx-auto leading-normal font-medium">
+                                  <p className="text-xs font-extrabold text-slate-900 dark:text-white">Sell Session Active</p>
+                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 max-w-[280px] mx-auto leading-normal font-medium">
                                     Type a product name, SKU, or category query in the input above to begin adding items to your basket list.
                                   </p>
                                 </div>
                               ) : (
                                 <div className="space-y-1">
-                                  <p className="text-xs font-extrabold text-slate-900">No items matched your search</p>
-                                  <p className="text-[10px] text-slate-500 font-medium">Try searching for other SKU numbers or item names.</p>
+                                  <p className="text-xs font-extrabold text-slate-900 dark:text-white">No items matched your search</p>
+                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Try searching for other SKU numbers or item names.</p>
                                 </div>
                               )
                             )}
@@ -1942,14 +1933,14 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                 {/* RIGHT COLUMN: Active Work List, Ledger Parameters & Final Submit Form */}
                 <span className="hidden" /> {/* Extra space anchor */}
                 <div
-                  className={`col-span-1 xl:col-span-6 flex flex-col h-full min-h-0 bg-[#ebf0f7] p-4 justify-between ${activeMobileTab === 'basket' ? 'flex animate-fade-in' : 'hidden xl:flex'
+                  className={`col-span-1 xl:col-span-6 flex flex-col h-full min-h-0 bg-[#ebf0f7] dark:bg-[#1a1c1e] p-4 justify-between ${activeMobileTab === 'basket' ? 'flex animate-fade-in' : 'hidden xl:flex'
                     }`}
                 >
                   {/* Active List Section */}
                   <div className="flex-1 flex flex-col min-h-0">
-                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-2 mb-2 flex-shrink-0 bg-transparent">
-                      <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                        <ClipboardList size={13} className="text-slate-800" />
+                    <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60 pb-2 mb-2 flex-shrink-0 bg-transparent">
+                      <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <ClipboardList size={13} className="text-slate-800 dark:text-slate-200" />
                         <span>{`Items to Be Worked On (${basketItems.length})`}</span>
                       </span>
                       {basketItems.length > 0 && (
@@ -1972,13 +1963,13 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                         return (
                           <div
                             key={`basket-list-${it.itemId}`}
-                            className={`flex items-center justify-between p-3 finnova-card rounded-2xl transition ${exceedsStock ? 'border-rose-400 bg-rose-50/20' : 'border-white/80'
+                            className={`flex items-center justify-between p-3 finnova-card dark:bg-[#202225] rounded-2xl transition ${exceedsStock ? 'border-rose-400 bg-rose-50/20' : 'border-white/80 dark:border-slate-800/80'
                               }`}
                           >
                             <div className="min-w-0 flex-1 pr-3">
-                              <p className="font-extrabold text-slate-900 text-xs leading-normal break-words whitespace-normal">{it.name}</p>
-                              <div className="flex items-center mt-1 text-[9px] font-bold text-slate-500 gap-1.5">
-                                <span className="neumorphic-inset px-1.5 py-0.5 rounded-md text-slate-700">SKU: {it.sku}</span>
+                              <p className="font-extrabold text-slate-900 dark:text-white text-xs leading-normal break-words whitespace-normal">{it.name}</p>
+                              <div className="flex items-center mt-1 text-[9px] font-bold text-slate-500 dark:text-slate-400 gap-1.5">
+                                <span className="neumorphic-inset px-1.5 py-0.5 rounded-md text-slate-700 dark:text-slate-300">SKU: {it.sku}</span>
                                 {!(quickAction === 'stock_in' && userRole !== 2) && (
                                   <>
                                     <span>•</span>
@@ -2001,7 +1992,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                                     const val = parseInt(e.target.value, 10);
                                     if (!isNaN(val) && val >= 1) handleUpdateQuantity(it.itemId, val);
                                   }}
-                                  className="w-14 h-8 text-center text-xs font-bold text-slate-900 neumorphic-inset rounded-xl p-1.5 focus:outline-hidden"
+                                  className="w-14 h-8 text-center text-xs font-bold text-slate-900 dark:text-white neumorphic-inset rounded-xl p-1.5 focus:outline-hidden"
                                 />
                               ) : (
                                 <div className="flex items-center gap-1 neumorphic-inset p-1 rounded-xl">
@@ -2036,7 +2027,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                             </div>
 
                             <div className="w-16 text-right pr-2 shrink-0">
-                              <span className="text-xs font-extrabold text-slate-900">
+                              <span className="text-xs font-extrabold text-slate-900 dark:text-white">
                                 {quickAction === 'stock_in' && userRole !== 2
                                   ? '—'
                                   : formatMoney(it.qty * (quickAction === 'stock_in' ? it.unitCost : it.unitPrice))}
@@ -2046,7 +2037,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                             <button
                               type="button"
                               onClick={() => handleUpdateQuantity(it.itemId, 0)}
-                              className="w-6 h-6 flex items-center justify-center neumorphic-circle text-slate-600 hover:text-rose-600 transition cursor-pointer shrink-0"
+                              className="w-6 h-6 flex items-center justify-center neumorphic-circle text-slate-600 dark:text-slate-400 hover:text-rose-600 transition cursor-pointer shrink-0"
                               title="Remove item"
                             >
                               <X size={12} />
@@ -2056,11 +2047,11 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                       })}
 
                       {basketItems.length === 0 && (
-                        <div className="h-full flex flex-col items-center justify-center text-center p-8 neumorphic-inset rounded-2xl my-auto space-y-2">
-                          <ClipboardList size={34} className="text-slate-400" />
+                        <div className="h-full flex flex-col items-center justify-center text-center p-8 neumorphic-card rounded-2xl my-auto space-y-2 border border-white/60 dark:border-slate-800/80">
+                          <ClipboardList size={34} className="text-slate-400 dark:text-slate-500" />
                           <div>
-                            <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wide">Work List is Empty</h4>
-                            <p className="text-[10px] text-slate-500 mt-0.5 max-w-[210px] leading-relaxed mx-auto font-medium">
+                            <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wide">Work List is Empty</h4>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 max-w-[210px] leading-relaxed mx-auto font-medium">
                               Select products from the discovery catalog on the left to configure your batch operations.
                             </p>
                           </div>
@@ -2157,15 +2148,15 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                     )}
 
                     {/* Operational Ledger Total & Action Buttons */}
-                    <div className="finnova-card rounded-2xl p-3 flex flex-col sm:flex-row gap-3 items-center justify-between border border-white/80 mt-1">
+                    <div className="finnova-card dark:bg-[#202225] rounded-2xl p-3 flex flex-col sm:flex-row gap-3 items-center justify-between border border-white/80 dark:border-slate-800/80 mt-1">
                       <div className="text-center sm:text-left">
-                        <span className="block text-[8px] text-slate-500 uppercase font-extrabold tracking-wider">Estimated Operation Ledger</span>
+                        <span className="block text-[8px] text-slate-500 dark:text-slate-400 uppercase font-extrabold tracking-wider">Estimated Operation Ledger</span>
                         <div className="flex items-center gap-1.5 mt-0.5 justify-center sm:justify-start">
-                          <span className="text-xs font-extrabold text-slate-900">
+                          <span className="text-xs font-extrabold text-slate-900 dark:text-white">
                             {basketItems.length} Product{basketItems.length !== 1 ? 's' : ''}
                           </span>
                           <span className="text-slate-400">•</span>
-                          <span className="text-xs font-extrabold px-3 py-1 rounded-xl text-slate-900 neumorphic-btn border border-white/80">
+                          <span className="text-xs font-extrabold px-3 py-1 rounded-xl text-slate-900 dark:text-white neumorphic-btn border border-white/80 dark:border-slate-700/80">
                             {quickAction === 'stock_in' && userRole !== 2
                               ? `Total: ${basketItems.reduce((acc, it) => acc + it.qty, 0)} units`
                               : `Total: ${formatMoney(basketItems.reduce((acc, it) => acc + (it.qty * (quickAction === 'stock_in' ? it.unitCost : it.unitPrice)), 0))}`}
@@ -2183,7 +2174,7 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                             setRestockSearchQuery('');
                             setSellSearchQuery('');
                           }}
-                          className="flex-1 sm:flex-initial text-xs text-slate-800 hover:text-black font-extrabold px-4 py-2 rounded-xl neumorphic-btn cursor-pointer transition"
+                          className="flex-1 sm:flex-initial text-xs text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white font-extrabold px-4 py-2 rounded-xl neumorphic-btn border border-white/80 dark:border-slate-700/80 cursor-pointer transition"
                         >
                           Cancel
                         </button>
@@ -2194,9 +2185,9 @@ Keep it to exactly one human, actionable, and warm sentence. Do not return any i
                             const mockEvent = { preventDefault: () => { } } as React.FormEvent;
                             handleQuickActionSubmit(mockEvent);
                           }}
-                          className={`flex-1 sm:flex-initial text-xs font-black px-5 py-2 rounded-xl transition whitespace-nowrap cursor-pointer flex items-center justify-center gap-1.5 neumorphic-btn ${basketItems.length === 0
-                            ? 'opacity-40 cursor-not-allowed text-slate-400'
-                            : 'text-slate-900 hover:text-black border border-white/80'
+                          className={`flex-1 sm:flex-initial text-xs font-black px-5 py-2 rounded-xl transition whitespace-nowrap cursor-pointer flex items-center justify-center gap-1.5 ${basketItems.length === 0
+                            ? 'opacity-40 cursor-not-allowed text-slate-400 dark:text-slate-600 neumorphic-btn border border-white/40 dark:border-slate-800/60'
+                            : 'neu-button active-tab text-white shadow-md'
                             }`}
                         >
                           <span>Confirm & Process</span>

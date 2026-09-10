@@ -489,7 +489,7 @@ export default function Navigation({
       </div>
 
       {/* TOP FLOATING PILL NAVIGATION HEADER (CREXTIO & FINNOVA AESTHETIC) */}
-      <header className="no-print sticky top-0 z-50 py-2.5 px-4 sm:px-6 xl:px-8 bg-[#ebf0f7]/85 dark:bg-[#2b2d31]/82 border-b border-slate-200/60 dark:border-white/[0.06] shadow-xs select-none">
+      <header className="no-print sticky top-0 relative z-50 py-2.5 px-4 sm:px-6 xl:px-8 bg-[#ebf0f7]/85 dark:bg-[#2b2d31]/82 border-b border-slate-200/60 dark:border-white/[0.06] shadow-xs select-none">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
 
           {/* Left Brand Identity Capsule */}
