@@ -111,7 +111,7 @@ export default function Navigation({
 
       if (isMobileMenuOpen) {
         const isClickInsideMobileMenu = mobileMenuRef.current?.contains(target);
-        const isClickOnToggle = target.closest('#mobile-menu-trigger') || target.closest('#mobile-bottom-more-trigger');
+        const isClickOnToggle = target.closest('#mobile-bottom-more-trigger');
         if (!isClickInsideMobileMenu && !isClickOnToggle) {
           setIsMobileMenuOpen(false);
         }
@@ -512,23 +512,6 @@ export default function Navigation({
 
           {/* Left Brand Identity Capsule */}
           <div className="flex items-center gap-3">
-            {/* Mobile Hamburger Menu Button (hidden in favor of dedicated bottom nav bar) */}
-            <button
-              type="button"
-              id="mobile-menu-trigger"
-              onClick={() => {
-                setIsMobileMenuOpen(!isMobileMenuOpen);
-                setIsNotificationOpen(false);
-                setIsDropdownOpen(false);
-              }}
-              className="hidden w-9 h-9 rounded-full neumorphic-circle flex items-center justify-center text-slate-800 dark:text-white neu-button border border-white/80 dark:border-slate-700/80 shadow-md shrink-0 cursor-pointer active:scale-95 transition"
-              aria-label="Toggle navigation menu"
-              aria-expanded={isMobileMenuOpen}
-              aria-controls="authenticated-mobile-more-menu"
-            >
-              {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
-
             <div className="flex items-center gap-2.5 neumorphic-card px-4 py-1.5 rounded-full select-none">
               <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-sky-400 via-cyan-400 to-blue-500 flex items-center justify-center text-white text-[11px] font-black shadow-xs">
                 L

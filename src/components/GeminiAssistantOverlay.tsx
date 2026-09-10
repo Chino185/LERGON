@@ -1852,7 +1852,7 @@ export default function GeminiAssistantOverlay({
             initial={{ y: 80, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 80, opacity: 0, scale: 0.95 }}
-            className="fixed bottom-24 right-6 left-6 md:left-auto md:w-96 z-50 no-print"
+            className="fixed bottom-36 right-4 left-4 md:left-auto md:w-96 z-50 no-print"
           >
             <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#2b2d31] border border-white/90 dark:border-white/10 rounded-2xl p-4.5 shadow-2xl relative overflow-hidden flex flex-col gap-3.5">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none" />
@@ -1898,7 +1898,7 @@ export default function GeminiAssistantOverlay({
       </AnimatePresence>
 
       {/* 2. FLOATING SIRI-STYLE ORB LAUNCHER */}
-      <div className="fixed bottom-6 right-6 z-50 no-print" id="floating-siri-launcher">
+      <div className="fixed bottom-20 right-3 sm:bottom-20 sm:right-5 xl:bottom-6 xl:right-6 z-40 no-print" id="floating-siri-launcher">
         <div className="relative flex items-center justify-center">
           
           {/* Continuous Ambient Breathing Glow Aura (Shows Active AI State) */}
@@ -1960,7 +1960,7 @@ export default function GeminiAssistantOverlay({
             whileTap={{ scale: 0.95 }}
             onClick={toggleVoiceSession}
             title={isWakeWordListening ? "AI Assistant (Say 'RICHARD' to wake up)" : "Start AI Voice Conversation"}
-            className="h-14 w-14 !rounded-full neumorphic-card neumorphic-circle shadow-2xl flex items-center justify-center text-white cursor-pointer relative z-20 border-2 border-white/80 dark:border-slate-700/80 transition-all select-none bg-slate-900 dark:bg-[#1a1c1e]"
+            className="h-12 w-12 xl:h-14 xl:w-14 !rounded-full neumorphic-card neumorphic-circle shadow-2xl flex items-center justify-center text-white cursor-pointer relative z-20 border-2 border-white/80 dark:border-slate-700/80 transition-all select-none bg-slate-900 dark:bg-[#1a1c1e]"
           >
             {voiceStatus === "connecting" ? (
               <RefreshCw size={24} className="animate-spin text-indigo-400" />
