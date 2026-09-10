@@ -3,9 +3,6 @@ import {
   ExchangeRateCache,
   getCachedExchangeRates,
   fetchLiveExchangeRates,
-  convertFromBaseUSD,
-  convertToBaseUSD,
-  formatCurrencyAmount,
   getRateForCurrency
 } from '../utils/currencyUtils';
 
@@ -51,18 +48,22 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
   const activeRates = ratesData.rates;
   const rateMultiplier = getRateForCurrency(activeRates, currency);
 
-  const convertFromBase = (usdAmount: number) => convertFromBaseUSD(usdAmount, currency, activeRates);
-  const convertToBase = (displayAmount: number) => convertToBaseUSD(displayAmount, currency, activeRates);
+  // Inventory, invoices, credits, and transactions are stored in the
+  // business's configured currency. They are not USD-base amounts, so a
+  // value entered as 5 in GHS must remain 5 in GHS when saved and read back.
+  // Keep these helpers for component compatibility, but make them identity
+  // functions rather than silently applying an exchange rate.
+  const convertFromBase = (amount: number) => Number.isFinite(amount) ? amount : 0;
+  const convertToBase = (amount: number) => Number.isFinite(amount) ? amount : 0;
 
-  const formatAmount = (usdAmount: number) => {
-    return formatCurrencyAmount(usdAmount, currency, currencySymbol, activeRates);
+  const formatAmount = (amount: number) => {
+    const safeAmount = Number.isFinite(amount) ? amount : 0;
+    return `${currencySymbol}${safeAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const formatCSVAmount = (usdAmount: number) => {
-    const safeUsd = (typeof usdAmount === 'number' && !isNaN(usdAmount)) ? usdAmount : 0;
-    const converted = convertFromBase(safeUsd);
-    const safeConverted = (typeof converted === 'number' && !isNaN(converted)) ? converted : 0;
-    return `${currencySymbol}${safeConverted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCSVAmount = (amount: number) => {
+    const safeAmount = (typeof amount === 'number' && !isNaN(amount)) ? amount : 0;
+    return `${currencySymbol}${safeAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
