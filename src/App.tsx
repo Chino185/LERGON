@@ -46,8 +46,7 @@ import {
   Loader2,
   LogIn,
   RotateCw,
-  RefreshCw,
-  Menu
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -204,7 +203,6 @@ export default function App() {
 
   // --- Landing Page & Auth Modal States ---
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [isLandingMobileMenuOpen, setIsLandingMobileMenuOpen] = useState<boolean>(false);
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
   const [isLandingDark, setIsLandingDark] = useState<boolean>(() => {
@@ -2611,7 +2609,7 @@ export default function App() {
 
             {/* Center Notch Container with Logo (visible on large screens) */}
             <div
-              onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsLandingMobileMenuOpen(false); }}
+              onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
               className="hidden lg:flex absolute left-1/2 -translate-x-1/2 -top-0.5 neu-flat border border-white/90 dark:border-slate-700/80 px-6 sm:px-8 py-1.5 sm:py-2 rounded-b-2xl shadow-xl items-center justify-center cursor-pointer z-50 hover:scale-105 transition-all"
             >
               <span className="font-quantum tracking-[0.15em] text-sm sm:text-base font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#0052D4] via-[#65C7F7] to-[#9CECFB] dark:from-[#9CECFB] dark:via-[#65C7F7] dark:to-[#0052D4]">
@@ -2624,7 +2622,7 @@ export default function App() {
               <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                 {/* On mobile: Compact Logo */}
                 <div
-                  onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsLandingMobileMenuOpen(false); }}
+                  onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   className="lg:hidden flex items-center gap-2 cursor-pointer select-none group"
                 >
                   <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0052D4] via-[#4364F7] to-[#65C7F7] flex items-center justify-center text-white text-xs font-black shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform">
@@ -2669,150 +2667,23 @@ export default function App() {
                   </span>
                 </button>
 
-                {/* Login Button (hidden on mobile, visible on desktop lg+) */}
+                {/* Login Button */}
                 <button
                   onClick={() => { setActiveView('signin'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
-                  className="hidden lg:inline-flex text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-4 py-1.5 rounded-full neu-button transition-all cursor-pointer"
+                  className="inline-flex text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3 sm:px-4 py-1.5 rounded-full neu-button transition-all cursor-pointer"
                 >
                   Login
                 </button>
 
-                {/* Register CTA Button (hidden on mobile, visible on desktop lg+) */}
+                {/* Register CTA Button */}
                 <button
                   onClick={() => { setActiveView('register'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
-                  className="hidden lg:inline-flex neu-button active-tab text-white font-extrabold text-xs sm:text-sm px-4 sm:px-6 py-1.5 sm:py-2 rounded-full shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                  className="inline-flex neu-button active-tab text-white font-extrabold text-xs sm:text-sm px-3.5 sm:px-6 py-1.5 sm:py-2 rounded-full shadow-lg transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Register
                 </button>
-
-                {/* Mobile Menu Toggle Button (lg:hidden - only on mobile!) */}
-                <button
-                  type="button"
-                  onClick={() => setIsLandingMobileMenuOpen(!isLandingMobileMenuOpen)}
-                  className="lg:hidden w-10 h-10 rounded-full neu-button border border-white/90 dark:border-slate-700/80 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center text-slate-800 dark:text-white shadow-md shrink-0"
-                  aria-label="Toggle navigation menu"
-                  aria-expanded={isLandingMobileMenuOpen}
-                  aria-controls="landing-mobile-menu"
-                >
-                  {isLandingMobileMenuOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
-                </button>
               </div>
             </div>
-
-            {/* Mobile Dropdown Navigation Menu */}
-            <AnimatePresence>
-              {isLandingMobileMenuOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
-                  id="landing-mobile-menu"
-                  role="menu"
-                  className="lg:hidden absolute left-3 right-3 top-full mt-2 rounded-2xl neu-flat border border-white/90 dark:border-slate-700/80 shadow-2xl p-3.5 backdrop-blur-2xl bg-[#ebf0f7]/95 dark:bg-[#1a1d24]/95 text-slate-900 dark:text-white z-50 overflow-hidden"
-                >
-                  <div className="flex flex-col gap-2">
-                    <a
-                      href="#hero"
-                      onClick={() => setIsLandingMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition border border-white/80 dark:border-slate-700/60"
-                    >
-                      <span className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 shadow-sm text-blue-500">
-                          <span className="material-symbols-outlined text-base">home</span>
-                        </div>
-                        <span className="font-bold">Home</span>
-                      </span>
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
-                        <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
-                      </div>
-                    </a>
-                    <a
-                      href="#feature-showcase"
-                      onClick={() => setIsLandingMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition border border-white/80 dark:border-slate-700/60"
-                    >
-                      <span className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 shadow-sm text-cyan-500">
-                          <span className="material-symbols-outlined text-base">featured_play_list</span>
-                        </div>
-                        <span className="font-bold">Features</span>
-                      </span>
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
-                        <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
-                      </div>
-                    </a>
-                    <a
-                      href="#solutions"
-                      onClick={() => setIsLandingMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition border border-white/80 dark:border-slate-700/60"
-                    >
-                      <span className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 shadow-sm text-indigo-500">
-                          <span className="material-symbols-outlined text-base">lightbulb</span>
-                        </div>
-                        <span className="font-bold">Solutions</span>
-                      </span>
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
-                        <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
-                      </div>
-                    </a>
-                    <a
-                      href="#faq"
-                      onClick={() => setIsLandingMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition border border-white/80 dark:border-slate-700/60"
-                    >
-                      <span className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 shadow-sm text-teal-500">
-                          <span className="material-symbols-outlined text-base">help</span>
-                        </div>
-                        <span className="font-bold">FAQ</span>
-                      </span>
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
-                        <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
-                      </div>
-                    </a>
-
-                    <div className="pt-3 mt-1 border-t border-slate-200/80 dark:border-slate-700/80 flex flex-col gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsLandingMobileMenuOpen(false);
-                          setActiveView('signin');
-                          setShowAuthModal(true);
-                          setLoginError('');
-                          setForgotError('');
-                          setSuccess(null);
-                        }}
-                        className="w-full py-2.5 px-4 rounded-xl neu-button text-xs font-extrabold text-slate-800 dark:text-white border border-white/80 dark:border-slate-700/60 transition cursor-pointer flex items-center justify-center gap-2.5 active:scale-[0.98]"
-                      >
-                        <div className="w-6 h-6 rounded-full neumorphic-circle flex items-center justify-center text-blue-500 shrink-0">
-                          <span className="material-symbols-outlined text-sm">login</span>
-                        </div>
-                        <span>Sign In to Your Business</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsLandingMobileMenuOpen(false);
-                          setActiveView('register');
-                          setShowAuthModal(true);
-                          setLoginError('');
-                          setForgotError('');
-                          setSuccess(null);
-                        }}
-                        className="w-full py-2.5 px-4 rounded-xl neu-button active-tab text-white text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2.5 active:scale-[0.98] border border-white/30"
-                      >
-                        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0">
-                          <span className="material-symbols-outlined text-sm">rocket_launch</span>
-                        </div>
-                        <span>Register Account</span>
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </header>
 
           {/* Main Landing Sections Overlay Container */}

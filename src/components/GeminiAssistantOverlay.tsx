@@ -23,8 +23,7 @@ import {
   Briefcase,
   Layers,
   Users,
-  ShieldCheck,
-  Send
+  ShieldCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, PendingRestock, BackendNotification, Organization } from "../types";
@@ -86,7 +85,6 @@ export default function GeminiAssistantOverlay({
   // AI Hub UI Panel states
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"health" | "speech" | "live">("health");
-  const [textPromptInput, setTextPromptInput] = useState("");
 
   // Weekly Speech Advisor config
   const [closingDay, setClosingDay] = useState<number>(() => {
@@ -1809,31 +1807,6 @@ export default function GeminiAssistantOverlay({
     }
   };
 
-  const sendTextToLive = (textToSend?: string) => {
-    const text = (textToSend ?? textPromptInput).trim();
-    if (!text) return;
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "text", text }));
-      addCorrectionToast("AI Prompt Sent", `"${text}"`);
-      setTextPromptInput("");
-    } else {
-      connectVoiceSession();
-      addCorrectionToast("Connecting AI", "Connecting Live session to process prompt...");
-    }
-  };
-
-  const handleOrbClick = () => {
-    if (!isPanelOpen) {
-      setIsPanelOpen(true);
-      setActiveTab("live");
-      if (!isVoiceConnected && voiceStatus !== "connecting") {
-        connectVoiceSession();
-      }
-    } else {
-      closePanel();
-    }
-  };
-
   // Helper conversions
   function floatTo16BitPCM(input: Float32Array): ArrayBuffer {
     const buffer = new ArrayBuffer(input.length * 2);
@@ -1925,12 +1898,7 @@ export default function GeminiAssistantOverlay({
       </AnimatePresence>
 
       {/* 2. FLOATING SIRI-STYLE ORB LAUNCHER */}
-      <div 
-        className={`fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] right-5 sm:right-6 sm:bottom-6 z-50 no-print transition-all duration-300 ${
-          isPanelOpen ? "opacity-0 pointer-events-none scale-75" : "opacity-100 scale-100"
-        }`} 
-        id="floating-siri-launcher"
-      >
+      <div className="fixed bottom-6 right-6 z-50 no-print" id="floating-siri-launcher">
         <div className="relative flex items-center justify-center">
           
           {/* Continuous Ambient Breathing Glow Aura (Shows Active AI State) */}
@@ -1990,8 +1958,8 @@ export default function GeminiAssistantOverlay({
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            onClick={handleOrbClick}
-            title={isWakeWordListening ? "AI Assistant (Say 'RICHARD' to wake up)" : "Open AI Command Center & Voice"}
+            onClick={toggleVoiceSession}
+            title={isWakeWordListening ? "AI Assistant (Say 'RICHARD' to wake up)" : "Start AI Voice Conversation"}
             className="h-14 w-14 !rounded-full neumorphic-card neumorphic-circle shadow-2xl flex items-center justify-center text-white cursor-pointer relative z-20 border-2 border-white/80 dark:border-slate-700/80 transition-all select-none bg-slate-900 dark:bg-[#1a1c1e]"
           >
             {voiceStatus === "connecting" ? (
@@ -2493,56 +2461,6 @@ export default function GeminiAssistantOverlay({
                           <span>{voiceError || "Voice error. Verify microphone permissions."}</span>
                         </div>
                       )}
-                    </div>
-
-                    {/* Quick Command Prompt & Text Fallback Input (Optimized for Mobile & Noisy Environments) */}
-                    <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between text-[10px] text-slate-300 font-bold uppercase tracking-wider">
-                        <span>Direct Action Command</span>
-                        <span className="text-[9px] text-slate-500 font-normal lowercase">type or tap to execute</span>
-                      </div>
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          sendTextToLive();
-                        }}
-                        className="flex items-center gap-1.5"
-                      >
-                        <input
-                          type="text"
-                          value={textPromptInput}
-                          onChange={(e) => setTextPromptInput(e.target.value)}
-                          placeholder="e.g. Sell 2 backpacks for cash..."
-                          className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 transition"
-                        />
-                        <button
-                          type="submit"
-                          disabled={!textPromptInput.trim()}
-                          className="p-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white rounded-xl transition cursor-pointer shrink-0 flex items-center justify-center"
-                          title="Send command to AI"
-                        >
-                          <Send size={15} />
-                        </button>
-                      </form>
-
-                      {/* Quick Mobile Action Chips */}
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {[
-                          "Sell 1 backpack for cash",
-                          "Restock 5 Tumblers",
-                          "Go to inventory",
-                          "Scroll down"
-                        ].map((chip) => (
-                          <button
-                            key={chip}
-                            type="button"
-                            onClick={() => sendTextToLive(chip)}
-                            className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 transition cursor-pointer active:scale-95"
-                          >
-                            {chip}
-                          </button>
-                        ))}
-                      </div>
                     </div>
 
                     {/* Mute toggle / details */}
