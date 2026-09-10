@@ -1435,11 +1435,11 @@ export default function InventoryScreen({
                     </div>
 
                     {/* Mobile Touch Action Strip with 44px responsive target heights */}
-                    <div className="flex gap-2 pt-1 border-t border-slate-100/60">
+                    <div className="flex gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
                       <button
                         type="button"
                         onClick={() => handleOpenAdjust(item)}
-                        className="flex-1 min-h-[44px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center gap-1 font-bold text-xs transition cursor-pointer"
+                        className="flex-1 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-indigo-700 dark:text-indigo-300 rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs transition cursor-pointer active:scale-95"
                         title={translate('adjust stock units', config.languageCode)}
                       >
                         <ArrowUpDown size={14} /> {translate('adjust', config.languageCode)}
@@ -1449,7 +1449,7 @@ export default function InventoryScreen({
                         <button
                           type="button"
                           onClick={() => handleOpenDamageReport(item)}
-                          className="w-12 min-h-[44px] bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white rounded-xl flex items-center justify-center transition cursor-pointer shadow-xs hover:opacity-95"
+                          className="w-12 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center transition cursor-pointer active:scale-95"
                           title={translate('report damage', config.languageCode)}
                         >
                           <AlertTriangle size={15} />
@@ -1460,7 +1460,7 @@ export default function InventoryScreen({
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(item)}
-                          className="flex-1 min-h-[44px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center gap-1 font-bold text-xs transition cursor-pointer"
+                          className="flex-1 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-emerald-700 dark:text-emerald-300 rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs transition cursor-pointer active:scale-95"
                           title={translate('edit details', config.languageCode)}
                         >
                           <Edit2 size={13} /> {translate('edit', config.languageCode)}
@@ -1471,7 +1471,7 @@ export default function InventoryScreen({
                         <button
                           type="button"
                           onClick={() => handleDeleteCheck(item.id, item.name)}
-                          className="w-12 min-h-[44px] neumorphic-btn text-slate-900 dark:text-white hover:text-slate-950 dark:hover:text-white rounded-xl flex items-center justify-center transition cursor-pointer"
+                          className="w-12 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 rounded-xl flex items-center justify-center transition cursor-pointer active:scale-95"
                           title={translate('retire item', config.languageCode)}
                         >
                           <Trash2 size={14} />
@@ -1572,7 +1572,7 @@ export default function InventoryScreen({
                         animate={{ opacity: 1, y: 4, scale: 1 }}
                         exit={{ opacity: 0, y: -6, scale: 0.96 }}
                         transition={{ duration: 0.15, ease: 'easeOut' }}
-                        className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl bg-[#ebf0f7] p-2 shadow-xl border border-white/90 z-50 overflow-hidden font-sans"
+                        className="absolute right-0 top-full mt-1.5 w-[min(15rem,calc(100vw-1.5rem))] rounded-2xl neumorphic-card p-2 shadow-2xl border border-white/90 dark:border-slate-700/80 z-50 overflow-hidden font-sans text-slate-900 dark:text-white"
                         style={{ boxShadow: '6px 6px 18px #cbd3e1, -6px -6px 18px #ffffff' }}
                       >
                         <div className="space-y-1 p-0.5">

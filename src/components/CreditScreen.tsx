@@ -910,10 +910,10 @@ export default function CreditScreen({
                     <button
                       type="button"
                       onClick={() => { setHistoryAcc(acc); setShowHistoryModal(true); }}
-                      className="w-8 h-8 neumorphic-btn text-slate-800 hover:text-black inline-flex items-center justify-center rounded-xl select-none cursor-pointer transition"
+                      className="w-12 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-slate-800 dark:text-white hover:text-black dark:hover:text-white rounded-xl flex items-center justify-center select-none cursor-pointer transition active:scale-95"
                       title="Statements Ledger History"
                     >
-                      <MaterialIcon name="history" size={16} className="text-slate-800" />
+                      <MaterialIcon name="history" size={18} className="text-slate-800 dark:text-white" />
                     </button>
                   </div>
                 </div>

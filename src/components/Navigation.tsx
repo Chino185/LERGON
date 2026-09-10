@@ -503,7 +503,7 @@ export default function Navigation({
                 setIsNotificationOpen(false);
                 setIsDropdownOpen(false);
               }}
-              className="xl:hidden p-2 text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-white neumorphic-btn cursor-pointer"
+              className="xl:hidden w-9 h-9 rounded-full neumorphic-circle flex items-center justify-center text-slate-800 dark:text-white neu-button border border-white/80 dark:border-slate-700/80 shadow-md shrink-0 cursor-pointer active:scale-95 transition"
               aria-label="Toggle navigation menu"
               aria-expanded={isMobileMenuOpen}
               aria-controls="authenticated-mobile-navigation"
@@ -663,9 +663,11 @@ export default function Navigation({
                         type="button"
                         id="dropdown-settings"
                         onClick={() => handleDropdownItemClick('settings')}
-                        className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
                       >
-                        <MaterialIcon name="settings" size={16} className="text-slate-800 dark:text-slate-200" />
+                        <div className="w-7 h-7 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 text-slate-800 dark:text-slate-200">
+                          <MaterialIcon name="settings" size={15} />
+                        </div>
                         <span>{translate('settings', config.languageCode)}</span>
                       </button>
 
@@ -676,9 +678,11 @@ export default function Navigation({
                           setIsDropdownOpen(false);
                           onLogout();
                         }}
-                        className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
                       >
-                        <MaterialIcon name="logout" size={16} className="text-slate-800 dark:text-slate-200" />
+                        <div className="w-7 h-7 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 text-rose-500">
+                          <MaterialIcon name="logout" size={15} />
+                        </div>
                         <span>{translate('logOut', config.languageCode)}</span>
                       </button>
                     </div>
@@ -711,20 +715,27 @@ export default function Navigation({
                           setActiveScreen(item.id);
                           setIsMobileMenuOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 text-xs font-bold transition cursor-pointer text-left rounded-xl border ${isActive
-                          ? 'neumorphic-btn text-sky-700 dark:text-sky-300 border-sky-300/80 dark:border-sky-500/50 font-extrabold'
-                          : 'neumorphic-btn text-slate-700 dark:text-slate-300 border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
+                        className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 text-xs font-bold transition cursor-pointer text-left rounded-xl border mb-1.5 last:mb-0 active:scale-[0.98] ${isActive
+                          ? 'neumorphic-inset text-sky-700 dark:text-sky-300 border-sky-400/80 dark:border-sky-500/60 font-extrabold bg-sky-500/10'
+                          : 'neumorphic-btn text-slate-700 dark:text-slate-200 border-white/80 dark:border-slate-700/70 hover:text-slate-950 dark:hover:text-white'
                           }`}
                       >
-                        <div className="flex items-center gap-3.5">
-                          <MaterialIcon name={item.materialIcon} size={20} className={isActive ? 'text-sky-600 dark:text-sky-300' : 'text-slate-500 dark:text-slate-400'} />
-                          <span>{item.name}</span>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border ${isActive ? 'border-sky-400/80 text-sky-600 dark:text-sky-300' : 'border-white/80 dark:border-slate-700/70 text-slate-600 dark:text-slate-300'}`}>
+                            <MaterialIcon name={item.materialIcon} size={18} className={isActive ? 'text-sky-600 dark:text-sky-300' : 'text-slate-600 dark:text-slate-300'} />
+                          </div>
+                          <span className="font-extrabold text-xs">{item.name}</span>
                         </div>
-                        {item.id === 'notifications' && unreadNotificationCount > 0 && (
-                          <span className="px-2 py-0.5 text-[9px] font-black bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 rounded-full leading-none mr-2 border border-red-500 dark:border-red-400">
-                            {unreadNotificationCount}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {item.id === 'notifications' && unreadNotificationCount > 0 && (
+                            <span className="px-2 py-0.5 text-[9px] font-black bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 rounded-full leading-none border border-red-500 dark:border-red-400">
+                              {unreadNotificationCount}
+                            </span>
+                          )}
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
+                            <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
+                          </div>
+                        </div>
                       </button>
                     );
                   })}

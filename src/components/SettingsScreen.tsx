@@ -1195,36 +1195,42 @@ export default function SettingsScreen({
           <button
             type="button"
             onClick={() => setActiveTab('profile')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'profile'
-              ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
-              : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs transition text-left cursor-pointer select-none active:scale-[0.98] ${activeTab === 'profile'
+              ? 'neumorphic-inset bg-sky-500/10 text-sky-700 dark:text-sky-300 font-extrabold border-2 border-sky-500/80 shadow-inner'
+              : 'neumorphic-btn text-slate-800 dark:text-slate-200 font-bold hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700/80'
               }`}
           >
-            <MaterialIcon name="person" size={18} className="text-slate-800" />
+            <div className={`w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border ${activeTab === 'profile' ? 'border-sky-400 text-sky-600 dark:text-sky-300' : 'border-white/80 dark:border-slate-700/70 text-slate-700 dark:text-slate-300'}`}>
+              <MaterialIcon name="person" size={17} />
+            </div>
             <span>{translate('profileSettings', config.languageCode)}</span>
           </button>
           {!isAttendant && (
             <button
               type="button"
               onClick={() => setActiveTab('system')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'system'
-                ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
-                : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs transition text-left cursor-pointer select-none active:scale-[0.98] ${activeTab === 'system'
+                ? 'neumorphic-inset bg-sky-500/10 text-sky-700 dark:text-sky-300 font-extrabold border-2 border-sky-500/80 shadow-inner'
+                : 'neumorphic-btn text-slate-800 dark:text-slate-200 font-bold hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700/80'
                 }`}
             >
-              <MaterialIcon name="tune" size={18} className="text-slate-800" />
+              <div className={`w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border ${activeTab === 'system' ? 'border-sky-400 text-sky-600 dark:text-sky-300' : 'border-white/80 dark:border-slate-700/70 text-slate-700 dark:text-slate-300'}`}>
+                <MaterialIcon name="tune" size={17} />
+              </div>
               <span>{translate('systemSettings', config.languageCode)}</span>
             </button>
           )}
           <button
             type="button"
             onClick={() => setActiveTab('security')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition text-left cursor-pointer select-none ${activeTab === 'security'
-              ? 'neumorphic-btn bg-slate-200/90 text-slate-950 font-black border-2 border-slate-900 shadow-md'
-              : 'neumorphic-btn text-slate-800 font-extrabold hover:text-black border border-white/80'
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs transition text-left cursor-pointer select-none active:scale-[0.98] ${activeTab === 'security'
+                ? 'neumorphic-inset bg-sky-500/10 text-sky-700 dark:text-sky-300 font-extrabold border-2 border-sky-500/80 shadow-inner'
+                : 'neumorphic-btn text-slate-800 dark:text-slate-200 font-bold hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700/80'
               }`}
           >
-            <MaterialIcon name="security" size={18} className="text-slate-800" />
+            <div className={`w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border ${activeTab === 'security' ? 'border-sky-400 text-sky-600 dark:text-sky-300' : 'border-white/80 dark:border-slate-700/70 text-slate-700 dark:text-slate-300'}`}>
+              <MaterialIcon name="security" size={17} />
+            </div>
             <span>{translate('securitySettings', config.languageCode)}</span>
           </button>
         </div>

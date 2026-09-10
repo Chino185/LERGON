@@ -2689,7 +2689,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setIsLandingMobileMenuOpen(!isLandingMobileMenuOpen)}
-                  className="lg:hidden w-9 h-9 rounded-full neu-button border border-white/80 dark:border-slate-700/60 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center text-slate-800 dark:text-white shadow-md shrink-0"
+                  className="lg:hidden w-10 h-10 rounded-full neu-button border border-white/90 dark:border-slate-700/80 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center text-slate-800 dark:text-white shadow-md shrink-0"
                   aria-label="Toggle navigation menu"
                   aria-expanded={isLandingMobileMenuOpen}
                   aria-controls="landing-mobile-menu"
@@ -2709,55 +2709,71 @@ export default function App() {
                   transition={{ duration: 0.16, ease: 'easeOut' }}
                   id="landing-mobile-menu"
                   role="menu"
-                  className="lg:hidden absolute left-3 right-3 top-full mt-2 rounded-2xl neu-flat border border-white/90 dark:border-slate-700/80 shadow-2xl p-3.5 backdrop-blur-2xl bg-white/95 dark:bg-[#0A0E1A]/95 text-slate-900 dark:text-white z-50 overflow-hidden"
+                  className="lg:hidden absolute left-3 right-3 top-full mt-2 rounded-2xl neu-flat border border-white/90 dark:border-slate-700/80 shadow-2xl p-3.5 backdrop-blur-2xl bg-[#ebf0f7]/95 dark:bg-[#1a1d24]/95 text-slate-900 dark:text-white z-50 overflow-hidden"
                 >
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     <a
                       href="#hero"
                       onClick={() => setIsLandingMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition"
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition border border-white/80 dark:border-slate-700/60"
                     >
-                      <span className="flex items-center gap-2.5">
-                        <span className="material-symbols-outlined text-base text-blue-500">home</span>
-                        Home
+                      <span className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 shadow-sm text-blue-500">
+                          <span className="material-symbols-outlined text-base">home</span>
+                        </div>
+                        <span className="font-bold">Home</span>
                       </span>
-                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
+                        <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
+                      </div>
                     </a>
                     <a
                       href="#feature-showcase"
                       onClick={() => setIsLandingMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 transition"
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition border border-white/80 dark:border-slate-700/60"
                     >
-                      <span className="flex items-center gap-2.5">
-                        <span className="material-symbols-outlined text-base text-cyan-500">featured_play_list</span>
-                        Features
+                      <span className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 shadow-sm text-cyan-500">
+                          <span className="material-symbols-outlined text-base">featured_play_list</span>
+                        </div>
+                        <span className="font-bold">Features</span>
                       </span>
-                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
+                        <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
+                      </div>
                     </a>
                     <a
                       href="#solutions"
                       onClick={() => setIsLandingMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 transition"
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition border border-white/80 dark:border-slate-700/60"
                     >
-                      <span className="flex items-center gap-2.5">
-                        <span className="material-symbols-outlined text-base text-indigo-500">lightbulb</span>
-                        Solutions
+                      <span className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 shadow-sm text-indigo-500">
+                          <span className="material-symbols-outlined text-base">lightbulb</span>
+                        </div>
+                        <span className="font-bold">Solutions</span>
                       </span>
-                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
+                        <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
+                      </div>
                     </a>
                     <a
                       href="#faq"
                       onClick={() => setIsLandingMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 transition"
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition border border-white/80 dark:border-slate-700/60"
                     >
-                      <span className="flex items-center gap-2.5">
-                        <span className="material-symbols-outlined text-base text-teal-500">help</span>
-                        FAQ
+                      <span className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 shadow-sm text-teal-500">
+                          <span className="material-symbols-outlined text-base">help</span>
+                        </div>
+                        <span className="font-bold">FAQ</span>
                       </span>
-                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
+                        <span className="material-symbols-outlined text-xs">arrow_forward_ios</span>
+                      </div>
                     </a>
 
-                    <div className="pt-2 mt-1 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-col gap-2">
+                    <div className="pt-3 mt-1 border-t border-slate-200/80 dark:border-slate-700/80 flex flex-col gap-2.5">
                       <button
                         type="button"
                         onClick={() => {
@@ -2768,9 +2784,12 @@ export default function App() {
                           setForgotError('');
                           setSuccess(null);
                         }}
-                        className="w-full py-2.5 rounded-xl neu-button text-xs font-extrabold text-slate-800 dark:text-white transition cursor-pointer"
+                        className="w-full py-2.5 px-4 rounded-xl neu-button text-xs font-extrabold text-slate-800 dark:text-white border border-white/80 dark:border-slate-700/60 transition cursor-pointer flex items-center justify-center gap-2.5 active:scale-[0.98]"
                       >
-                        Sign In to Your Business
+                        <div className="w-6 h-6 rounded-full neumorphic-circle flex items-center justify-center text-blue-500 shrink-0">
+                          <span className="material-symbols-outlined text-sm">login</span>
+                        </div>
+                        <span>Sign In to Your Business</span>
                       </button>
                       <button
                         type="button"
@@ -2782,9 +2801,12 @@ export default function App() {
                           setForgotError('');
                           setSuccess(null);
                         }}
-                        className="w-full py-2.5 rounded-xl neu-button active-tab text-white text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-lg shadow-blue-500/25"
+                        className="w-full py-2.5 px-4 rounded-xl neu-button active-tab text-white text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2.5 active:scale-[0.98] border border-white/30"
                       >
-                        Register Account
+                        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0">
+                          <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                        </div>
+                        <span>Register Account</span>
                       </button>
                     </div>
                   </div>

@@ -1379,11 +1379,11 @@ export default function TransactionsScreen({
                   </div>
                 ) : (
                   groupItemsByMonth<StockAdjustment>(filteredSaleCreditAdjustments).map((group) => (
-                    <div key={group.monthLabel} className="space-y-1 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                    <div key={group.monthLabel} className="space-y-1 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 overflow-hidden">
                       <div className="neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 border-b border-slate-200/60 dark:border-slate-700/60 px-4 py-2 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider select-none">
                         {group.monthLabel}
                       </div>
-                      <div className="divide-y divide-slate-150/70">
+                      <div className="divide-y divide-slate-150/70 dark:divide-slate-700/60">
                         {group.items.map((adj) => {
                           const isCredited = !!adj.creditAccountId || !!(adj.notes && (adj.notes.toLowerCase().includes('credited') || adj.notes.toLowerCase().includes('on credit') || adj.notes.toLowerCase().includes('sold on credit') || adj.notes.toLowerCase().includes('purchased on credit')));
                           const item = inventory.find(i => i.id === adj.itemId);
@@ -1395,12 +1395,12 @@ export default function TransactionsScreen({
 
                           const badgeClass = isCredited
                             ? (paidRatio === 1
-                              ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-250'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-250 dark:border-emerald-800/60'
                               : paidRatio > 0
-                                ? 'bg-amber-50 text-amber-800 font-bold border border-amber-250'
-                                : 'bg-rose-50 text-rose-700 font-bold border border-rose-205'
+                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold border border-amber-250 dark:border-amber-800/60'
+                                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-bold border border-rose-205 dark:border-rose-800/60'
                             )
-                            : 'bg-blue-50 text-blue-700 font-bold border border-blue-100';
+                            : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold border border-blue-100 dark:border-blue-800/60';
 
                           let badgeText = 'PAID SALE';
                           if (isCredited) {
@@ -1417,7 +1417,7 @@ export default function TransactionsScreen({
                             <div key={adj.id} className={`p-4 space-y-2.5 ${adj.isFlagged ? 'bg-amber-50/15 border-l-4 border-amber-500' : ''}`}>
                               <div className="flex justify-between items-start gap-2">
                                 <div className="min-w-0">
-                                  <span className="font-extrabold text-slate-900 block truncate text-xs">
+                                  <span className="font-extrabold text-slate-900 dark:text-white block truncate text-xs">
                                     {adj.itemName}
                                   </span>
                                   <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
@@ -1441,15 +1441,15 @@ export default function TransactionsScreen({
                               <div className="grid grid-cols-3 gap-2 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 border border-white/70 dark:border-slate-700/70 p-2.5 rounded-xl text-[10px] text-center">
                                 <div>
                                   <span className="block text-slate-400 text-[9px] uppercase font-semibold font-mono">Qty</span>
-                                  <strong className="text-slate-900 font-mono text-xs">{Math.abs(adj.qtyChanged)} pcs</strong>
+                                  <strong className="text-slate-900 dark:text-white font-mono text-xs">{Math.abs(adj.qtyChanged)} pcs</strong>
                                 </div>
                                 <div>
                                   <span className="block text-slate-400 text-[9px] uppercase font-semibold font-mono">Unit Price</span>
-                                  <strong className="text-slate-650 font-mono">{formatMoney(price)}</strong>
+                                  <strong className="text-slate-650 dark:text-slate-300 font-mono">{formatMoney(price)}</strong>
                                 </div>
                                 <div className="text-right">
                                   <span className="block text-slate-400 text-[9px] uppercase font-semibold font-mono">Total Value</span>
-                                  <strong className="text-emerald-700 font-mono text-xs font-black">{formatMoney(val)}</strong>
+                                  <strong className="text-emerald-700 dark:text-emerald-400 font-mono text-xs font-black">{formatMoney(val)}</strong>
                                 </div>
                               </div>
                               {adj.isFlagged && (
