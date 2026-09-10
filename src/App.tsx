@@ -2675,12 +2675,11 @@ export default function App() {
                   Register
                 </button>
 
-                {/* Mobile Menu Toggle Button (hidden on desktop lg+) */}
+                {/* Mobile Menu Toggle Button (lg:hidden - only on mobile!) */}
                 <button
                   type="button"
-                  id="landing-mobile-menu-trigger"
                   onClick={() => setIsLandingMobileMenuOpen(!isLandingMobileMenuOpen)}
-                  className="lg:!hidden w-9 h-9 rounded-full neu-button border border-white/80 dark:border-slate-700/60 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center text-slate-800 dark:text-white shadow-md shrink-0"
+                  className="lg:hidden w-9 h-9 rounded-full neu-button border border-white/80 dark:border-slate-700/60 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center text-slate-800 dark:text-white shadow-md shrink-0"
                   aria-label="Toggle navigation menu"
                   aria-expanded={isLandingMobileMenuOpen}
                   aria-controls="landing-mobile-menu"
@@ -2700,7 +2699,7 @@ export default function App() {
                   transition={{ duration: 0.16, ease: 'easeOut' }}
                   id="landing-mobile-menu"
                   role="menu"
-                  className="lg:!hidden absolute left-3 right-3 top-full mt-2 rounded-2xl neu-flat border border-white/90 dark:border-slate-700/80 shadow-2xl p-3.5 backdrop-blur-2xl bg-white/95 dark:bg-[#0A0E1A]/95 text-slate-900 dark:text-white z-50 overflow-hidden"
+                  className="lg:hidden absolute left-3 right-3 top-full mt-2 rounded-2xl neu-flat border border-white/90 dark:border-slate-700/80 shadow-2xl p-3.5 backdrop-blur-2xl bg-white/95 dark:bg-[#0A0E1A]/95 text-slate-900 dark:text-white z-50 overflow-hidden"
                 >
                   <div className="flex flex-col gap-1.5">
                     <a

@@ -1888,8 +1888,78 @@ body,
   }
 
   #landing-mobile-menu a,
-  #landing-mobile-menu button {
+#landing-mobile-menu button {
     min-height: 3rem;
     font-size: 0.8125rem;
+  }
+}
+
+/* Reusable overflow-safe utilities for records, names, and notes. */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-clamp-1,
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-1 {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.line-clamp-2 {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.break-words {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 767px) {
+  #app-main-content h1,
+  #app-main-content h2,
+  #app-main-content h3,
+  #app-main-content h4,
+  #app-main-content h5,
+  #app-main-content h6,
+  #app-main-content td,
+  #app-main-content th {
+    overflow-wrap: anywhere;
+  }
+
+  #app-main-content .overflow-x-auto {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  #app-main-content .overflow-x-auto > table {
+    min-width: 36rem;
+  }
+
+  #app-main-content .fixed.inset-0 {
+    padding: 0.5rem;
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  #app-main-content .fixed.inset-0 > div,
+  #app-main-content .fixed.inset-0 > form,
+  #app-main-content .fixed.inset-0 > section {
+    width: min(100%, 42rem);
+    max-width: 100%;
+    max-height: calc(100dvh - 1rem);
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
 }

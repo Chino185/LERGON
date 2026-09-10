@@ -13,7 +13,43 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: "10mb" }));
+const REQUEST_TIMEOUT_MS = 60_000;
+
+app.use(express.json({ limit: "5mb" }));
+
+// The browser normally calls the API on the same origin, but these headers
+// keep a separately hosted frontend usable when an explicit allow-list is
+// configured. Avoid wildcard origins when credentials are enabled.
+const allowedOrigins = new Set(
+  (process.env.ALLOWED_ORIGINS || "http://localhost:3000")
+    .split(",")
+    .map(origin => origin.trim())
+    .filter(Boolean)
+);
+app.use((req, res, next) => {
+  const requestOrigin = req.headers.origin;
+  if (requestOrigin && allowedOrigins.has(requestOrigin)) {
+    res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+app.use((req, res, next) => {
+  res.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    if (!res.headersSent) {
+      res.status(408).json({
+        error: "request_timeout",
+        message: "Request took too long to complete. Please try again."
+      });
+    }
+  });
+  next();
+});
 
 // Initialize Gemini SDK with User-Agent telemetry headers
 const getGeminiClient = () => {
@@ -72,6 +108,85 @@ function checkAiRateLimit(clientId: string): { allowed: boolean; retryAfterSec: 
 
   record.timestamps.push(now);
   return { allowed: true, retryAfterSec: 0, currentCount: record.timestamps.length };
+}
+
+// Prevent inactive IP records from accumulating indefinitely in long-lived
+// server processes. Active voice sessions are retained until their own timeout
+// or close handler releases them.
+const rateLimitCleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [clientId, record] of aiRateLimitStore) {
+    record.timestamps = record.timestamps.filter(ts => now - ts < AI_RATE_LIMIT_WINDOW_MS);
+    if (record.timestamps.length === 0 && record.voiceSessionsCount.length === 0) {
+      aiRateLimitStore.delete(clientId);
+    }
+  }
+}, AI_RATE_LIMIT_WINDOW_MS);
+rateLimitCleanupTimer.unref?.();
+
+function assertObject(value: unknown, name: string): asserts value is Record<string, any> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${name} must be an object`);
+  }
+}
+
+function assertArray(value: unknown, name: string, maxLength = 5000): asserts value is any[] {
+  if (!Array.isArray(value)) throw new Error(`${name} must be an array`);
+  if (value.length > maxLength) throw new Error(`${name} exceeds the maximum supported length`);
+}
+
+function validateInventoryPayload(body: any) {
+  assertArray(body?.inventory, "inventory");
+  assertArray(body?.adjustments, "adjustments");
+  assertObject(body?.config ?? {}, "config");
+  for (const item of body.inventory) {
+    if (!item || typeof item !== "object" || typeof item.id !== "string" || typeof item.name !== "string") {
+      throw new Error("inventory items must include id and name");
+    }
+    if (typeof item.quantity !== "number" || !Number.isFinite(item.quantity)) {
+      throw new Error("inventory item quantity must be a finite number");
+    }
+  }
+}
+
+function validateCreditPayload(body: any) {
+  assertArray(body?.creditAccounts, "creditAccounts");
+  assertArray(body?.transactions, "transactions");
+  assertObject(body?.config ?? {}, "config");
+}
+
+function validateRestockPayload(body: any) {
+  assertArray(body?.lowStockItems, "lowStockItems");
+  assertObject(body?.config ?? {}, "config");
+}
+
+function validateChatPayload(body: any) {
+  if (typeof body?.message !== "string" && !Array.isArray(body?.message)) {
+    throw new Error("message must be a string or message array");
+  }
+  if (typeof body?.message === "string" && body.message.length > 20_000) {
+    throw new Error("message exceeds the maximum supported length");
+  }
+  assertArray(body?.inventory ?? [], "inventory");
+  assertArray(body?.creditAccounts ?? [], "creditAccounts");
+  assertArray(body?.adjustments ?? [], "adjustments");
+  assertArray(body?.transactions ?? [], "transactions");
+  assertObject(body?.config ?? {}, "config");
+}
+
+function isValidationError(error: unknown): boolean {
+  return error instanceof Error && (
+    error.message.includes("must be") ||
+    error.message.includes("exceeds the maximum")
+  );
+}
+
+function parseModelJson(text: string | undefined): Record<string, any> {
+  const parsed = JSON.parse(text || "{}");
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || Object.keys(parsed).length === 0) {
+    throw new Error("Model returned an empty JSON response");
+  }
+  return parsed;
 }
 
 // Express Rate Limit Middleware for AI REST endpoints
@@ -445,8 +560,9 @@ function queryPageContextServer(applicationContext: any, page: string, searchQue
 
 // API Endpoints for Gemini Intelligence Center (Smart audits & calculations)
 app.post("/api/gemini/analyze-inventory", async (req, res) => {
-  const { inventory = [], adjustments = [], config = {}, deepAnalysis } = req.body;
+  const { inventory = [], adjustments = [], config = {}, deepAnalysis } = req.body || {};
   try {
+    validateInventoryPayload(req.body);
     // Compute simple 7-day and 30-day sales velocity per item
     const getMs = (dateStr: string) => {
       const d = new Date(dateStr);
@@ -562,7 +678,7 @@ app.post("/api/gemini/analyze-inventory", async (req, res) => {
 
     try {
       const response = await ai.models.generateContent(parameters);
-      const parsed = JSON.parse(response.text || "{}");
+      const parsed = parseModelJson(response.text);
       res.json(parsed);
     } catch (apiError: any) {
       console.log(`Model fallback sequence activated for inventory.`);
@@ -575,13 +691,16 @@ app.post("/api/gemini/analyze-inventory", async (req, res) => {
             responseMimeType: "application/json",
           },
         });
-        res.json(JSON.parse(fallbackResponse.text || "{}"));
+        res.json(parseModelJson(fallbackResponse.text));
       } catch (fallbackModelError: any) {
         console.log("Programmatic fallback route triggered for inventory.");
         throw new Error("API offline");
       }
     }
   } catch (error: any) {
+    if (isValidationError(error)) {
+      return res.status(400).json({ error: "invalid_request", message: error.message });
+    }
     console.log("Running fallback calculations for inventory directly.");
     try {
       const fallbackResult = generateProgrammaticInventoryAnalysis(inventory, adjustments, config);
@@ -594,8 +713,9 @@ app.post("/api/gemini/analyze-inventory", async (req, res) => {
 });
 
 app.post("/api/gemini/analyze-credit", async (req, res) => {
-  const { creditAccounts = [], transactions = [], config = {} } = req.body;
+  const { creditAccounts = [], transactions = [], config = {} } = req.body || {};
   try {
+    validateCreditPayload(req.body);
     const prompt = `Analyze the credit outstanding accounts and debtor risk profiles for "${config?.businessName || "our store"}".
     
     Active credit ledger accounts:
@@ -640,7 +760,7 @@ app.post("/api/gemini/analyze-credit", async (req, res) => {
           },
         },
       });
-      res.json(JSON.parse(response.text || "{}"));
+      res.json(parseModelJson(response.text));
     } catch (apiError: any) {
       console.log("Model fallback sequence activated for credit.");
       try {
@@ -651,13 +771,16 @@ app.post("/api/gemini/analyze-credit", async (req, res) => {
             responseMimeType: "application/json",
           },
         });
-        res.json(JSON.parse(fallbackResponse.text || "{}"));
+        res.json(parseModelJson(fallbackResponse.text));
       } catch (fallbackModelError: any) {
         console.log("Programmatic fallback route triggered for credit.");
         throw new Error("API offline");
       }
     }
   } catch (error: any) {
+    if (isValidationError(error)) {
+      return res.status(400).json({ error: "invalid_request", message: error.message });
+    }
     console.log("Running fallback calculations for credit directly.");
     try {
       const fallbackResult = generateProgrammaticCreditAnalysis(creditAccounts, transactions, config);
@@ -691,8 +814,9 @@ function generateProgrammaticFastRestock(lowStockItems: any[] = [], config: any 
 }
 
 app.post("/api/gemini/fast-restock", async (req, res) => {
-  const { lowStockItems = [], config = {} } = req.body;
+  const { lowStockItems = [], config = {} } = req.body || {};
   try {
+    validateRestockPayload(req.body);
     const prompt = `Draft a fast purchase order requisition for the following low-stock items in "${config?.businessName || "our store"}":
     ${JSON.stringify(lowStockItems)}
 
@@ -720,7 +844,7 @@ app.post("/api/gemini/fast-restock", async (req, res) => {
           responseMimeType: "application/json",
         },
       });
-      res.json(JSON.parse(response.text || "{}"));
+      res.json(parseModelJson(response.text));
     } catch (apiError: any) {
       console.log("Model fallback sequence activated for restock.");
       try {
@@ -731,12 +855,15 @@ app.post("/api/gemini/fast-restock", async (req, res) => {
             responseMimeType: "application/json",
           },
         });
-        res.json(JSON.parse(fallbackResponse.text || "{}"));
+        res.json(parseModelJson(fallbackResponse.text));
       } catch (fbErr: any) {
         throw new Error("API offline");
       }
     }
   } catch (error: any) {
+    if (isValidationError(error)) {
+      return res.status(400).json({ error: "invalid_request", message: error.message });
+    }
     console.log("Running fallback calculations for restock directly.");
     try {
       const fallbackResult = generateProgrammaticFastRestock(lowStockItems, config);
@@ -751,6 +878,7 @@ app.post("/api/gemini/fast-restock", async (req, res) => {
 // General chat playground helper supporting different models/intelligence
 app.post("/api/gemini/chat", async (req, res) => {
   try {
+    validateChatPayload(req.body);
     const {
       message,
       model,
@@ -902,11 +1030,32 @@ ${liveDataSection}
       }
     }
   } catch (error: any) {
+    if (isValidationError(error)) {
+      return res.status(400).json({ error: "invalid_request", message: error.message });
+    }
     console.log("Generating standard offline advice for assistant request.", error);
     res.json({
       text: "Operational metrics are stable. Focus on key items: replenishing low-stock categories, settling pending credit alerts, and confirming any flagged log anomalies."
     });
   }
+});
+
+// Keep API failures machine-readable instead of returning Express HTML error
+// pages, especially for malformed JSON sent from mobile networks.
+app.use((error: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (error?.type === "entity.too large") {
+    return res.status(413).json({
+      error: "payload_too_large",
+      message: "Request body exceeds the 5MB limit."
+    });
+  }
+  if (error instanceof SyntaxError && "body" in error) {
+    return res.status(400).json({
+      error: "invalid_json",
+      message: "Request body contains invalid JSON."
+    });
+  }
+  next(error);
 });
 
 // Create HTTP server
@@ -1716,7 +1865,26 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
       } catch (err) {
         console.error("Error closing live session:", err);
       }
+      liveSession = null;
     }
+    latestApplicationContext = {};
+  });
+
+  clientWs.on("error", (error) => {
+    console.error("WebSocket bridge error:", error);
+    if (sessionTimeoutTimer) {
+      clearTimeout(sessionTimeoutTimer);
+      sessionTimeoutTimer = null;
+    }
+    if (liveSession) {
+      try {
+        liveSession.close();
+      } catch (closeError) {
+        console.error("Error closing Live session after WebSocket error:", closeError);
+      }
+      liveSession = null;
+    }
+    latestApplicationContext = {};
   });
 });
 
