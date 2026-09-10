@@ -101,6 +101,7 @@ import {
   markNotificationsAsRead,
   loadNotificationReadIds,
   updateBusinessCurrency,
+  migrateBusinessCurrencyAmounts,
   subscribeToBusinessCurrency,
   updateUserPhone,
   updateUserDisplayName,
@@ -2399,12 +2400,18 @@ export default function App() {
       const businessNameChanged = newConfig.businessName !== config.businessName;
 
       if ((currencyChanged || countryChanged || businessNameChanged) && currentOrgId) {
-        updateBusinessCurrency(currentOrgId, currentUserRole, newConfig.currency, newConfig.currencySymbol, newConfig.country, newConfig.businessName)
-          .then((res) => {
-            if (!res.success) {
-              console.error('Failed to sync currency to backend:', res.error);
+        const persistBusinessSettings = async () => {
+          if (currencyChanged && config.currency !== newConfig.currency) {
+            const migration = await migrateBusinessCurrencyAmounts(currentOrgId, currentUserRole, config.currency, newConfig.currency);
+            if (!migration.success) {
+              console.error('Failed to convert stored business amounts:', migration.error);
+              return;
             }
-          });
+          }
+          const res = await updateBusinessCurrency(currentOrgId, currentUserRole, newConfig.currency, newConfig.currencySymbol, newConfig.country, newConfig.businessName);
+          if (!res.success) console.error('Failed to sync currency to backend:', res.error);
+        };
+        void persistBusinessSettings();
       }
     }
 

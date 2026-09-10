@@ -1,4 +1,5 @@
 import { supabase, getSafeChannel } from './supabaseClient';
+import { fetchLiveExchangeRates, getCachedExchangeRates, getRateForCurrency } from './currencyUtils';
 import { LergonUser, ActivityLog } from '../types';
 
 export { supabase };
@@ -370,6 +371,75 @@ export async function updateBusinessCurrency(
   } catch (err: any) {
     console.error('updateBusinessCurrency Error:', err);
     return { success: false, error: err?.message || 'Failed to update business currency.' };
+  }
+}
+
+/**
+ * Convert persisted monetary values exactly once when an administrator
+ * changes the business currency. Ordinary reads and edits never convert.
+ */
+export async function migrateBusinessCurrencyAmounts(
+  businessId: string,
+  userRole: number | string | undefined,
+  fromCurrency: string,
+  toCurrency: string
+): Promise<{ success: boolean; factor?: number; error?: string }> {
+  const isAdmin = userRole === 2 || userRole === 'admin';
+  if (!isAdmin) return { success: false, error: 'Unauthorized currency migration.' };
+  if (!businessId || !fromCurrency || !toCurrency || fromCurrency === toCurrency) return { success: true, factor: 1 };
+
+  try {
+    const rateData = await fetchLiveExchangeRates();
+    const rates = rateData?.rates || getCachedExchangeRates().rates;
+    const fromRate = getRateForCurrency(rates, fromCurrency);
+    const toRate = getRateForCurrency(rates, toCurrency);
+    const factor = toRate / fromRate;
+    if (!Number.isFinite(factor) || factor <= 0) throw new Error('No valid exchange rate is available for this currency change.');
+    const money = (value: unknown) => {
+      const amount = Number(value);
+      return Number.isFinite(amount) ? Number((amount * factor).toFixed(6)) : value;
+    };
+
+    const { data: inventoryRows, error: inventoryError } = await supabase.from('inventory_items')
+      .select('id, cost_price, selling_price').eq('business_id', businessId);
+    if (inventoryError) throw inventoryError;
+    for (const row of inventoryRows || []) {
+      const { error } = await supabase.from('inventory_items').update({
+        cost_price: money(row.cost_price), selling_price: money(row.selling_price)
+      }).eq('id', row.id).eq('business_id', businessId);
+      if (error) throw error;
+    }
+
+    const { data: creditRows, error: creditError } = await supabase.from('credit_profiles')
+      .select('id, initial_amount, remaining_balance').eq('business_id', businessId);
+    if (creditError) throw creditError;
+    for (const row of creditRows || []) {
+      const { error } = await supabase.from('credit_profiles').update({
+        initial_amount: money(row.initial_amount), remaining_balance: money(row.remaining_balance)
+      }).eq('id', row.id).eq('business_id', businessId);
+      if (error) throw error;
+    }
+
+    const { data: transactionRows, error: transactionError } = await supabase.from('transactions')
+      .select('id, total_amount, original_total_amount, items').eq('business_id', businessId);
+    if (transactionError) throw transactionError;
+    const moneyKeys = new Set(['unit_price', 'unit_cost', 'selling_price', 'cost_price', 'amount', 'total_amount', 'remaining_amount', 'original_amount']);
+    const scaleItems = (items: unknown) => Array.isArray(items) ? items.map(item => {
+      if (!item || typeof item !== 'object') return item;
+      return Object.fromEntries(Object.entries(item as Record<string, unknown>).map(([key, value]) => [key, moneyKeys.has(key) ? money(value) : value]));
+    }) : items;
+    for (const row of transactionRows || []) {
+      const { error } = await supabase.from('transactions').update({
+        total_amount: money(row.total_amount),
+        original_total_amount: row.original_total_amount == null ? row.original_total_amount : money(row.original_total_amount),
+        items: scaleItems(row.items)
+      }).eq('id', row.id).eq('business_id', businessId);
+      if (error) throw error;
+    }
+    return { success: true, factor };
+  } catch (err: any) {
+    console.error('migrateBusinessCurrencyAmounts Error:', err);
+    return { success: false, error: err?.message || 'Failed to convert stored business amounts.' };
   }
 }
 
