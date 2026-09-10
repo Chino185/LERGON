@@ -1122,8 +1122,8 @@ export default function App() {
               attendantEmail: roleStr === 'attendant' ? (user.email || localOrg?.attendantEmail) : localOrg?.attendantEmail,
               adminName: roleStr === 'admin' ? (profileData.display_username || localOrg?.adminName || 'Administrator') : localOrg?.adminName,
               attendantName: roleStr === 'attendant' ? (profileData.display_username || localOrg?.attendantName || '') : localOrg?.attendantName,
-              adminPhoto: roleStr === 'admin' ? (backendProfilePhoto || localOrg?.adminPhoto) : localOrg?.adminPhoto,
-              attendantPhoto: roleStr === 'attendant' ? (backendProfilePhoto || localOrg?.attendantPhoto) : localOrg?.attendantPhoto,
+              adminPhoto: roleStr === 'admin' ? backendProfilePhoto : localOrg?.adminPhoto,
+              attendantPhoto: roleStr === 'attendant' ? backendProfilePhoto : localOrg?.attendantPhoto,
               country: businessData?.base_country || localOrg?.country,
               currency: businessData?.base_currency_code || localOrg?.currency,
               currencySymbol: businessData?.base_currency_symbol || localOrg?.currencySymbol,
@@ -2581,6 +2581,7 @@ export default function App() {
 
   // --- Calculations for alarms inside Navigation tab ---
   const lowStockCount = inventory.filter(item => item.quantity <= item.reorderPoint).length;
+  const safeBusinessId: string = currentOrgId ?? '';
 
   return (
     <>
@@ -3886,7 +3887,7 @@ export default function App() {
                 inventory={inventory}
                 adjustments={adjustments}
                 config={config}
-                businessId={currentOrgId}
+                businessId={safeBusinessId}
                 userUid={currentUserUid}
                 onAddItem={handleAddItem}
                 onUpdateItem={handleUpdateItem}
@@ -4011,7 +4012,7 @@ export default function App() {
               onInvoiceCommand={(command) => {
                 setInvoiceAiCommand({ ...command, id: `ai-invoice-${Date.now()}` });
               }}
-              businessId={currentOrgId}
+              businessId={safeBusinessId}
               backendNotifications={backendNotifications}
               readNotificationIds={readNotificationIds}
               currentUserName={activeUserName}

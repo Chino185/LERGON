@@ -463,19 +463,8 @@ export async function clearProfilePhoto(
   currentPhotoUrl?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Remove the object from Storage when the current value is a Supabase
-    // public URL. Data-URL previews are local-only and have nothing to remove.
-    if (currentPhotoUrl?.includes('/storage/v1/object/public/profile-photos/')) {
-      const marker = '/storage/v1/object/public/profile-photos/';
-      const filePath = decodeURIComponent(currentPhotoUrl.split(marker)[1] || '');
-      if (filePath) {
-        const { error: storageError } = await supabase.storage
-          .from('profile-photos')
-          .remove([filePath]);
-        if (storageError) throw storageError;
-      }
-    }
-
+    // Clear the profile row first. This is the source of truth used during
+    // refresh; Storage cleanup must not prevent the URL from being cleared.
     const { data, error } = await supabase
       .from('profiles')
       .update({ profile_photo_url: null })
@@ -486,6 +475,20 @@ export async function clearProfilePhoto(
     if (error) throw error;
     if (!data || data.id !== userUid || data.profile_photo_url !== null) {
       throw new Error('The authenticated profile photo was not cleared.');
+    }
+
+    // Remove the object from Storage when the current value is a Supabase
+    // public URL. Data-URL previews are local-only. A Storage cleanup failure
+    // is logged but does not restore the deleted database URL.
+    if (currentPhotoUrl?.includes('/storage/v1/object/public/profile-photos/')) {
+      const marker = '/storage/v1/object/public/profile-photos/';
+      const filePath = decodeURIComponent(currentPhotoUrl.split(marker)[1] || '');
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from('profile-photos')
+          .remove([filePath]);
+        if (storageError) console.warn('Profile photo database URL cleared, but Storage cleanup failed:', storageError);
+      }
     }
     return { success: true };
   } catch (err: any) {

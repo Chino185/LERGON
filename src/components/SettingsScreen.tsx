@@ -604,9 +604,9 @@ export default function SettingsScreen({
   const initialUserName = isAttendant
     ? (currentOrg?.attendantName || '')
     : (currentOrg?.adminName || config.ownerName || 'Administrator');
-  const initialUserPhoto = isAttendant
-    ? (currentOrg?.attendantPhoto || '')
-    : (currentOrg?.adminPhoto || config.profilePhoto || '');
+  const initialUserPhoto = typeof config.profilePhoto === 'string'
+    ? config.profilePhoto
+    : (isAttendant ? (currentOrg?.attendantPhoto || '') : (currentOrg?.adminPhoto || ''));
 
   // Form states initialized with config values
   const [busName, setBusName] = useState(config.businessName);
