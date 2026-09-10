@@ -218,12 +218,19 @@ export async function executeAppActionAsync(
         return { success: false, message: `Price update failed: ${saveRes.error}`, error: saveRes.error };
       }
 
-      await logActivity(businessId, 'PRICE_UPDATED', `Updated price of ${targetItem.name} to $${(newPrice ?? targetItem.unitPrice).toFixed(2)}`, userUid, 'ai_assistant');
+      const currencySymbol = ctx.config.currencySymbol || ctx.config.currency || '$';
+      const updatedPrice = newPrice !== undefined ? Number(newPrice) : targetItem.unitPrice;
+      const updatedCost = newCost !== undefined ? Number(newCost) : targetItem.unitCost;
+      ctx.setInventory?.(previous => previous.map(item => item.id === targetItem.id
+        ? { ...item, unitPrice: updatedPrice, unitCost: updatedCost, lastUpdated: new Date().toISOString() }
+        : item));
+
+      await logActivity(businessId, 'PRICE_UPDATED', `Updated price of ${targetItem.name} to ${currencySymbol}${updatedPrice.toFixed(2)}`, userUid, 'ai_assistant');
 
       return {
         success: true,
-        message: `Price for ${targetItem.name} updated to $${(newPrice ?? targetItem.unitPrice).toFixed(2)}.`,
-        data: { itemId: targetItem.id, newPrice }
+        message: `Price for ${targetItem.name} updated to ${currencySymbol}${updatedPrice.toFixed(2)}${newCost !== undefined ? ` and cost to ${currencySymbol}${updatedCost.toFixed(2)}` : ''}.`,
+        data: { itemId: targetItem.id, newPrice: updatedPrice, newCost: newCost !== undefined ? updatedCost : undefined, currency: ctx.config.currency || 'configured currency' }
       };
     }
 

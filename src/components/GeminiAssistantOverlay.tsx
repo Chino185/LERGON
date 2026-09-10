@@ -2543,7 +2543,7 @@ export default function GeminiAssistantOverlay({
       </AnimatePresence>
 
       {/* Real-time AI Data Corrections Notification List */}
-      <div id="ai-corrections-toast-container" className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 max-w-sm pointer-events-none">
+      <div id="ai-corrections-toast-container" className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[9999] flex w-[min(24rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] flex-col gap-3 pointer-events-none pb-[env(safe-area-inset-bottom,0px)]">
         <AnimatePresence>
           {correctionsList.map(item => (
             <motion.div

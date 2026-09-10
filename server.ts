@@ -1285,6 +1285,7 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
 
         LIVE STATE TRACKING DIRECTIVE:
         - Treat the application context, dashboard KPI snapshot, and returned page-query data as the current source of truth for this business.
+        - All prices and costs must use the business currency from the live settings context, including its currency code and symbol. Never label a price as USD or dollars unless the configured currency is USD. If the operator says "change it to 5 cedis", call update_item_price with newPrice=5 and explain it as 5 in the configured Ghanaian cedi currency; do not convert it to dollars.
         - Before answering an exact question about an item quantity, item price, balance, notification, transaction, activity, page record, or KPI, call query_page_data for the relevant page. Do not rely on memory, examples, or a previous turn.
         - When explaining how an activity changed the business, use that activity record's kpiImpact fields and timestamp. Explain the change briefly as: activity, operator, time, KPI impact.
         - After a mutation or realtime update, prefer the newest returned page-query data over older prompt text.
@@ -1681,7 +1682,7 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                     },
                     {
                       name: "update_item_price",
-                      description: "Updates the unit selling price or cost price of an inventory item.",
+                      description: "Updates the unit selling price or cost price of an inventory item. Interpret newPrice and newCost as amounts in the business's configured currency from the live settings, never automatically as USD.",
                       parameters: {
                         type: Type.OBJECT,
                         properties: {

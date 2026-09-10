@@ -459,9 +459,23 @@ export async function updateUserPhone(
  * photo -- never a colleague's.
  */
 export async function clearProfilePhoto(
-  userUid: string
+  userUid: string,
+  currentPhotoUrl?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Remove the object from Storage when the current value is a Supabase
+    // public URL. Data-URL previews are local-only and have nothing to remove.
+    if (currentPhotoUrl?.includes('/storage/v1/object/public/profile-photos/')) {
+      const marker = '/storage/v1/object/public/profile-photos/';
+      const filePath = decodeURIComponent(currentPhotoUrl.split(marker)[1] || '');
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from('profile-photos')
+          .remove([filePath]);
+        if (storageError) throw storageError;
+      }
+    }
+
     const { data, error } = await supabase
       .from('profiles')
       .update({ profile_photo_url: null })

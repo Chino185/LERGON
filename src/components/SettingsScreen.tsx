@@ -996,7 +996,7 @@ export default function SettingsScreen({
       }
       resolvedPhotoUrl = uploadRes.url || '';
     } else if (photoRemoved && userUid) {
-      const clearRes = await clearProfilePhoto(userUid);
+      const clearRes = await clearProfilePhoto(userUid, config.profilePhoto || undefined);
       if (!clearRes.success) {
         setIsSavingProfile(false);
         setPhotoError(clearRes.error || 'Failed to remove profile photo.');
