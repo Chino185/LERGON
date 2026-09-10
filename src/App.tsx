@@ -459,11 +459,12 @@ export default function App() {
       businessName: currentOrg?.name || '',
       email: role === 5 ? (currentOrg?.attendantEmail || '') : (currentOrg?.adminEmail || '')
     });
-    // Theme is never organization-owned. Ignore legacy themeMode values that
-    // may still exist in older shared org config records.
-    const { themeMode: _legacyOrgTheme, ...orgConfigWithoutTheme } = storedOrgConfig;
+    // Theme and profilePhoto are never organization-owned. Ignore legacy themeMode
+    // or profilePhoto values that may exist in older shared org config records.
+    const { themeMode: _legacyOrgTheme, profilePhoto: _legacyOrgPhoto, ...orgConfigWithoutTheme } = storedOrgConfig;
     const orgConfig: BusinessConfig = {
       ...orgConfigWithoutTheme,
+      profilePhoto: undefined,
       themeMode: 'light'
     };
 
@@ -1362,6 +1363,7 @@ export default function App() {
           effective.attendantPhone = backendProfilePhone;
         }
       }
+      effective.profilePhoto = config.profilePhoto;
       setConfig(effective);
     }
   }, [authBootstrapReady, currentOrgId, currentUserRole, currentUserUid, isLoggedIn, organizations, backendProfilePhone]);
@@ -2390,7 +2392,7 @@ export default function App() {
     //    every teammate sees the same base currency in real time instead
     //    of it being stuck in this browser's local storage.
     if (currentUserRole === 2) {
-      const { themeMode: _ignoredThemeMode, ...orgScopedConfig } = newConfig;
+      const { themeMode: _ignoredThemeMode, profilePhoto: _ignoredProfilePhoto, ...orgScopedConfig } = newConfig;
       saveLocalState(getOrgStorageKey(CONFIG_KEY, currentOrgId), orgScopedConfig);
 
       const currencyChanged =

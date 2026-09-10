@@ -550,9 +550,12 @@ export async function clearProfilePhoto(
     // Remove the object from Storage when the current value is a Supabase
     // public URL. Data-URL previews are local-only. A Storage cleanup failure
     // is logged but does not restore the deleted database URL.
-    if (currentPhotoUrl?.includes('/storage/v1/object/public/profile-photos/')) {
-      const marker = '/storage/v1/object/public/profile-photos/';
-      const filePath = decodeURIComponent(currentPhotoUrl.split(marker)[1] || '');
+    const marker = currentPhotoUrl?.includes('/storage/v1/object/public/profile-photos/')
+      ? '/storage/v1/object/public/profile-photos/'
+      : '/profile-photos/';
+    if (currentPhotoUrl?.includes(marker)) {
+      const rawPath = currentPhotoUrl.split(marker)[1]?.split('?')[0] || '';
+      const filePath = decodeURIComponent(rawPath);
       if (filePath) {
         const { error: storageError } = await supabase.storage
           .from('profile-photos')

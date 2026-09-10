@@ -22,7 +22,8 @@ import {
   UserPlus,
   Clock,
   RefreshCw,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 import { BusinessConfig, Organization, OrganizationInvite } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -640,6 +641,7 @@ export default function SettingsScreen({
   // preview of a not-yet-uploaded file) shown in the <img>.
   const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [photoError, setPhotoError] = useState('');
@@ -647,10 +649,73 @@ export default function SettingsScreen({
   // Restore the persisted backend photo whenever App hydrates or updates it.
   // A pending local File remains the immediate preview until the save finishes.
   React.useEffect(() => {
-    if (!profilePhotoFile) {
+    if (!profilePhotoFile && !photoRemoved) {
       setProfilePhoto(config.profilePhoto || '');
     }
-  }, [config.profilePhoto, profilePhotoFile]);
+  }, [config.profilePhoto, profilePhotoFile, photoRemoved]);
+
+  const handleDeleteProfilePhoto = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDeletingPhoto(true);
+    setPhotoError('');
+
+    const targetUrl = profilePhoto || config.profilePhoto || '';
+
+    // 1. Immediately clear local preview states
+    setProfilePhoto('');
+    setProfilePhotoFile(null);
+    setPhotoRemoved(true);
+
+    try {
+      // 2. Clear from backend Supabase (profiles table & storage bucket)
+      if (userUid) {
+        const clearRes = await clearProfilePhoto(userUid, targetUrl);
+        if (!clearRes.success) {
+          console.warn('Backend clearProfilePhoto warning:', clearRes.error);
+        }
+      }
+
+      // 3. Clear from active React config state immediately
+      onUpdateConfig({
+        ...config,
+        profilePhoto: ''
+      });
+
+      // 4. Clear from organization state (adminPhoto / attendantPhoto)
+      if (organizations && currentOrgId && onUpdateOrganizations) {
+        const updatedOrgs = organizations.map(org => {
+          if (org.id === currentOrgId) {
+            return {
+              ...org,
+              ...(isAttendant ? { attendantPhoto: '' } : { adminPhoto: '' })
+            };
+          }
+          return org;
+        });
+        onUpdateOrganizations(updatedOrgs);
+      }
+
+      // 5. Clean up localStorage cache so refresh never resurrects it
+      if (currentOrgId) {
+        const orgKey = `velo_ic_config_org_${currentOrgId}`;
+        try {
+          const raw = localStorage.getItem(orgKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            delete parsed.profilePhoto;
+            localStorage.setItem(orgKey, JSON.stringify(parsed));
+          }
+        } catch {
+          // ignore
+        }
+      }
+    } catch (err: any) {
+      console.error('Error deleting profile photo:', err);
+      setPhotoError(err?.message || 'Failed to remove profile photo.');
+    } finally {
+      setIsDeletingPhoto(false);
+    }
+  };
 
   // Supabase Auth Password Update States
   const [currentPwd, setCurrentPwd] = useState('');
@@ -922,6 +987,8 @@ export default function SettingsScreen({
     // Keep the (resized) File for upload on save, and show a local
     // preview immediately via a data URL (no backend round-trip needed
     // just to preview).
+    setPhotoRemoved(false);
+    setPhotoError('');
     setProfilePhotoFile(uploadFile);
     const reader = new FileReader();
     reader.onload = () => {
@@ -1205,16 +1272,12 @@ export default function SettingsScreen({
                       {profilePhoto && (
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setProfilePhoto('');
-                            setProfilePhotoFile(null);
-                            setPhotoRemoved(true);
-                          }}
-                          className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-150 cursor-pointer text-white text-[10px] font-bold"
+                          disabled={isDeletingPhoto || isSavingProfile}
+                          onClick={handleDeleteProfilePhoto}
+                          className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-150 cursor-pointer text-white text-[10px] font-bold disabled:opacity-60 disabled:cursor-wait"
                           title="Remove Photo"
                         >
-                          <Trash2 size={16} />
+                          {isDeletingPhoto ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                         </button>
                       )}
                     </div>
