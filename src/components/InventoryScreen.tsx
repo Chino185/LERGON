@@ -443,10 +443,10 @@ export default function InventoryScreen({
   const [businessCategories, setBusinessCategories] = useState<string[]>([]);
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
-  const [itemQty, setItemQty] = useState<number | ''>('');
-  const [itemCost, setItemCost] = useState<number | ''>('');
-  const [itemPrice, setItemPrice] = useState<number | ''>('');
-  const [itemReorder, setItemReorder] = useState<number | ''>('');
+  const [itemQty, setItemQty] = useState<number | string>('');
+  const [itemCost, setItemCost] = useState<number | string>('');
+  const [itemPrice, setItemPrice] = useState<number | string>('');
+  const [itemReorder, setItemReorder] = useState<number | string>('');
   const [itemSupplier, setItemSupplier] = useState('');
   const [itemLocation, setItemLocation] = useState('');
   const [itemNotes, setItemNotes] = useState('');
@@ -678,11 +678,7 @@ export default function InventoryScreen({
     }
   };
 
-  const { formatAmount, convertFromBase, convertToBase } = useCurrency();
-  // Round a converted currency amount to 2 decimal places so the edit form
-  // always shows the same figure as the inventory table (which is formatted
-  // with formatCurrencyAmount's 2 dp rounding).
-  const roundMoney = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
+  const { formatAmount } = useCurrency();
 
   const formatMoney = (amount: number) => {
     return formatAmount(amount);
@@ -749,15 +745,15 @@ export default function InventoryScreen({
   const handleOpenAdd = () => {
     setEditingItemId(null);
     setItemName('');
-    setItemSku(`SKU-${Math.floor(Math.random() * 90000) + 10000}`);
-    setItemCategory(allAvailableCategories[0] || '');
+    setItemSku('');
+    setItemCategory('');
     setIsCategoryDropdownOpen(false);
     setIsAddingNewCategory(false);
     setNewCategoryInput('');
-    setItemQty(5);
-    setItemCost(roundMoney(convertFromBase(10)));
-    setItemPrice(roundMoney(convertFromBase(20)));
-    setItemReorder(config.lowStockThresholdDefault || 5);
+    setItemQty('');
+    setItemCost('');
+    setItemPrice('');
+    setItemReorder('');
     setItemSupplier('');
     setItemLocation('');
     setItemNotes('');
@@ -777,10 +773,10 @@ export default function InventoryScreen({
     setItemName(item.name);
     setItemSku(item.sku);
     setItemCategory(item.category);
-    setItemQty(item.quantity);
-    setItemCost(roundMoney(convertFromBase(item.unitCost)));
-    setItemPrice(roundMoney(convertFromBase(item.unitPrice)));
-    setItemReorder(item.reorderPoint);
+    setItemQty(item.quantity !== undefined && item.quantity !== null ? item.quantity : '');
+    setItemCost(item.unitCost !== undefined && item.unitCost !== null ? (typeof item.unitCost === 'number' ? item.unitCost.toFixed(2) : item.unitCost) : '');
+    setItemPrice(item.unitPrice !== undefined && item.unitPrice !== null ? (typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2) : item.unitPrice) : '');
+    setItemReorder(item.reorderPoint !== undefined && item.reorderPoint !== null ? item.reorderPoint : '');
     setItemSupplier(item.supplier || '');
     setItemLocation(item.location || '');
     setItemNotes(item.notes || '');
@@ -808,10 +804,8 @@ export default function InventoryScreen({
       return;
     }
 
-    if (!cleanSkuStr) {
-      setItemSaveError('Please fill out the Stock SKU.');
-      return;
-    }
+    // Use entered SKU or auto-assign a clean unique SKU if left blank
+    const finalSku = cleanSkuStr || `SKU-${Math.floor(Math.random() * 90000) + 10000}`;
 
     if (!cleanCategory) {
       setItemSaveError('Create or select a custom category before saving this item.');
@@ -823,11 +817,11 @@ export default function InventoryScreen({
     try {
       const itemPayload = {
         name: cleanTitle,
-        sku: cleanSkuStr,
+        sku: finalSku,
         category: cleanCategory,
         quantity: itemQty === '' ? 0 : Number(itemQty),
-        unitCost: userRole === 2 ? (itemCost === '' ? 0 : convertToBase(Number(itemCost))) : 0,
-        unitPrice: userRole === 2 ? (itemPrice === '' ? 0 : convertToBase(Number(itemPrice))) : 0,
+        unitCost: userRole === 2 ? (itemCost === '' ? 0 : Number(itemCost)) : 0,
+        unitPrice: userRole === 2 ? (itemPrice === '' ? 0 : Number(itemPrice)) : 0,
         reorderPoint: userRole === 2 ? (itemReorder === '' ? 5 : Number(itemReorder)) : 5,
         supplier: sanitizeTextInput(itemSupplier, 200),
         location: sanitizeTextInput(itemLocation, 200),
@@ -2124,7 +2118,7 @@ export default function InventoryScreen({
                     min="0"
                     placeholder={translate('e.g. 50', config.languageCode)}
                     value={itemQty}
-                    onChange={(e) => setItemQty(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => setItemQty(e.target.value)}
                     className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
                   />
                 </div>
@@ -2135,7 +2129,7 @@ export default function InventoryScreen({
                     min="0"
                     placeholder={translate('e.g. 10 (will alert)', config.languageCode)}
                     value={itemReorder}
-                    onChange={(e) => setItemReorder(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => setItemReorder(e.target.value)}
                     disabled={userRole !== 2}
                     className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                   />
@@ -2153,10 +2147,10 @@ export default function InventoryScreen({
                     <input
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="any"
                       placeholder={translate('e.g. 15.00', config.languageCode)}
                       value={itemCost}
-                      onChange={(e) => setItemCost(e.target.value === '' ? '' : Number(e.target.value))}
+                      onChange={(e) => setItemCost(e.target.value)}
                       className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium font-mono"
                     />
                   </div>
@@ -2166,10 +2160,10 @@ export default function InventoryScreen({
                   <input
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="any"
                     placeholder={translate('e.g. 29.99', config.languageCode)}
                     value={itemPrice}
-                    onChange={(e) => setItemPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => setItemPrice(e.target.value)}
                     disabled={userRole !== 2}
                     className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium font-mono disabled:opacity-60 disabled:cursor-not-allowed"
                   />
