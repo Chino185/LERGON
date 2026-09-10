@@ -30,7 +30,7 @@ import NeumorphicSelect, { NeumorphicSelectOption } from './NeumorphicSelect';
 
 export interface InvoiceAiCommand {
   id: string;
-  action: 'generate_invoice' | 'add_invoice_item';
+  action: 'generate_invoice' | 'add_invoice_item' | 'preview_invoice' | 'print_invoice';
   args: Record<string, any>;
 }
 
@@ -175,6 +175,7 @@ export default function InvoiceGeneratorScreen({
   // UI States
   const [viewMode, setViewMode] = useState<'composer' | 'preview'>('composer');
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [guidedInvoiceStep, setGuidedInvoiceStep] = useState<'idle' | 'confirming-items' | 'confirming-preview' | 'confirming-print'>('idle');
   const [invoiceAccountId, setInvoiceAccountId] = useState<string>('');
   const [selectedCurrency, setSelectedCurrency] = useState(config?.currencySymbol || 'GH₵');
   const [previewZoom, setPreviewZoom] = useState<number>(0.85); // default 0.85 scale for print preview fit
@@ -633,7 +634,11 @@ export default function InvoiceGeneratorScreen({
   useEffect(() => {
     if (!aiCommand) return;
     const args = aiCommand.args || {};
-    const requestedItems = Array.isArray(args.items) ? args.items : [];
+    const requestedItems = Array.isArray(args.items)
+      ? args.items
+      : aiCommand.action === 'add_invoice_item'
+        ? [args]
+        : [];
 
     if (args.invoiceNumber || args.invoiceNo) setInvoiceNo(String(args.invoiceNumber || args.invoiceNo));
     if (args.invoiceDate) setInvoiceDate(String(args.invoiceDate));
@@ -698,13 +703,16 @@ export default function InvoiceGeneratorScreen({
       window.setTimeout(() => setSuccessAnimation(false), 800);
     }
 
-    const shouldOpenPreview = args.openPreview !== false && args.preview !== false;
-    if (shouldOpenPreview) {
-      window.setTimeout(() => {
-        clearPdfArtifacts();
-        setViewMode('preview');
-        setIsPreviewMode(true);
-      }, requestedItems.length > 0 ? 120 : 40);
+    if (aiCommand.action === 'generate_invoice' || aiCommand.action === 'add_invoice_item') {
+      setViewMode('composer');
+      setIsPreviewMode(false);
+      setGuidedInvoiceStep(requestedItems.length > 0 || aiCommand.action === 'add_invoice_item' ? 'confirming-items' : 'idle');
+    } else if (aiCommand.action === 'preview_invoice') {
+      handleShowPreview();
+      setGuidedInvoiceStep('confirming-print');
+    } else if (aiCommand.action === 'print_invoice') {
+      handlePrintInvoice();
+      setGuidedInvoiceStep('idle');
     }
 
     onAiCommandHandled?.(aiCommand.id);
@@ -712,6 +720,14 @@ export default function InvoiceGeneratorScreen({
 
   return (
     <div className="flex-1 w-full max-w-none xl:max-w-[1550px] mx-auto px-4 py-6 flex flex-col xl:flex-row gap-6 min-h-0 relative">
+
+      {guidedInvoiceStep !== 'idle' && (
+        <div className="absolute top-2 left-4 right-4 z-20 rounded-2xl border border-sky-200/80 bg-sky-50/95 px-4 py-3 text-xs font-bold text-sky-900 shadow-lg backdrop-blur-sm dark:border-sky-800 dark:bg-slate-900/95 dark:text-sky-100">
+          {guidedInvoiceStep === 'confirming-items' && 'RICHARD is confirming the items and quantities before opening the preview.'}
+          {guidedInvoiceStep === 'confirming-preview' && 'RICHARD is waiting for your confirmation to open the invoice preview.'}
+          {guidedInvoiceStep === 'confirming-print' && 'Preview is ready. RICHARD is waiting for your confirmation before printing.'}
+        </div>
+      )}
 
       {/* Dynamic print-targeted CSS style sheet override injected into DOM */}
       <style dangerouslySetInnerHTML={{

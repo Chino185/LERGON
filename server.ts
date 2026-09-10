@@ -11,7 +11,8 @@ import { createClient } from "@supabase/supabase-js";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+const IS_VERCEL_RUNTIME = process.env.VERCEL === "1";
 
 const REQUEST_TIMEOUT_MS = 60_000;
 
@@ -41,11 +42,12 @@ app.use((req, res, next) => {
 
 app.use((req, res, next) => {
   res.setTimeout(REQUEST_TIMEOUT_MS, () => {
-    if (!res.headersSent) {
-      res.status(408).json({
+    if (!res.headersSent && !res.writableEnded) {
+      res.locals.requestTimedOut = true;
+      sendJsonOnce(res, {
         error: "request_timeout",
         message: "Request took too long to complete. Please try again."
-      });
+      }, 408);
     }
   });
   next();
@@ -77,9 +79,35 @@ interface ClientRateRecord {
 
 const aiRateLimitStore = new Map<string, ClientRateRecord>();
 
-const AI_RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS) || 60000;
-const AI_RATE_LIMIT_MAX_REQUESTS = Number(process.env.AI_RATE_LIMIT_MAX_REQUESTS) || 10;
-const AI_VOICE_SESSION_MAX_MS = (Number(process.env.AI_VOICE_SESSION_MAX_MINUTES) || 5) * 60 * 1000;
+const configuredRateWindowMs = Number(process.env.AI_RATE_LIMIT_WINDOW_MS);
+const configuredRateMaxRequests = Number(process.env.AI_RATE_LIMIT_MAX_REQUESTS);
+const configuredVoiceMinutes = Number(process.env.AI_VOICE_SESSION_MAX_MINUTES);
+
+// Set AI_RATE_LIMIT_MAX_REQUESTS=0 to disable request limiting. Keep a safe
+// default when the variable is absent or invalid rather than accidentally
+// disabling protection because of a typo.
+const AI_RATE_LIMIT_WINDOW_MS = Number.isFinite(configuredRateWindowMs) && configuredRateWindowMs > 0
+  ? configuredRateWindowMs
+  : 60000;
+const AI_RATE_LIMIT_MAX_REQUESTS = configuredRateMaxRequests === 0
+  ? 0
+  : Number.isFinite(configuredRateMaxRequests) && configuredRateMaxRequests > 0
+    ? configuredRateMaxRequests
+    : 10;
+// A zero voice limit means no server-side session timer. Do not pass enormous
+// durations to setTimeout: Node clamps values above 2^31-1 and may fire them
+// immediately, which looks like a random WebSocket disconnect.
+const MAX_NODE_TIMER_MS = 2_147_483_647;
+const configuredVoiceMs = Number.isFinite(configuredVoiceMinutes) && configuredVoiceMinutes > 0
+  ? configuredVoiceMinutes * 60 * 1000
+  : 0;
+const AI_VOICE_SESSION_MAX_MS = configuredVoiceMinutes === 0
+  ? Infinity
+  : configuredVoiceMs > 0 && configuredVoiceMs <= MAX_NODE_TIMER_MS
+    ? configuredVoiceMs
+    : configuredVoiceMs > MAX_NODE_TIMER_MS
+      ? Infinity
+      : 5 * 60 * 1000;
 
 function getClientIp(req: express.Request): string {
   const forwarded = req.headers["x-forwarded-for"];
@@ -90,6 +118,9 @@ function getClientIp(req: express.Request): string {
 }
 
 function checkAiRateLimit(clientId: string): { allowed: boolean; retryAfterSec: number; currentCount: number } {
+  if (AI_RATE_LIMIT_MAX_REQUESTS === 0) {
+    return { allowed: true, retryAfterSec: 0, currentCount: 0 };
+  }
   const now = Date.now();
   let record = aiRateLimitStore.get(clientId);
   if (!record) {
@@ -121,7 +152,7 @@ const rateLimitCleanupTimer = setInterval(() => {
       aiRateLimitStore.delete(clientId);
     }
   }
-}, AI_RATE_LIMIT_WINDOW_MS);
+}, Math.min(Math.max(AI_RATE_LIMIT_WINDOW_MS, 60000), MAX_NODE_TIMER_MS));
 rateLimitCleanupTimer.unref?.();
 
 function assertObject(value: unknown, name: string): asserts value is Record<string, any> {
@@ -187,6 +218,12 @@ function parseModelJson(text: string | undefined): Record<string, any> {
     throw new Error("Model returned an empty JSON response");
   }
   return parsed;
+}
+
+function sendJsonOnce(res: express.Response, payload: unknown, status = 200): boolean {
+  if (res.headersSent || res.writableEnded) return false;
+  res.status(status).json(payload);
+  return true;
 }
 
 // Express Rate Limit Middleware for AI REST endpoints
@@ -1009,7 +1046,7 @@ ${liveDataSection}
 
     try {
       const response = await ai.models.generateContent(parameters);
-      res.json({ text: response.text });
+      sendJsonOnce(res, { text: response.text });
     } catch (apiError: any) {
       console.log(`Assistant model fallback sequence initiated: ${apiError?.message}`);
       try {
@@ -1021,10 +1058,10 @@ ${liveDataSection}
           },
         };
         const response = await ai.models.generateContent(fallbackParameters);
-        res.json({ text: response.text });
+        sendJsonOnce(res, { text: response.text });
       } catch (fallbackError: any) {
         console.log("Secondary fallback sequence activated for chat:", fallbackError?.message);
-        res.json({
+        sendJsonOnce(res, {
           text: "Operational metrics are stable. Focus on key items: replenishing low-stock categories, settling pending credit alerts, and confirming any flagged log anomalies."
         });
       }
@@ -1034,7 +1071,7 @@ ${liveDataSection}
       return res.status(400).json({ error: "invalid_request", message: error.message });
     }
     console.log("Generating standard offline advice for assistant request.", error);
-    res.json({
+    sendJsonOnce(res, {
       text: "Operational metrics are stable. Focus on key items: replenishing low-stock categories, settling pending credit alerts, and confirming any flagged log anomalies."
     });
   }
@@ -1070,8 +1107,10 @@ wss.on("connection", (clientWs: WebSocket) => {
   let latestApplicationContext: any = {};
   let sessionTimeoutTimer: NodeJS.Timeout | null = null;
 
-  // Enforce maximum continuous voice session duration to prevent token exhaustion
-  sessionTimeoutTimer = setTimeout(() => {
+  // Enforce maximum continuous voice session duration to prevent token
+  // exhaustion. A zero configuration explicitly disables this timer.
+  if (Number.isFinite(AI_VOICE_SESSION_MAX_MS)) {
+    sessionTimeoutTimer = setTimeout(() => {
     const maxMins = Math.round(AI_VOICE_SESSION_MAX_MS / 60000);
     console.log(`Live voice session reached maximum allowed duration (${maxMins} mins). Disconnecting session to preserve token quota.`);
     try {
@@ -1086,7 +1125,8 @@ wss.on("connection", (clientWs: WebSocket) => {
       try { clientWs.send(JSON.stringify({ type: "status", status: "closed", reason: "max_duration" })); } catch (e) { }
       try { clientWs.close(); } catch (e) { }
     }, 1500);
-  }, AI_VOICE_SESSION_MAX_MS);
+    }, AI_VOICE_SESSION_MAX_MS);
+  }
 
   clientWs.on("message", async (data) => {
     try {
@@ -1214,8 +1254,9 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
         - 'close_voice_session' (to close the voice session immediately when the user says goodbye, bye, or tells you to go to sleep or close the call)
         
         CONFIRMATION & SAFETY DIRECTIVES:
-        - For consequential actions that modify inventory, process payments, change prices, generate invoices, or delete items (e.g. process_sale, record_stock_restock, update_item_price, generate_invoice), ask for verbal confirmation first (e.g., "You want me to restock 5 tables at 50 dollars each, confirm?") unless the operator gave an explicit direct command containing all parameters.
-        - For non-destructive or read-only actions (e.g. export_inventory_csv, print_invoice, mark_all_notifications_read, navigate_to_page, query_activity_log), execute the tool call immediately.
+        - For consequential actions that modify inventory, process payments, change prices, generate invoices, or delete items (e.g. process_sale, record_stock_restock, update_item_price), ask for verbal confirmation first unless the operator gave an explicit direct command containing all parameters.
+        - Invoice workflow: when the operator asks to create an invoice, use generate_invoice to open the invoice editor and add only confirmed live inventory items. Ask for the item name, then quantity when missing. After each addition ask, "Are these the only items you want to add?" Keep using add_invoice_item for additional items. Only after the operator says yes or confirms the list, call preview_invoice with confirmed=true and ask, "Does the preview look good?" Only after the operator explicitly agrees, call print_invoice with confirmed=true. Never call print_invoice without that final confirmation.
+        - For non-destructive or read-only actions (e.g. export_inventory_csv, navigate_to_page, query_activity_log), execute the tool call immediately. Previewing and printing an invoice still require the staged confirmations above.
 
         When the operator gives a clear instruction to sell an item, record a payment, restock an item, or correct a quantity/balance, execute the correct tool immediately using the real item/account names and current values found in the data sections below, and verbally confirm the transaction with the specific name and amount involved.
         
@@ -1665,7 +1706,7 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                     },
                     {
                       name: "generate_invoice",
-                      description: "Opens the existing Invoice screen, fills the requested invoice fields, adds requested items from live inventory only, and opens the existing print-preview workspace for review. Do not invent items that are not in the live inventory context.",
+                      description: "Opens the existing Invoice screen, fills requested invoice fields, and adds requested items from live inventory only. Do not open preview or print yet; first confirm whether the item list and quantities are complete.",
                       parameters: {
                         type: Type.OBJECT,
                         properties: {
@@ -1683,7 +1724,7 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                           paymentAccountNumber: { type: Type.STRING, description: "Optional payment account number." },
                           paymentBranch: { type: Type.STRING, description: "Optional bank branch." },
                           invoiceAccountId: { type: Type.STRING, description: "Optional existing credit-account ID to autofill the customer." },
-                          openPreview: { type: Type.BOOLEAN, description: "Open the existing invoice preview after filling; defaults to true." },
+                          openPreview: { type: Type.BOOLEAN, description: "Deprecated compatibility field. Ignore this field and wait for the separate preview confirmation step." },
                           items: {
                             type: Type.ARRAY,
                             description: "Items to add from live inventory search. Each item must identify an existing inventory item by itemName or itemId and may include quantity and rate.",
@@ -1697,7 +1738,40 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                               }
                             }
                           }
-                        }
+                        },
+                        required: []
+                      }
+                    },
+                    {
+                      name: "add_invoice_item",
+                      description: "Adds one existing live-inventory item to the open invoice with the requested quantity. After adding it, ask whether there are more items.",
+                      parameters: {
+                        type: Type.OBJECT,
+                        properties: {
+                          itemId: { type: Type.STRING },
+                          itemName: { type: Type.STRING },
+                          quantity: { type: Type.NUMBER },
+                          rate: { type: Type.NUMBER }
+                        },
+                        required: ["quantity"]
+                      }
+                    },
+                    {
+                      name: "preview_invoice",
+                      description: "Open the invoice preview only after the operator confirms the item list is complete and wants to review it.",
+                      parameters: {
+                        type: Type.OBJECT,
+                        properties: { confirmed: { type: Type.BOOLEAN } },
+                        required: ["confirmed"]
+                      }
+                    },
+                    {
+                      name: "print_invoice",
+                      description: "Print the invoice only after the operator confirms that the preview looks correct and explicitly agrees to print.",
+                      parameters: {
+                        type: Type.OBJECT,
+                        properties: { confirmed: { type: Type.BOOLEAN } },
+                        required: ["confirmed"]
                       }
                     }
                   ]
@@ -1920,4 +1994,13 @@ async function startServer() {
   });
 }
 
-startServer();
+// Vercel invokes server code as a request handler and does not support a
+// long-running `listen()` process inside a serverless function. Keep the
+// listener for local/standalone Node hosting, but do not start it when Vercel
+// imports this module.
+if (!IS_VERCEL_RUNTIME) {
+  startServer();
+}
+
+export { app };
+export default app;
