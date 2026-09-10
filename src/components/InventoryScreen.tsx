@@ -1,2486 +1,2065 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useCurrency } from '../context/CurrencyContext';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Search,
-  Filter,
+  Printer,
   Plus,
-  Edit2,
   Trash2,
-  ArrowUpDown,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  HelpCircle,
-  Package,
-  Locate,
-  ShoppingBag,
-  RotateCcw,
-  AlertTriangle,
-  PackageX,
-  FileDown,
-  X,
-  Activity,
-  ClipboardList,
-  Phone,
-  ChevronDown,
-  Check,
-  PackageCheck,
-  ShieldAlert,
+  Eye,
+  Edit3,
+  RefreshCw,
+  FileText,
+  Sparkles,
+  User,
+  Calendar,
+  DollarSign,
   CheckCircle2,
-  Loader2,
-  AlertCircle,
-  ImagePlus,
-  Camera
+  ChevronDown,
+  FileQuestion,
+  HelpCircle,
+  Undo2,
+  Info,
+  Upload,
+  Search,
+  X,
+  ArrowRight
 } from 'lucide-react';
-import { InventoryItem, StockAdjustment, BusinessConfig, PendingRestock } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction } from '../types';
 import { translate } from '../utils/translations';
 import MaterialIcon from './MaterialIcon';
-import { downloadCSV, formatCSVDateTime, formatCSVCurrency, formatCSVNumber } from '../utils/csvExporter';
-import {
-  subscribeToDamageReports,
-  reportDamagedStockTransaction,
-  subscribeToBusinessCategories,
-  saveBusinessCategories,
-  DamageReport
-} from '../utils/inventoryServices';
-import { sanitizeTextInput } from '../utils/securityValidation';
-import { downloadExcel, formatExcelDateTime, formatExcelCurrency, formatExcelNumber } from '../utils/excelExporter';
+import NeumorphicSelect, { NeumorphicSelectOption } from './NeumorphicSelect';
 
-
-interface InventoryScreenProps {
-  inventory: InventoryItem[];
-  adjustments: StockAdjustment[];
-  config: BusinessConfig;
-  businessId: string;
-  userUid: string;
-  onAddItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => Promise<{ success: boolean; error?: string }> | any;
-  onUpdateItem: (id: string, updates: Partial<InventoryItem>) => Promise<{ success: boolean; error?: string }> | any;
-  onDeleteItem: (id: string) => void;
-  onLogAdjustment: (itemId: string, qtyChanged: number, type: StockAdjustment['type'], notes: string) => void | Promise<{ success: boolean; pending?: boolean; error?: string }>;
-  onDamageReported?: (itemId: string, quantityDamaged: number) => void;
-  userRole?: number;
-  pendingRestocks?: PendingRestock[];
-  onVerifyRestock?: (id: string, adminQty: number, notes?: string, forceResolveValue?: number) => Promise<'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error'> | 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error';
-  inventoryTabOverride?: 'active_stock' | 'damaged_audit' | 'restock_validations' | null;
-  onClearInventoryTabOverride?: () => void;
+export interface InvoiceAiCommand {
+  id: string;
+  action: 'generate_invoice' | 'add_invoice_item' | 'adjust_invoice_item_price' | 'preview_invoice' | 'print_invoice';
+  args: Record<string, any>;
 }
 
-function RestockVerificationRow({
-  restock,
-  onVerifyRestock,
-  config
-}: {
-  key?: React.Key,
-  restock: PendingRestock,
-  onVerifyRestock?: (id: string, adminQty: number, notes?: string, forceResolveValue?: number) => Promise<'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error'> | 'resolved_matched' | 'on_hold' | 'resolved_forced' | 'error',
-  config: BusinessConfig
-}) {
-  const [adminQty, setAdminQty] = useState<number | ''>('');
-  const [notes, setNotes] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isResolving, setIsResolving] = useState(false);
+interface InvoiceGeneratorScreenProps {
+  inventory: InventoryItem[];
+  creditAccounts: CreditAccount[];
+  adjustments: StockAdjustment[];
+  transactions: CreditTransaction[];
+  config: BusinessConfig;
+  currentOrgId?: string;
+  currentUserUid?: string;
+  aiCommand?: InvoiceAiCommand | null;
+  onAiCommandHandled?: (commandId: string) => void;
+}
 
-  // Resolution states (when on_hold)
-  const [resolvedQty, setResolvedQty] = useState<number | ''>('');
-  const [resolutionNotes, setResolutionNotes] = useState('');
-  const [showResolutionForm, setShowResolutionForm] = useState(false);
+interface DocRow {
+  id: string;
+  itemId?: string;
+  type: 'billable' | 'question' | 'conjunction' | 'blank_lines';
+  title: string;
+  // For billable items
+  qty?: number;
+  rate?: number;
+  sku?: string;
+  // For conjunction or fill-in questions
+  sentenceParts?: string[]; // e.g. ["He was tired after a long day,", "he washed all the dishes."]
+  choices?: string[]; // choices displayed in brackets, e.g. ["and", "but", "so"]
+  correctOption?: string;
+  // For standard questions
+  blankSpacingLines?: number; // e.g. 1 to 4 blank lines under question
+  hasTrueFalse?: boolean; // displays "True / False" at the end
+}
 
-  const handleSubmitVerification = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminQty === '') {
-      setErrorMsg('Please enter a count quantity.');
-      return;
-    }
+// Highly optimized local-state buffered input to prevent typing lag with heavy print sheets
+interface DebouncedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+  value: string;
+  onChange: (val: string) => void;
+  debounceMs?: number;
+}
 
-    if (isVerifying || isResolving) return;
+function DebouncedInput({ value, onChange, debounceMs = 120, ...props }: DebouncedInputProps) {
+  const [localVal, setLocalVal] = useState(value);
 
-    setErrorMsg('');
-    setSuccessMsg('Submitting verification…');
-    setIsVerifying(true);
+  // Synchronize when the value changes from the parent state (presets or manual reset)
+  useEffect(() => {
+    setLocalVal(value);
+  }, [value]);
 
-    try {
-      if (onVerifyRestock) {
-        const result = await onVerifyRestock(restock.id, Number(adminQty), notes);
-        if (result === 'resolved_matched') {
-          setSuccessMsg('Match successful! Stock quantities verified and added to system.');
-        } else if (result === 'on_hold') {
-          setSuccessMsg('');
-          setErrorMsg('Discrepancy detected! This restock has been put On Hold. Please query the attendant.');
-        } else if (result === 'error') {
-          setSuccessMsg('');
-          setErrorMsg('Verification could not be completed. Please try again.');
-        }
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (localVal !== value) {
+        onChange(localVal);
       }
-    } finally {
-      setIsVerifying(false);
-    }
-  };
+    }, debounceMs);
 
-  const handleResolveConflictSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (resolvedQty === '') {
-      setErrorMsg('Please enter the finalized resolved quantity.');
-      return;
-    }
-    if (isVerifying || isResolving) return;
-
-    setErrorMsg('');
-    setSuccessMsg('Saving approved resolution…');
-    setIsResolving(true);
-
-    try {
-      if (onVerifyRestock) {
-        const result = await onVerifyRestock(restock.id, restock.adminInputQty || 0, resolutionNotes || 'Conflict resolved by Admin', Number(resolvedQty));
-        if (result === 'error') {
-          setSuccessMsg('');
-          setErrorMsg('The discrepancy resolution could not be completed. Please try again.');
-          return;
-        }
-        setSuccessMsg('Discrepancy resolved successfully. Stock updated.');
-      }
-    } finally {
-      setIsResolving(false);
-    }
-  };
-
-  const formattedDate = new Date(restock.date).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-
-  const attendantPhone = config.phone || '';
-  const cleanPhone = attendantPhone.replace(/\D/g, '');
-  const whatsappMsg = `Hi ${restock.submittedBy || 'Attendant'},\n\nI noticed a discrepancy in your restock entry for *${restock.itemName}* on ${formattedDate}.\n\nYou submitted a restock of *${restock.attendantQty}* units, but my count is *${restock.adminInputQty || adminQty}* units.\n\nCan you please check what the problem is so we can resolve it? Thanks!`;
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(whatsappMsg)}`;
-
-  const isOnHold = restock.status === 'on_hold';
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [localVal, debounceMs, onChange, value]);
 
   return (
-    <div className={`neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] p-4 border rounded-2xl transition text-slate-900 dark:text-white ${isOnHold ? 'border-amber-300/70 dark:border-amber-500/40 ring-1 ring-amber-300/30 dark:ring-amber-500/20' : 'border-white/90 dark:border-slate-700/80'
-      }`}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Info Area */}
-        <div className="space-y-1 text-left">
-          <div className="flex items-center gap-2">
-            <span className={`neumorphic-inset inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isOnHold ? 'bg-amber-100/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200' : 'bg-[#ebf0f7] dark:bg-[#202225] text-slate-700 dark:text-slate-200'
-              }`}>
-              {isOnHold ? 'ON HOLD' : 'PENDING'}
-            </span>
-            <span className="text-[10px] text-slate-400 font-mono">{formattedDate}</span>
-          </div>
-          <h4 className="text-sm font-bold text-slate-900 dark:text-white">{restock.itemName}</h4>
-          <p className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">
-            Submitted by: <strong className="text-slate-700 dark:text-slate-200">{restock.submittedBy}</strong>
-          </p>
-          {restock.attendantNotes && (
-              <p className="neumorphic-inset text-[10.5px] text-slate-500 dark:text-slate-300 leading-relaxed italic bg-[#ebf0f7] dark:bg-[#0f172a] border border-white/80 dark:border-slate-700 px-2 py-1 rounded-xl mt-1 max-w-xl">
-              &ldquo;{restock.attendantNotes}&rdquo;
-            </p>
-          )}
-        </div>
-
-        {/* Input/Action Area */}
-        {!isOnHold ? (
-          <form onSubmit={handleSubmitVerification} className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
-            <div className="text-left w-full sm:w-auto">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Your Counted Qty</label>
-              <input
-                type="number"
-                min="0"
-                required
-                placeholder="Counted pcs"
-                value={adminQty}
-                disabled={isVerifying || isResolving}
-                onChange={(e) => setAdminQty(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-28 rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs text-center disabled:opacity-60"
-              />
-            </div>
-
-            <div className="text-left w-full sm:w-auto">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Discrepancy Notes (Optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. Broken packages found"
-                value={notes}
-                disabled={isVerifying || isResolving}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-48 rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs disabled:opacity-60"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isVerifying || isResolving}
-              className="neumorphic-btn text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-white py-2 px-4 rounded-xl text-xs transition cursor-pointer h-9 shrink-0 flex items-center justify-center gap-1 disabled:opacity-60 disabled:cursor-wait"
-              aria-busy={isVerifying}
-            >
-              {isVerifying ? <><Loader2 size={12} className="animate-spin" /> Verifying…</> : 'Verify'}
-            </button>
-          </form>
-        ) : (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-            {/* On Hold Discrepancy details & Query Actions */}
-            <div className="neumorphic-inset text-left bg-[#ebf0f7] dark:bg-[#0f172a] p-3 border border-amber-200/70 dark:border-amber-500/40 rounded-xl max-w-sm space-y-1.5">
-              <div className="text-[10px] font-extrabold text-amber-800 dark:text-amber-200 uppercase flex items-center gap-1">
-                <AlertTriangle size={12} className="text-amber-500" /> Count Discrepancy Found!
-              </div>
-              <div className="text-[10.5px] text-slate-700 dark:text-slate-200 grid grid-cols-2 gap-x-2">
-                <span>Attendant Logged:</span> <strong className="text-slate-900 dark:text-white">{restock.attendantQty} pcs</strong>
-                <span>Admin Logged:</span> <strong className="text-slate-900 dark:text-white">{restock.adminInputQty} pcs</strong>
-              </div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-300 truncate max-w-[240px]">
-                {restock.discrepancyNotes}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              {cleanPhone ? (
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="neumorphic-btn text-emerald-700 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-white py-1.5 px-3 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 text-center leading-none"
-                >
-                  <Phone size={12} /> Query Attendant
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => alert(`Attendant phone details:\n- Attendant: ${restock.attendantQty} pcs\n- Admin: ${restock.adminInputQty} pcs`)}
-                  className="neumorphic-btn text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white py-1.5 px-3 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 leading-none"
-                >
-                  Query Attendant
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setShowResolutionForm(!showResolutionForm)}
-                className="neumorphic-btn text-amber-700 dark:text-amber-200 hover:text-amber-900 dark:hover:text-white py-1.5 px-3 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 leading-none"
-              >
-                Resolve Discrepancy
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Resolution Form Dropdown when clicked */}
-      {isOnHold && showResolutionForm && (
-        <motion.form
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          onSubmit={handleResolveConflictSubmit}
-          className="neumorphic-inset mt-4 p-4 border border-amber-200/70 dark:border-amber-500/40 grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl text-left"
-        >
-          <div>
-            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Final Agreed Quantity</label>
-            <input
-              type="number"
-              min="0"
-              required
-              placeholder="Correct quantity pcs"
-              value={resolvedQty}
-              disabled={isResolving || isVerifying}
-              onChange={(e) => setResolvedQty(e.target.value === '' ? '' : Number(e.target.value))}
-              className="w-full rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-mono text-xs disabled:opacity-60"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Resolution / Correction Note</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Attendant entered wrong product box size"
-              value={resolutionNotes}
-              disabled={isResolving || isVerifying}
-              onChange={(e) => setResolutionNotes(e.target.value)}
-              className="w-full rounded-lg neumorphic-inset border border-white/80 dark:border-slate-700 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 text-xs disabled:opacity-60"
-            />
-          </div>
-
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={isResolving || isVerifying}
-              className="neumorphic-btn text-emerald-700 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-white w-full py-2 rounded-xl text-xs transition cursor-pointer h-9 flex items-center justify-center gap-1 disabled:opacity-60 disabled:cursor-wait"
-              aria-busy={isResolving}
-            >
-              {isResolving ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : 'Resolve & Approve Stock'}
-            </button>
-          </div>
-        </motion.form>
-      )}
-
-      {/* Message feedback alerts */}
-      {errorMsg && (
-        <p role="alert" className="text-[10.5px] text-red-600 dark:text-red-300 font-bold mt-2">{errorMsg}</p>
-      )}
-      {successMsg && (
-        <p role="status" className="text-[10.5px] text-emerald-650 dark:text-emerald-300 font-bold mt-2 flex items-center gap-1">
-          {(isVerifying || isResolving) && <Loader2 size={11} className="animate-spin" />}
-          {successMsg}
-        </p>
-      )}
-    </div>
+    <input
+      {...props}
+      value={localVal}
+      onChange={(e) => setLocalVal(e.target.value)}
+    />
   );
 }
 
-export default function InventoryScreen({
-  inventory,
+export default function InvoiceGeneratorScreen({
+  inventory = [],
+  creditAccounts = [],
   adjustments = [],
+  transactions = [],
   config,
-  businessId,
-  userUid,
-  onAddItem,
-  onUpdateItem,
-  onDeleteItem,
-  onLogAdjustment,
-  onDamageReported,
-  userRole,
-  pendingRestocks = [],
-  onVerifyRestock,
-  inventoryTabOverride,
-  onClearInventoryTabOverride
-}: InventoryScreenProps) {
-  // Navigation tabs for the Inventory main viewport
-  const [inventoryTab, setInventoryTab] = useState<'active_stock' | 'damaged_audit' | 'restock_validations'>('active_stock');
+  currentOrgId,
+  currentUserUid,
+  aiCommand = null,
+  onAiCommandHandled
+}: InvoiceGeneratorScreenProps) {
+  // Preset types
+  type PresetType = 'invoice_credit' | 'custom';
+  const [activePreset, setActivePreset] = useState<PresetType>('invoice_credit');
 
-  React.useEffect(() => {
-    if (inventoryTabOverride) {
-      setInventoryTab(inventoryTabOverride);
-      if (onClearInventoryTabOverride) {
-        onClearInventoryTabOverride();
-      }
-    }
-  }, [inventoryTabOverride, onClearInventoryTabOverride]);
+  // Page layout state
+  const [companyName, setCompanyName] = useState(() => config?.businessName || '');
+  const [companySubHeader, setCompanySubHeader] = useState('');
+  const [companyAddress, setCompanyAddress] = useState(() => config?.address || '');
+  const [companyContact, setCompanyContact] = useState(() => [config?.phone, config?.email].filter(Boolean).join('   '));
+  const [professionalTag, setProfessionalTag] = useState('');
+  const [documentTopic, setDocumentTopic] = useState('PROFORMA INVOICE');
+  const [paymentInstructionsTitle, setPaymentInstructionsTitle] = useState('');
+  const [paymentBankName, setPaymentBankName] = useState('');
+  const [paymentAccountNumber, setPaymentAccountNumber] = useState('');
+  const [paymentBranch, setPaymentBranch] = useState('');
 
-  // Business ID and User ID now come directly from App.tsx (sourced
-  // from the authenticated Supabase session) instead of being guessed
-  // from the config object.
+  const [invoiceNo, setInvoiceNo] = useState(() => `INV-${Date.now().toString().slice(-8)}`);
+  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
+  const [billTo, setBillTo] = useState('');
+  const [clientAddress, setClientAddress] = useState('');
 
-  // Inventory items, pending restock requests, and their notifications are
-  // owned by App.tsx. Keeping one restock subscription prevents this screen
-  // from replacing App.tsx's channel and leaving Admin verification or the
-  // Notifications page with stale pending-request state.
-  const [realtimeDamageReports, setRealtimeDamageReports] = useState<DamageReport[] | null>(null);
+  // Sizing and scaling state
+  const [showMetaBlock, setShowMetaBlock] = useState(true);
+  const [spacingScale, setSpacingScale] = useState<number>(3); // 1 to 5 scale for spacing
+  const [successAnimation, setSuccessAnimation] = useState(false);
+  const [isPdfBusy, setIsPdfBusy] = useState(false);
+  const persistedInvoiceFingerprint = useRef<string | null>(null);
+  const persistedInvoiceId = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!businessId || businessId === 'default') return;
+  // Customizable Logo state (Custom files only + size adjustment)
+  const [logoImage, setLogoImage] = useState<string>(''); // base64 uploaded image string
+  const [logoWidth, setLogoWidth] = useState<number>(84); // logo display width in px
+  const [logoHeight, setLogoHeight] = useState<number>(84); // logo display height in px
 
-    const unsubDamages = subscribeToDamageReports(businessId, (reports) => {
-      setRealtimeDamageReports(reports);
-    });
+  // Sub-heading tag line customization (left aligned by default + size/width/height controls)
+  const [professionalAlign, setProfessionalAlign] = useState<'left' | 'center' | 'right'>('left');
+  const [professionalFontSize, setProfessionalFontSize] = useState<number>(13); // text size in px
+  const [professionalPaddingY, setProfessionalPaddingY] = useState<number>(6); // controls tagline padding/height in px
+  const [professionalWidthPct, setProfessionalWidthPct] = useState<number>(100); // controls tagline wrapper width %
 
-    return () => {
-      unsubDamages();
-    };
-  }, [businessId]);
+  // Custom document rows state
+  const [rows, setRows] = useState<DocRow[]>([]);
+  const [inventorySearch, setInventorySearch] = useState('');
 
-  const activeInventory = inventory;
-  const activePendingRestocks = pendingRestocks;
+  // Quantity prompt modal states
+  const [qtyModalOpen, setQtyModalOpen] = useState(false);
+  const [qtyModalItem, setQtyModalItem] = useState<InventoryItem | null>(null); // null if custom line
+  const [qtyInputValue, setQtyInputValue] = useState('1');
 
-  const pendingCount = useMemo(() => {
-    return activePendingRestocks?.filter(r => r.status === 'pending').length || 0;
-  }, [activePendingRestocks]);
-
-  // Lists, filters, search
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
-  const categoryDropdownRef = useRef<HTMLDivElement>(null);
-  const [stockStatus, setStockStatus] = useState<'All' | 'Low Stock' | 'Out of Stock'>('All');
-
-  const [damageSearchQuery, setDamageSearchQuery] = useState('');
-  const [damageDateFilter, setDamageDateFilter] = useState('all');
-  const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
-  const dateDropdownRef = useRef<HTMLDivElement>(null);
+  // Input autofocus ref
+  const qtyInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
-        setCategoryDropdownOpen(false);
-      }
-      if (dateDropdownRef.current && !dateDropdownRef.current.contains(e.target as Node)) {
-        setDateDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Sort state
-  const [sortBy, setSortBy] = useState<'name' | 'quantity' | 'value'>('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-
-  // Modals state
-  const [showAddEditModal, setShowAddEditModal] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
-
-  // Adjustment Modal state
-  const [showAdjustModal, setShowAdjustModal] = useState(false);
-  const [adjustItemId, setAdjustItemId] = useState<string | null>(null);
-  const [qtyChangeAmt, setQtyChangeAmt] = useState<number | ''>('');
-  const [adjustType, setAdjustType] = useState<StockAdjustment['type']>('purchase_in');
-  const [adjustNotes, setAdjustNotes] = useState('');
-
-  // Specialized Damage Reporting Modal state
-  const [showDamageModal, setShowDamageModal] = useState(false);
-  const [damageItemId, setDamageItemId] = useState('');
-  const [damageQty, setDamageQty] = useState<number | ''>('');
-  const [damageNotes, setDamageNotes] = useState('');
-
-  // Form states for Add/Edit
-  const [itemName, setItemName] = useState('');
-  const [itemSku, setItemSku] = useState('');
-  const [itemCategory, setItemCategory] = useState('');
-  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
-  const [businessCategories, setBusinessCategories] = useState<string[]>([]);
-  const [newCategoryInput, setNewCategoryInput] = useState('');
-  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
-  const [itemQty, setItemQty] = useState<number | ''>('');
-  const [itemCost, setItemCost] = useState<number | ''>('');
-  const [itemPrice, setItemPrice] = useState<number | ''>('');
-  const [itemReorder, setItemReorder] = useState<number | ''>('');
-  const [itemSupplier, setItemSupplier] = useState('');
-  const [itemLocation, setItemLocation] = useState('');
-  const [itemNotes, setItemNotes] = useState('');
-  const [itemImageFile, setItemImageFile] = useState<File | null>(null);
-  const [isPreparingImage, setIsPreparingImage] = useState(false);
-  const [itemImagePreview, setItemImagePreview] = useState('');
-  const [itemOriginalImageUrl, setItemOriginalImageUrl] = useState('');
-  const itemImageInputRef = useRef<HTMLInputElement>(null);
-  const cameraVideoRef = useRef<HTMLVideoElement>(null);
-  const cameraStreamRef = useRef<MediaStream | null>(null);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  // Loading & Error Feedback states for Save Product action
-  const [isSavingItem, setIsSavingItem] = useState(false);
-  const [itemSaveError, setItemSaveError] = useState<string | null>(null);
-
-  // Subscribe to live custom categories from Supabase
-  useEffect(() => {
-    return () => {
-      if (itemImagePreview.startsWith('blob:')) {
-        URL.revokeObjectURL(itemImagePreview);
-      }
-    };
-  }, [itemImagePreview]);
-
-  const compressInventoryImage = (file: File): Promise<File> => new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const maxDimension = 1200;
-      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
-      if (scale === 1 && file.size <= 1.5 * 1024 * 1024) {
-        resolve(file);
-        return;
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-      const context = canvas.getContext('2d');
-      if (!context) {
-        reject(new Error('Canvas is unavailable'));
-        return;
-      }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error('Image compression failed'));
-          return;
-        }
-        resolve(new File([blob], `inventory-image-${Date.now()}.jpg`, { type: 'image/jpeg' }));
-      }, 'image/jpeg', 0.76);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('Image could not be read'));
-    };
-    image.src = objectUrl;
-  });
-
-  const handleImageFileChange = async (file: File | undefined) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setItemSaveError('Please select a valid image file.');
-      return;
+    if (qtyModalOpen) {
+      const timer = setTimeout(() => {
+        qtyInputRef.current?.focus();
+        qtyInputRef.current?.select();
+      }, 80);
+      return () => clearTimeout(timer);
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setItemSaveError('Image must be 5 MB or smaller.');
-      return;
-    }
-    setItemSaveError(null);
-    setItemImageFile(file);
-    setItemImagePreview(URL.createObjectURL(file));
-    setIsPreparingImage(true);
-    try {
-      const preparedFile = await compressInventoryImage(file);
-      setItemImageFile(preparedFile);
-      setItemImagePreview(URL.createObjectURL(preparedFile));
-    } catch (error) {
-      console.error('Image preparation error:', error);
-      setItemSaveError('The image could not be prepared. Please choose another image.');
-    } finally {
-      setIsPreparingImage(false);
-    }
-  };
+  }, [qtyModalOpen]);
 
-  const stopCamera = () => {
-    cameraStreamRef.current?.getTracks().forEach(track => track.stop());
-    cameraStreamRef.current = null;
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = null;
-    }
-    setIsCameraOpen(false);
-  };
+  // UI States
+  const [viewMode, setViewMode] = useState<'composer' | 'preview'>('composer');
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [guidedInvoiceStep, setGuidedInvoiceStep] = useState<'idle' | 'confirming-items' | 'confirming-preview' | 'confirming-print'>('idle');
+  const [invoiceAccountId, setInvoiceAccountId] = useState<string>('');
+  const [selectedCurrency, setSelectedCurrency] = useState(config?.currencySymbol || 'GH₵');
+  const [previewZoom, setPreviewZoom] = useState<number>(0.85); // default 0.85 scale for print preview fit
+  const [sheetWidthMm, setSheetWidthMm] = useState<number>(210); // standard A4 sheet width (210mm)
 
-  const startCamera = async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setItemSaveError('Live camera capture is not available in this browser or context. Use the image picker instead.');
-      return;
-    }
-    try {
-      setItemSaveError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false
-      });
-      cameraStreamRef.current = stream;
-      setIsCameraOpen(true);
-    } catch (error) {
-      console.error('Camera access error:', error);
-      setItemSaveError('Camera access was blocked or unavailable. Allow camera permission and try again, or use the image picker.');
-    }
-  };
+  // Active credit account computing for autofills
+  const activeUnpaidDetails = useMemo(() => {
+    if (!invoiceAccountId) return null;
+    const account = creditAccounts.find(acc => acc.id === invoiceAccountId);
+    if (!account) return null;
 
-  const captureCameraPhoto = () => {
-    const video = cameraVideoRef.current;
-    if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
-      setItemSaveError('The camera is not ready yet. Please wait a moment and try again.');
-      return;
-    }
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    if (!context) {
-      setItemSaveError('The camera image could not be captured. Please use the image picker instead.');
-      return;
-    }
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        setItemSaveError('The camera image could not be captured. Please try again.');
-        return;
-      }
-      const file = new File([blob], `inventory-photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      handleImageFileChange(file);
-      stopCamera();
-    }, 'image/jpeg', 0.9);
-  };
-
-  useEffect(() => {
-    if (isCameraOpen && cameraVideoRef.current && cameraStreamRef.current) {
-      cameraVideoRef.current.srcObject = cameraStreamRef.current;
-      void cameraVideoRef.current.play().catch(() => undefined);
-    }
-  }, [isCameraOpen]);
-
-  useEffect(() => {
-    if (!showAddEditModal && isCameraOpen) {
-      stopCamera();
-    }
-  }, [showAddEditModal, isCameraOpen]);
-
-  useEffect(() => () => {
-    cameraStreamRef.current?.getTracks().forEach(track => track.stop());
-  }, []);
-
-  const handleClearSelectedImage = () => {
-    setItemImageFile(null);
-    setItemImagePreview(itemOriginalImageUrl);
-    if (itemImageInputRef.current) itemImageInputRef.current.value = '';
-  };
-
-  useEffect(() => {
-    if (!businessId) return;
-    const unsubscribe = subscribeToBusinessCategories(businessId, (cats) => {
-      setBusinessCategories(cats || []);
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, [businessId]);
-
-  const allAvailableCategories = useMemo(() => {
-    const fromItems = activeInventory.map(item => item.category?.trim()).filter(Boolean);
-    return Array.from(new Set([...businessCategories, ...fromItems]));
-  }, [businessCategories, activeInventory]);
-
-  const handleCreateCategory = async (catName: string) => {
-    const trimmed = sanitizeTextInput(catName, 60).trim();
-    if (!trimmed) return;
-    if (!businessId) {
-      setItemSaveError('Business ID is unavailable. Please sign in again before adding a category.');
-      return;
-    }
-    if (businessCategories.some(category => category.toLowerCase() === trimmed.toLowerCase())) {
-      setItemCategory(businessCategories.find(category => category.toLowerCase() === trimmed.toLowerCase()) || trimmed);
-      setNewCategoryInput('');
-      setIsAddingNewCategory(false);
-      setIsCategoryDropdownOpen(false);
-      return;
-    }
-
-    const previous = businessCategories;
-    const updated = [...businessCategories, trimmed];
-    setItemSaveError(null);
-
-    const result = await saveBusinessCategories(businessId, updated);
-    if (!result.success) {
-      setBusinessCategories(previous);
-      setNewCategoryInput(trimmed);
-      setIsAddingNewCategory(true);
-      setItemSaveError(result.error || 'Failed to save custom category. Apply the custom-categories migration and try again.');
-      return;
-    }
-
-    setBusinessCategories(updated);
-    setItemCategory(trimmed);
-    setNewCategoryInput('');
-    setIsAddingNewCategory(false);
-    setIsCategoryDropdownOpen(false);
-  };
-
-  const handleDeleteCategory = async (catToDelete: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const previous = businessCategories;
-    const updated = businessCategories.filter(c => c !== catToDelete);
-    setBusinessCategories(updated);
-    if (itemCategory === catToDelete) {
-      setItemCategory(updated[0] || '');
-    }
-
-    if (businessId) {
-      const result = await saveBusinessCategories(businessId, updated);
-      if (!result.success) {
-        setBusinessCategories(previous);
-        setItemCategory(catToDelete);
-        setItemSaveError(result.error || 'Failed to delete custom category.');
-      }
-    }
-  };
-
-  const { formatAmount, convertFromBase, convertToBase } = useCurrency();
-  // Round a converted currency amount to 2 decimal places so the edit form
-  // always shows the same figure as the inventory table (which is formatted
-  // with formatCurrencyAmount's 2 dp rounding).
-  const roundMoney = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
-
-  const formatMoney = (amount: number) => {
-    return formatAmount(amount);
-  };
-
-  useEffect(() => {
-    if (selectedCategory !== 'All' && !allAvailableCategories.includes(selectedCategory)) {
-      setSelectedCategory('All');
-    }
-  }, [allAvailableCategories, selectedCategory]);
-
-  // 1. Gather Unique Categories for lookup dropdown
-  const categoriesList = ['All', ...allAvailableCategories];
-
-  // 2. Filter logic
-  const filteredItems = activeInventory.filter(item => {
-    // Search query
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    // Category match
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-
-    // Stock Status
-    let matchesStatus = true;
-    if (stockStatus === 'Low Stock') {
-      matchesStatus = item.quantity <= item.reorderPoint && item.quantity > 0;
-    } else if (stockStatus === 'Out of Stock') {
-      matchesStatus = item.quantity === 0;
-    }
-
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
-
-  // 3. Sorting
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    let propA: any = a.name.toLowerCase();
-    let propB: any = b.name.toLowerCase();
-
-    if (sortBy === 'quantity') {
-      propA = a.quantity;
-      propB = b.quantity;
-    } else if (sortBy === 'value') {
-      propA = a.quantity * a.unitPrice;
-      propB = b.quantity * b.unitPrice;
-    }
-
-    if (propA < propB) return sortOrder === 'asc' ? -1 : 1;
-    if (propA > propB) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const toggleSort = (field: 'name' | 'quantity' | 'value') => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
-    }
-  };
-
-  // 4. Open Modal for Add
-  const handleOpenAdd = () => {
-    setEditingItemId(null);
-    setItemName('');
-    setItemSku(`SKU-${Math.floor(Math.random() * 90000) + 10000}`);
-    setItemCategory(allAvailableCategories[0] || '');
-    setIsCategoryDropdownOpen(false);
-    setIsAddingNewCategory(false);
-    setNewCategoryInput('');
-    setItemQty(5);
-    setItemCost(roundMoney(convertFromBase(10)));
-    setItemPrice(roundMoney(convertFromBase(20)));
-    setItemReorder(config.lowStockThresholdDefault || 5);
-    setItemSupplier('');
-    setItemLocation('');
-    setItemNotes('');
-    setItemImageFile(null);
-    setItemOriginalImageUrl('');
-    setItemImagePreview('');
-    if (itemImageInputRef.current) itemImageInputRef.current.value = '';
-    stopCamera();
-    setItemSaveError(null);
-    setIsSavingItem(false);
-    setShowAddEditModal(true);
-  };
-
-  // 5. Open Modal for Edit
-  const handleOpenEdit = (item: InventoryItem) => {
-    setEditingItemId(item.id);
-    setItemName(item.name);
-    setItemSku(item.sku);
-    setItemCategory(item.category);
-    setItemQty(item.quantity);
-    setItemCost(roundMoney(convertFromBase(item.unitCost)));
-    setItemPrice(roundMoney(convertFromBase(item.unitPrice)));
-    setItemReorder(item.reorderPoint);
-    setItemSupplier(item.supplier || '');
-    setItemLocation(item.location || '');
-    setItemNotes(item.notes || '');
-    setItemImageFile(null);
-    setItemOriginalImageUrl(item.imageUrl || '');
-    setItemImagePreview(item.imageUrl || '');
-    if (itemImageInputRef.current) itemImageInputRef.current.value = '';
-    stopCamera();
-    setItemSaveError(null);
-    setIsSavingItem(false);
-    setShowAddEditModal(true);
-  };
-
-  // 6. Save Add / Edit (With SKU Uniqueness & Input Sanitization)
-  const handleSaveItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setItemSaveError(null);
-
-    const cleanTitle = sanitizeTextInput(itemName, 200);
-    const cleanSkuStr = sanitizeTextInput(itemSku, 100).toUpperCase();
-    const cleanCategory = sanitizeTextInput(itemCategory, 100).trim();
-
-    if (!cleanTitle) {
-      setItemSaveError('Please fill out the product title.');
-      return;
-    }
-
-    if (!cleanSkuStr) {
-      setItemSaveError('Please fill out the Stock SKU.');
-      return;
-    }
-
-    if (!cleanCategory) {
-      setItemSaveError('Create or select a custom category before saving this item.');
-      return;
-    }
-
-    setIsSavingItem(true);
-
-    try {
-      const itemPayload = {
-        name: cleanTitle,
-        sku: cleanSkuStr,
-        category: cleanCategory,
-        quantity: itemQty === '' ? 0 : Number(itemQty),
-        unitCost: userRole === 2 ? (itemCost === '' ? 0 : convertToBase(Number(itemCost))) : 0,
-        unitPrice: userRole === 2 ? (itemPrice === '' ? 0 : convertToBase(Number(itemPrice))) : 0,
-        reorderPoint: userRole === 2 ? (itemReorder === '' ? 5 : Number(itemReorder)) : 5,
-        supplier: sanitizeTextInput(itemSupplier, 200),
-        location: sanitizeTextInput(itemLocation, 200),
-        notes: sanitizeTextInput(itemNotes, 1000),
-        imageFile: itemImageFile || undefined
-      };
-
-      // Route through the onAddItem/onUpdateItem props (owned by App.tsx)
-      // instead of calling saveInventoryItem directly. Those handlers
-      // already perform an optimistic local state update immediately
-      // after a successful save, so the new/edited item appears in the
-      // UI right away instead of waiting on the realtime subscription
-      // to round-trip.
-      const result = editingItemId
-        ? await onUpdateItem(editingItemId, itemPayload as any)
-        : await onAddItem(itemPayload as any);
-
-      // onAddItem returns {success: false, error} on failure.
-      // onUpdateItem currently returns a plain `false` on failure instead —
-      // handle both shapes so a failed update isn't silently treated as success.
-      const failed = result === false || (result && result.success === false);
-      if (failed) {
-        const errMsg = (result && typeof result === 'object' && result.error) || 'Failed to save product.';
-        setItemSaveError(errMsg);
-        return;
-      }
-
-      setShowAddEditModal(false);
-    } catch (err: any) {
-      console.error('[SAVE ITEM EXCEPTION]', err);
-      setItemSaveError(err?.message || 'An unexpected error occurred while saving.');
-    } finally {
-      setIsSavingItem(false);
-    }
-  };
-
-  // 7. Open Stock Adjust
-  const handleOpenAdjust = (item: InventoryItem) => {
-    setAdjustItemId(item.id);
-    setQtyChangeAmt('');
-    setAdjustType('purchase_in');
-    setAdjustNotes('');
-    setShowAdjustModal(true);
-  };
-
-  // 8. Submit Adjust
-  const handleSaveAdjustment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adjustItemId || qtyChangeAmt === '') return;
-
-    const item = activeInventory.find(i => i.id === adjustItemId);
-    if (!item) return;
-
-    const amt = Number(qtyChangeAmt);
-    const isOutflow = ['sale_out', 'damaged'].includes(adjustType);
-    const finalChange = isOutflow ? -Math.abs(amt) : Math.abs(amt);
-
-    if (isOutflow && item.quantity < Math.abs(finalChange)) {
-      alert(`${translate('insufficient stock!', config.languageCode)} ${translate('quantity available', config.languageCode)}: ${item.quantity}. ${translate('requested', config.languageCode)}: ${Math.abs(finalChange)}.`);
-      return;
-    }
-
-    const result = await onLogAdjustment(adjustItemId, finalChange, adjustType, adjustNotes || translate('manual adjustment log', config.languageCode));
-    if (result && !result.success) return;
-    setShowAdjustModal(false);
-    if (result && 'pending' in result && result.pending) {
-      alert('Restock submitted for Admin validation. Inventory will update after an Administrator approves the counted quantity.');
-    }
-  };
-
-  // 9. Delete item safely
-  const handleDeleteCheck = (id: string, name: string) => {
-    if (userRole === 5) {
-      alert("Unauthorized Access: Deleting items from physical stock lists is restricted to Admin operators (Role Level 2) only.");
-      return;
-    }
-    if (confirm(`${translate('are you sure you want to delete', config.languageCode)} "${name}" ${translate('from inventory? this action cannot be undone.', config.languageCode)}`)) {
-      onDeleteItem(id);
-    }
-  };
-
-  // 10. Damage Reporting Handlers & Calculations for auditing sake
-  const handleOpenDamageReport = (item?: InventoryItem) => {
-    setDamageItemId(item?.id || activeInventory[0]?.id || '');
-    setDamageQty('');
-    setDamageNotes('');
-    setShowDamageModal(true);
-  };
-
-  const handleSaveDamageReport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!damageItemId || damageQty === '') {
-      alert(translate('please select a product and enter the quantity.', config.languageCode));
-      return;
-    }
-
-    const item = activeInventory.find(i => i.id === damageItemId);
-    if (!item) return;
-
-    const qty = Number(damageQty);
-    if (qty <= 0) {
-      alert(translate('damage quantity must be greater than zero.', config.languageCode));
-      return;
-    }
-
-    if (item.quantity < qty) {
-      alert(`${translate('insufficient stock!', config.languageCode)} ${translate('quantity available', config.languageCode)}: ${item.quantity} ${translate('units', config.languageCode)}. ${translate('requested damage claim', config.languageCode)}: ${qty} ${translate('units', config.languageCode)}.`);
-      return;
-    }
-
-    const justification = damageNotes.trim() || translate('unsupervised damage recorded in inventory audit', config.languageCode);
-
-    // Execute atomic Firestore transaction
-    const result = await reportDamagedStockTransaction(businessId, userUid, userRole, {
-      itemId: damageItemId,
-      productTitle: item.name,
-      quantityDamaged: qty,
-      justificationText: justification
-    });
-
-    if (!result.success) {
-      alert(result.error || 'Failed to record damaged stock.');
-      return;
-    }
-
-    // Reconcile the initiating screen immediately; realtime remains authoritative
-    // for other open sessions and later confirms the same backend quantity.
-    onDamageReported?.(damageItemId, qty);
-    setShowDamageModal(false);
-  };
-
-  // Memoized all damaged logs
-  const damagedLogs = useMemo(() => {
-    if (realtimeDamageReports !== null && realtimeDamageReports.length > 0) {
-      return realtimeDamageReports.map(rep => ({
-        id: rep.id,
-        itemId: rep.product_ref,
-        itemName: rep.product_title,
-        qtyChanged: -rep.quantity_damaged,
-        type: 'damaged' as const,
-        date: rep.timestamp,
-        notes: rep.justification_text,
-        cost_price: rep.cost_price,
-        selling_price: rep.selling_price,
-        product_title: rep.product_title,
-        quantity_damaged: rep.quantity_damaged,
-        justification_text: rep.justification_text,
-        timestamp: rep.timestamp,
-        sku: ''
-      }));
-    }
-    return adjustments.filter(adj => adj.type === 'damaged');
-  }, [realtimeDamageReports, adjustments]);
-
-  // Memoized filtered damaged logs
-  const filteredDamagedLogs = useMemo(() => {
-    return damagedLogs.filter(log => {
-      const q = damageSearchQuery.toLowerCase();
-      const matchesSearch = log.itemName.toLowerCase().includes(q) ||
-        (log.notes || '').toLowerCase().includes(q) ||
-        log.itemId.toLowerCase().includes(q);
-
-      let matchesDate = true;
-      if (damageDateFilter !== 'all') {
-        const logDate = new Date(log.date);
-        const now = new Date();
-        const diffMs = now.getTime() - logDate.getTime();
-        const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-        if (damageDateFilter === 'today') {
-          matchesDate = diffDays <= 1;
-        } else if (damageDateFilter === '7days') {
-          matchesDate = diffDays <= 7;
-        } else if (damageDateFilter === '30days') {
-          matchesDate = diffDays <= 30;
-        }
-      }
-      return matchesSearch && matchesDate;
-    });
-  }, [damagedLogs, damageSearchQuery, damageDateFilter]);
-
-  // Compute Total Damage Loss Financial Totals for auditing sake
-  const damageMetrics = useMemo(() => {
-    let totalQty = 0;
-    let totalCostLoss = 0;
-    let totalRetailLoss = 0;
-
-    damagedLogs.forEach(log => {
-      const item = activeInventory.find(i => i.id === log.itemId);
-      const cost = item ? item.unitCost : (log.cost_price || 0);
-      const price = item ? item.unitPrice : (log.selling_price || 0);
-
-      const qtyChangedAbs = Math.abs(log.quantity_damaged || log.qtyChanged || 0);
-      totalQty += qtyChangedAbs;
-      totalCostLoss += (qtyChangedAbs * cost);
-      totalRetailLoss += (qtyChangedAbs * price);
-    });
+    // Filter adjustments for this account that are sales or outstanding
+    const relevantAdjs = adjustments.filter(adj => adj.creditAccountId === account.id && adj.type === 'sale_out');
+    const relevantTxns = transactions.filter(txn => txn.creditAccountId === account.id);
 
     return {
-      totalQty,
-      totalCostLoss,
-      totalRetailLoss
+      account,
+      adjustments: relevantAdjs,
+      transactions: relevantTxns,
+      unpaidSummary: `${selectedCurrency}${(account.remainingAmount || 0).toLocaleString()}`
     };
-  }, [damagedLogs, activeInventory]);
+  }, [invoiceAccountId, creditAccounts, adjustments, transactions, selectedCurrency]);
 
-  const handleExportDamagesCSV = () => {
-    const headers = ['Damage ID', 'Product Name', 'SKU', 'Date Logged', 'Units Damaged', 'Unit Cost', 'Capital Loss Value (Sunk Cost)', 'Unit Selling Price', 'Revenue Loss Value (Potential Retail)', 'Audit Justification'];
-    const rows = filteredDamagedLogs.map(log => {
-      const item = activeInventory.find(i => i.id === log.itemId);
-      const cost = item ? item.unitCost : (log.cost_price || 0);
-      const price = item ? item.unitPrice : (log.selling_price || 0);
-      const qty = Math.abs(log.quantity_damaged || log.qtyChanged || 0);
+  // Load layout preset without inventing business or inventory records.
+  // Billable rows are always selected from the live inventory search widget.
+  const handleLoadPreset = (preset: PresetType, selectedAccId?: string) => {
+    setActivePreset(preset);
+    setCompanyName(config?.businessName || '');
+    setCompanyAddress(config?.address || '');
+    setCompanyContact([config?.phone, config?.email].filter(Boolean).join('   '));
+    setCompanySubHeader('');
+    setProfessionalTag('');
+    setDocumentTopic(preset === 'invoice_credit' ? 'PROFORMA INVOICE' : 'INVOICE');
+    setSelectedCurrency(config?.currencySymbol || '');
 
-      return [
-        log.id,
-        log.product_title || log.itemName,
-        item?.sku || log.sku || 'N/A',
-        formatExcelDateTime(log.timestamp || log.date),
-        formatExcelNumber(qty),
-        formatExcelCurrency(cost, config.currencySymbol),
-        formatExcelCurrency(qty * cost, config.currencySymbol),
-        formatExcelCurrency(price, config.currencySymbol),
-        formatExcelCurrency(qty * price, config.currencySymbol),
-        log.justification_text || log.notes || ''
-      ];
-    });
+    setLogoWidth(preset === 'invoice_credit' ? 84 : 90);
+    setLogoHeight(preset === 'invoice_credit' ? 84 : 90);
+    setProfessionalAlign('left');
+    setProfessionalFontSize(12);
+    setProfessionalPaddingY(6);
+    setProfessionalWidthPct(100);
 
-    downloadExcel({
-      filename: `damaged-goods-audit-report-${new Date().toISOString().split('T')[0]}.xlsx`,
-      sheetName: 'Damaged Goods Audit Log',
-      headers,
-      rows
-    });
+    if (selectedAccId) {
+      const acc = creditAccounts.find(a => a.id === selectedAccId);
+      if (acc) {
+        setBillTo(acc.name.toUpperCase());
+        setClientAddress(acc.email || '');
+        setInvoiceDate(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
+        return;
+      }
+    }
+
+    setBillTo('');
+    setClientAddress('');
+    setRows([]);
   };
 
+  // Autofill selector change
+  const handleAccountAutofill = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const accId = e.target.value;
+    setInvoiceAccountId(accId);
+    if (accId) {
+      handleLoadPreset('invoice_credit', accId);
+    }
+  };
+
+  const handleInvoiceAccountSelect = (accId: string) => {
+    setInvoiceAccountId(accId);
+    if (accId) {
+      handleLoadPreset('invoice_credit', accId);
+    }
+  };
+
+  const invoiceAccountOptions: NeumorphicSelectOption[] = useMemo(() => [
+    { value: '', label: `-- ${translate('choose account to auto-populate', config.languageCode)} --` },
+    ...(creditAccounts || []).map(acc => ({
+      value: acc.id,
+      label: `${acc.name.toUpperCase()} (Owes: ${selectedCurrency}${acc.remainingAmount.toLocaleString()})`
+    }))
+  ], [creditAccounts, config.languageCode, selectedCurrency]);
+
+  // Add standard blank/question row
+  const handleAddQuestionRow = () => {
+    const newIdx = rows.length + 1;
+    const newRow: DocRow = {
+      id: `row-added-${Date.now()}`,
+      type: 'question',
+      title: `${newIdx}. Enter custom question or note line here`,
+      blankSpacingLines: 3,
+      hasTrueFalse: false
+    };
+    setRows(prev => [...prev, newRow]);
+  };
+
+  // Add billable item row from the live inventory list only.
+  const handleAddBillableRow = (invItem: InventoryItem, qty: number = 1) => {
+    if (!invItem || qty <= 0) return;
+
+    const catalogSellingPrice = Number((invItem as InventoryItem & { selling_price?: number; sellingPrice?: number }).unitPrice
+      ?? (invItem as any).selling_price
+      ?? (invItem as any).sellingPrice
+      ?? (invItem as any).unit_price
+      ?? 0);
+
+    const newRow: DocRow = {
+      id: `row-added-bill-${invItem.id}-${Date.now()}`,
+      itemId: invItem.id,
+      type: 'billable',
+      title: invItem.name.toUpperCase(),
+      qty,
+      rate: Number.isFinite(catalogSellingPrice) ? catalogSellingPrice : 0,
+      sku: invItem.sku
+    };
+    setRows(prev => [...prev, newRow]);
+
+    // Quick success trigger
+    setSuccessAnimation(true);
+    setTimeout(() => setSuccessAnimation(false), 800);
+  };
+
+  // Initiate quantity modal prompt
+  const handleInitiateAddPrompt = (item: InventoryItem) => {
+    setQtyModalItem(item);
+    setQtyInputValue('1');
+    setQtyModalOpen(true);
+  };
+
+  // Confirm quantity and add/update row
+  const handleConfirmAddQty = () => {
+    const qty = parseInt(qtyInputValue, 10);
+    if (isNaN(qty) || qty <= 0) {
+      return;
+    }
+
+    if (!qtyModalItem) return;
+
+    const item = qtyModalItem;
+    const existingIdx = rows.findIndex(r => r.type === 'billable' && r.sku === item.sku);
+    if (existingIdx !== -1) {
+      const updatedRows = [...rows];
+      updatedRows[existingIdx] = {
+        ...updatedRows[existingIdx],
+        qty: (updatedRows[existingIdx].qty || 0) + qty
+      };
+      setRows(updatedRows);
+    } else {
+      handleAddBillableRow(item, qty);
+    }
+
+    setQtyModalOpen(false);
+    setQtyModalItem(null);
+  };
+
+  const handleQtyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleConfirmAddQty();
+    } else if (e.key === 'Escape') {
+      setQtyModalOpen(false);
+    }
+  };
+
+  // Delete specific row
+  const handleDeleteRow = (id: string) => {
+    setRows(prev => prev.filter(r => r.id !== id));
+  };
+
+  // Update specific row parameter
+  const handleUpdateRow = (id: string, updatedParams: Partial<DocRow>) => {
+    setRows(prev => prev.map(row => {
+      if (row.id === id) {
+        return { ...row, ...updatedParams };
+      }
+      return row;
+    }));
+  };
+
+  // Move row in sequence
+  const handleMoveRow = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === rows.length - 1) return;
+
+    const nextIdx = direction === 'up' ? index - 1 : index + 1;
+    const swapped = [...rows];
+    const temp = swapped[index];
+    swapped[index] = swapped[nextIdx];
+    swapped[nextIdx] = temp;
+    setRows(swapped);
+  };
+
+  // Total calculation for billable items
+  const invoiceCalculatedTotal = useMemo(() => {
+    return rows.reduce((acc, row) => {
+      if (row.type === 'billable') {
+        const qty = row.qty || 0;
+        const rate = row.rate || 0;
+        return acc + (qty * rate);
+      }
+      return acc;
+    }, 0);
+  }, [rows]);
+
+  // Split billable items into segments for pristine A4 pages. Page 1 (index 0) holds 18 items max, subsequent pages hold 26 items max.
+  const billableItems = useMemo(() => rows.filter(r => r.type === 'billable'), [rows]);
+
+  const itemsPages = useMemo(() => {
+    const list = [...billableItems];
+    if (list.length === 0) return [[] as DocRow[]];
+    const chunks: DocRow[][] = [];
+
+    const firstPageSize = 18;
+    const subsequentPageSize = 26;
+
+    // First chunk (Page 1)
+    chunks.push(list.slice(0, firstPageSize));
+
+    // Subsequent chunks (Page 2+)
+    let remaining = list.slice(firstPageSize);
+    while (remaining.length > 0) {
+      chunks.push(remaining.slice(0, subsequentPageSize));
+      remaining = remaining.slice(subsequentPageSize);
+    }
+
+    return chunks;
+  }, [billableItems]);
+
+  const invoiceFingerprint = useMemo(() => JSON.stringify({
+    invoiceNo,
+    billTo,
+    clientAddress,
+    companyName,
+    companySubHeader,
+    companyAddress,
+    companyContact,
+    professionalTag,
+    documentTopic,
+    paymentInstructionsTitle,
+    paymentBankName,
+    paymentAccountNumber,
+    paymentBranch,
+    logoImage,
+    logoWidth,
+    logoHeight,
+    professionalAlign,
+    professionalFontSize,
+    professionalPaddingY,
+    professionalWidthPct,
+    showMetaBlock,
+    rows,
+    grandTotal: invoiceCalculatedTotal
+  }), [
+    invoiceNo,
+    billTo,
+    clientAddress,
+    companyName,
+    companySubHeader,
+    companyAddress,
+    companyContact,
+    professionalTag,
+    documentTopic,
+    paymentInstructionsTitle,
+    paymentBankName,
+    paymentAccountNumber,
+    paymentBranch,
+    logoImage,
+    logoWidth,
+    logoHeight,
+    professionalAlign,
+    professionalFontSize,
+    professionalPaddingY,
+    professionalWidthPct,
+    showMetaBlock,
+    rows,
+    invoiceCalculatedTotal
+  ]);
+
+  const clearPdfArtifacts = () => {
+    document
+      .querySelectorAll('.html2pdf__overlay, .html2pdf__container, .html2canvas-container, #invoice-pdf-capture-root')
+      .forEach((node) => node.remove());
+  };
+
+  const setInvoicePrintContext = (enabled: boolean) => {
+    document.documentElement.classList.toggle('invoice-printing', enabled);
+    document.body?.classList.toggle('invoice-printing', enabled);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearPdfArtifacts();
+      setInvoicePrintContext(false);
+    };
+  }, []);
+
+  const handleBackToEditor = () => {
+    clearPdfArtifacts();
+    setIsPdfBusy(false);
+    setViewMode('composer');
+    setIsPreviewMode(false);
+  };
+
+  const printInvoiceSheets = () => {
+    setViewMode('preview');
+    setIsPreviewMode(true);
+
+    setTimeout(() => {
+      const printableSheets = Array.from(document.querySelectorAll<HTMLElement>('.printable-sheet'));
+      if (printableSheets.length === 0) return;
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentWindow?.document;
+      if (!iframeDoc) return;
+
+      const sheetsHtml = printableSheets.map(sheet => {
+        const clone = sheet.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('.no-print').forEach(el => el.remove());
+        clone.style.zoom = '1';
+        clone.style.transform = 'none';
+        return clone.outerHTML;
+      }).join('');
+
+      iframeDoc.open();
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${invoiceNo || 'Invoice'}</title>
+            <style>
+              @page {
+                size: A4 portrait;
+                margin: 0;
+              }
+              * {
+                box-sizing: border-box;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                background: #ffffff;
+                color: #000000;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              }
+              .printable-sheet {
+                width: 210mm;
+                min-height: 297mm;
+                height: 297mm;
+                max-width: 210mm;
+                padding: 15mm;
+                margin: 0 auto;
+                background: #ffffff;
+                color: #000000;
+                box-sizing: border-box;
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                page-break-after: always;
+                break-after: page;
+              }
+              .printable-sheet:last-of-type {
+                page-break-after: auto;
+                break-after: auto;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+              }
+              th, td {
+                border: 1px solid #000000;
+                padding: 4px 8px;
+              }
+              .bg-black { background-color: #000000 !important; color: #ffffff !important; }
+              .bg-white { background-color: #ffffff !important; }
+              .bg-slate-100 { background-color: #f1f5f9 !important; }
+              .text-white { color: #ffffff !important; }
+              .text-black { color: #000000 !important; }
+              .text-slate-900 { color: #0f172a !important; }
+              .text-slate-500 { color: #64748b !important; }
+              .border-black { border-color: #000000 !important; }
+              .border-slate-300 { border-color: #cbd5e1 !important; }
+              .border { border: 1px solid #000000 !important; }
+              .border-b { border-bottom: 1px solid #000000 !important; }
+              .border-b-\\[5px\\] { border-bottom: 5px solid #000000 !important; }
+              .border-t { border-top: 1px solid #000000 !important; }
+              .border-2 { border: 2px solid #000000 !important; }
+              .border-r-2 { border-right: 2px solid #000000 !important; }
+              .grid { display: grid; }
+              .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+              .gap-4 { gap: 16px; }
+              .flex { display: flex; }
+              .flex-col { flex-direction: column; }
+              .items-center { align-items: center; }
+              .justify-between { justify-content: space-between; }
+              .justify-end { justify-content: flex-end; }
+              .justify-center { justify-content: center; }
+              .justify-start { justify-content: flex-start; }
+              .text-center { text-align: center; }
+              .text-left { text-align: left; }
+              .text-right { text-align: right; }
+              .font-extrabold, .font-black { font-weight: 800; }
+              .uppercase { text-transform: uppercase; }
+              .w-full { width: 100%; }
+              .h-full { height: 100%; }
+              .shrink-0 { flex-shrink: 0; }
+              .whitespace-nowrap { white-space: nowrap; }
+              .whitespace-pre-wrap { white-space: pre-wrap; }
+              .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+              .relative { position: relative; }
+              .absolute { position: absolute; }
+              .mt-auto { margin-top: auto; }
+              .rounded-lg { border-radius: 8px; }
+              .rounded-xl { border-radius: 12px; }
+              .rounded-2xl { border-radius: 16px; }
+              .rounded-full { border-radius: 9999px; }
+              .space-y-4 > * + * { margin-top: 16px; }
+              .space-y-2 > * + * { margin-top: 8px; }
+              .space-y-0\\.5 > * + * { margin-top: 2px; }
+            </style>
+          </head>
+          <body>
+            ${sheetsHtml}
+          </body>
+        </html>
+      `);
+      iframeDoc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          iframe.remove();
+        }, 2500);
+      }, 300);
+    }, 150);
+  };
+
+  const handleShowPreview = () => {
+    clearPdfArtifacts();
+    setIsPdfBusy(false);
+    setViewMode('preview');
+    setIsPreviewMode(true);
+  };
+
+  const handlePrintInvoice = () => {
+    setViewMode('preview');
+    setIsPreviewMode(true);
+
+    window.setTimeout(() => {
+      window.focus();
+      window.print();
+    }, 150);
+  };
+
+  useEffect(() => {
+    if (!aiCommand) return;
+    const args = aiCommand.args || {};
+    const requestedItems = Array.isArray(args.items)
+      ? args.items
+      : aiCommand.action === 'add_invoice_item'
+        ? [args]
+        : [];
+
+    if (aiCommand.action === 'adjust_invoice_item_price') {
+      const itemId = String(args.itemId || '');
+      const itemName = String(args.itemName || args.name || '').trim().toLowerCase();
+      const requestedPrice = Number(args.newPrice ?? args.price);
+      const matchingInventoryItem = inventory.find(item =>
+        (itemId && item.id === itemId) ||
+        (itemName && item.name.toLowerCase() === itemName)
+      );
+      if (Number.isFinite(requestedPrice) && requestedPrice >= 0) {
+        setRows(previousRows => previousRows.map(row => {
+          const matchesItem = row.type === 'billable' && (
+            (matchingInventoryItem && (row.itemId === matchingInventoryItem.id || row.sku === matchingInventoryItem.sku)) ||
+            (itemName && row.title.toLowerCase() === itemName)
+          );
+          return matchesItem ? { ...row, rate: requestedPrice } : row;
+        }));
+        setGuidedInvoiceStep('confirming-print');
+      }
+      onAiCommandHandled?.(aiCommand.id);
+      return;
+    }
+
+    if (args.invoiceNumber || args.invoiceNo) setInvoiceNo(String(args.invoiceNumber || args.invoiceNo));
+    if (args.invoiceDate) setInvoiceDate(String(args.invoiceDate));
+    if (args.customerName || args.billTo) setBillTo(String(args.customerName || args.billTo).toUpperCase());
+    if (args.clientAddress || args.customerAddress) setClientAddress(String(args.clientAddress || args.customerAddress));
+    if (args.documentTopic) setDocumentTopic(String(args.documentTopic));
+    if (args.companySubHeader !== undefined) setCompanySubHeader(String(args.companySubHeader || ''));
+    if (args.professionalTag !== undefined) setProfessionalTag(String(args.professionalTag || ''));
+    if (args.companyAddress !== undefined) setCompanyAddress(String(args.companyAddress || ''));
+    if (args.companyContact !== undefined) setCompanyContact(String(args.companyContact || ''));
+    if (args.paymentInstructionsTitle !== undefined) setPaymentInstructionsTitle(String(args.paymentInstructionsTitle || ''));
+    if (args.paymentBankName !== undefined) setPaymentBankName(String(args.paymentBankName || ''));
+    if (args.paymentAccountNumber !== undefined) setPaymentAccountNumber(String(args.paymentAccountNumber || ''));
+    if (args.paymentBranch !== undefined) setPaymentBranch(String(args.paymentBranch || ''));
+
+    if (args.invoiceAccountId || args.accountId) {
+      const accountId = String(args.invoiceAccountId || args.accountId);
+      const account = creditAccounts.find(entry => entry.id === accountId);
+      setInvoiceAccountId(accountId);
+      if (account && !args.customerName && !args.billTo) {
+        setBillTo(account.name.toUpperCase());
+        setClientAddress(account.email || '');
+      }
+    }
+
+    if (requestedItems.length > 0) {
+      setRows(previousRows => {
+        const nextRows = [...previousRows];
+        requestedItems.forEach((requestedItem: any) => {
+          const itemId = requestedItem.itemId || requestedItem.id;
+          const itemName = String(requestedItem.itemName || requestedItem.name || '').toLowerCase();
+          const inventoryItem = inventory.find(item =>
+            (itemId && item.id === itemId) ||
+            (itemName && (item.name || '').toLowerCase() === itemName)
+          );
+          if (!inventoryItem) return;
+          const quantity = Math.max(1, Number(requestedItem.quantity ?? requestedItem.qty ?? 1) || 1);
+          // Invoice creation starts from the catalog selling price. Any
+          // negotiated estimate is a separate, explicit invoice-line edit.
+          const catalogSellingPrice = Number((inventoryItem as InventoryItem & { selling_price?: number; sellingPrice?: number }).unitPrice
+            ?? (inventoryItem as any).selling_price
+            ?? (inventoryItem as any).sellingPrice
+            ?? (inventoryItem as any).unit_price
+            ?? 0);
+          const rate = Number.isFinite(catalogSellingPrice) ? catalogSellingPrice : 0;
+          const existingIndex = nextRows.findIndex(row => row.type === 'billable' && row.sku === inventoryItem.sku);
+          if (existingIndex >= 0) {
+            nextRows[existingIndex] = {
+              ...nextRows[existingIndex],
+              qty: (nextRows[existingIndex].qty || 0) + quantity,
+              rate
+            };
+          } else {
+            nextRows.push({
+              id: `row-ai-${inventoryItem.id}-${Date.now()}-${nextRows.length}`,
+              itemId: inventoryItem.id,
+              type: 'billable',
+              title: inventoryItem.name.toUpperCase(),
+              qty: quantity,
+              rate,
+              sku: inventoryItem.sku
+            });
+          }
+        });
+        return nextRows;
+      });
+      setSuccessAnimation(true);
+      window.setTimeout(() => setSuccessAnimation(false), 800);
+    }
+
+    if (aiCommand.action === 'generate_invoice' || aiCommand.action === 'add_invoice_item') {
+      setViewMode('composer');
+      setIsPreviewMode(false);
+      setGuidedInvoiceStep(requestedItems.length > 0 || aiCommand.action === 'add_invoice_item' ? 'confirming-items' : 'idle');
+    } else if (aiCommand.action === 'preview_invoice') {
+      handleShowPreview();
+      setGuidedInvoiceStep('confirming-print');
+    } else if (aiCommand.action === 'print_invoice') {
+      handlePrintInvoice();
+      setGuidedInvoiceStep('idle');
+    }
+
+    onAiCommandHandled?.(aiCommand.id);
+  }, [aiCommand?.id]);
+
   return (
+    <div className="flex-1 w-full max-w-none xl:max-w-[1550px] mx-auto px-4 py-6 flex flex-col xl:flex-row gap-6 min-h-0 relative">
 
-    <div id="inventory-screen" className="space-y-6">
-      {/* Page Header (Crextio & Finnova Aesthetic) */}
-      <div className="finnova-card p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">{translate('stock inventory ledger', config.languageCode)}</h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">{translate('track levels, spots, and record damaged stock for high-fidelity auditing.', config.languageCode)}</p>
+      {guidedInvoiceStep !== 'idle' && (
+        <div className="absolute top-2 left-4 right-4 z-20 rounded-2xl border border-sky-200/80 bg-sky-50/95 px-4 py-3 text-xs font-bold text-sky-900 shadow-lg backdrop-blur-sm dark:border-sky-800 dark:bg-slate-900/95 dark:text-sky-100">
+          {guidedInvoiceStep === 'confirming-items' && 'RICHARD is confirming the items and quantities before opening the preview.'}
+          {guidedInvoiceStep === 'confirming-preview' && 'RICHARD is waiting for your confirmation to open the invoice preview.'}
+          {guidedInvoiceStep === 'confirming-print' && 'Preview is ready. RICHARD is waiting for your confirmation before printing.'}
         </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Main Action: Report Damaged Stock */}
-          {userRole !== 5 && (
-            <button
-              type="button"
-              id="btn-report-damaged-trigger"
-              onClick={() => handleOpenDamageReport()}
-              className="flex items-center gap-1.5 neumorphic-btn text-slate-900 rounded-full px-4.5 py-2 text-xs font-extrabold cursor-pointer transition hover:text-black"
-            >
-              <PackageX size={14} className="text-slate-800" /> {translate('report damaged stock', config.languageCode)}
-            </button>
-          )}
+      )}
 
-          {/* Main Action: Create Inventory Item */}
-          {userRole !== 5 && (
-            <button
-              type="button"
-              id="btn-add-item-trigger"
-              onClick={handleOpenAdd}
-              className="flex items-center gap-1.5 neumorphic-btn text-slate-900 rounded-full px-4.5 py-2 text-xs font-black cursor-pointer transition hover:text-black"
-            >
-              <Plus size={15} /> {translate('create inventory item', config.languageCode)}
-            </button>
-          )}
-        </div>
-      </div>
+      {/* Dynamic print-targeted CSS style sheet override injected into DOM */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @media print {
+          /* Enforce standard A4 Portrait paper dimensions and page boundaries */
+          @page {
+            size: A4 portrait;
+            margin: 0 !important;
+          }
 
-      {/* Pill Tab Selector: Active Inventory vs Damaged Auditing Log vs Restock Validations */}
-      <div className="pill-nav-track inline-flex items-center gap-1.5 p-1.5">
-        <button
-          type="button"
-          onClick={() => setInventoryTab('active_stock')}
-          className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${inventoryTab === 'active_stock'
-            ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-            }`}
-        >
-          {translate('active store stock', config.languageCode)}
-        </button>
-        <button
-          type="button"
-          onClick={() => setInventoryTab('damaged_audit')}
-          className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${inventoryTab === 'damaged_audit'
-            ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold shadow-md shadow-sky-500/25'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-            }`}
-        >
-          <span>{translate('damaged auditing log', config.languageCode)}</span>
-          {damagedLogs.length > 0 && (
-            <span className="bg-slate-100 text-slate-900 text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
-              {damagedLogs.length}
-            </span>
-          )}
-        </button>
-        {userRole === 2 && (
-          <button
-            type="button"
-            onClick={() => setInventoryTab('restock_validations')}
-              className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer flex items-center gap-1.5 ${inventoryTab === 'restock_validations'
-              ? 'neumorphic-inset bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white font-extrabold'
-              : 'neumorphic-btn text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-          >
-            <span>Restock Validations</span>
-            {pendingCount > 0 && (
-              <span className="bg-amber-100 text-amber-900 text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold animate-pulse">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        )}
-      </div>
+          /* Completely collapse and remove non-print layout wrappers */
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
 
-      {/* TAB 1: ACTIVE INVENTORY VIEW */}
-      {inventoryTab === 'active_stock' && (
-        <>
-          {/* Searching and Filter Widgets */}
-          <div className="finnova-card p-4 sm:p-5 space-y-4">
-            <div className="flex flex-col md:flex-row gap-3">
-              {/* Search bar */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-2.5 text-slate-400" size={16} />
-                <input
-                  type="text"
-                  placeholder={translate('search by name, sku, or supplier', config.languageCode) + '...'}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full text-xs text-slate-900 rounded-full pl-9 pr-4 py-2 neumorphic-inset focus:outline-hidden transition font-medium"
-                />
-              </div>
+          /* Hide all non-printable UI elements completely so they take 0 layout height */
+          header, nav, footer, .no-print, [id*="sidebar"], [class*="no-print"], .lg\:col-span-5, [id*="floating-siri"] {
+            display: none !important;
+            height: 0 !important;
+            width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            visibility: hidden !important;
+          }
 
-              {/* Category Filter - Custom Neumorphic Dropdown */}
-              <div className="flex items-center gap-2 relative" ref={categoryDropdownRef}>
-                <MaterialIcon name="filter_alt" size={16} className="text-slate-800 shrink-0" />
-                <button
-                  type="button"
-                  onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-                  className="text-xs text-slate-900 rounded-full px-4 py-2 neumorphic-btn focus:outline-hidden transition font-extrabold flex items-center gap-2.5 cursor-pointer border border-white/80 hover:text-black"
-                >
-                  <span>
-                    {selectedCategory === 'All'
-                      ? translate('all', config.languageCode)
-                      : translate(selectedCategory.toLowerCase(), config.languageCode)} ({translate('category', config.languageCode)})
-                  </span>
-                  <ChevronDown
-                    size={14}
-                    className={`text-slate-700 transition-transform duration-200 ${categoryDropdownOpen ? 'rotate-180 text-blue-600' : ''}`}
-                  />
-                </button>
+          /* Ensure root containers display cleanly from the very top of page 1 */
+          #root, main, #root > div, [class*="max-w-"], [class*="flex-1"] {
+            display: block !important;
+            position: static !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: #ffffff !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            max-width: none !important;
+          }
 
-                <AnimatePresence>
-                  {categoryDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 4, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                      transition={{ duration: 0.15, ease: 'easeOut' }}
-                      className="absolute right-0 top-full mt-1.5 w-[min(15rem,calc(100vw-1.5rem))] rounded-2xl neumorphic-card p-2 shadow-xl border border-white/90 dark:border-slate-700/80 z-50 overflow-hidden font-sans"
-                      style={{ boxShadow: '6px 6px 18px #cbd3e1, -6px -6px 18px #ffffff' }}
-                    >
-                      <div className="max-h-60 overflow-y-auto space-y-1 p-0.5">
-                        {categoriesList.map(cat => {
-                          const isSelected = selectedCategory === cat;
-                          const label = cat === 'All'
-                            ? translate('all', config.languageCode)
-                            : translate(String(cat).toLowerCase(), config.languageCode);
+          #invoice-print-root {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            background: #ffffff !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+          }
 
+          /* Lock layout sheet to standard physical A4 paper dimensions */
+          .printable-sheet {
+            display: flex !important;
+            flex-direction: column !important;
+            position: relative !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+            height: 297mm !important;
+            min-height: 297mm !important;
+            box-sizing: border-box !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 15mm 18mm !important;
+            margin: 0 auto !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            zoom: 1 !important;
+            transform: none !important;
+            visibility: visible !important;
+            page-break-after: always !important;
+            break-after: page !important;
+          }
 
-                          return (
-                            <button
-                              key={cat}
-                              type="button"
-                              onClick={() => {
-                                setSelectedCategory(cat);
-                                setCategoryDropdownOpen(false);
-                              }}
-                              className={`w-full text-left text-xs px-3.5 py-2.5 rounded-xl font-extrabold transition flex items-center justify-between cursor-pointer ${isSelected
-                                ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
-                                : 'text-slate-800 hover:bg-slate-200/70 hover:text-black'
-                                }`}
-                            >
-                              <span>{label} ({translate('category', config.languageCode)})</span>
-                              {isSelected && <Check size={14} className="text-white shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+          .printable-sheet:last-of-type {
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
+
+          .printable-sheet * {
+            visibility: visible !important;
+            color: #000000 !important;
+            border-color: #000000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .printable-sheet .bg-black,
+          .printable-sheet tr.bg-black {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+          }
+
+          .printable-sheet .bg-black * {
+            color: #ffffff !important;
+          }
+        }
+      `}} />
+
+      {/* COMPOSER WORKSPACE LAYOUT */}
+      <div className={`flex flex-col gap-5 no-print ${viewMode === 'preview' ? 'hidden' : 'w-full max-w-7xl mx-auto'}`}>
+
+        {/* Composer Header & Preview Trigger (Crextio & Finnova Aesthetic) */}
+        <div className="finnova-card p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 neumorphic-circle text-slate-900 flex items-center justify-center">
+              <MaterialIcon name="receipt_long" size={20} />
             </div>
-
-            {/* Smart Status Tabs */}
-            <div className="flex flex-wrap items-center gap-2 border-t border-slate-200/40 pt-3">
-              <span className="text-xs text-gray-500 mr-2 font-medium">{translate('stock filter', config.languageCode)} :</span>
-              {(['All', 'Low Stock', 'Out of Stock'] as const).map(tab => {
-                const count = tab === 'All'
-                  ? inventory.length
-                  : tab === 'Low Stock'
-                    ? inventory.filter(i => i.quantity <= i.reorderPoint && i.quantity > 0).length
-                    : inventory.filter(i => i.quantity === 0).length;
-
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setStockStatus(tab)}
-                    className={`text-xs px-3.5 py-1.5 rounded-full font-extrabold transition cursor-pointer ${stockStatus === tab
-                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                      : 'neumorphic-btn text-slate-800 hover:text-black'
-                      }`}
-                  >
-                    {tab === 'All'
-                      ? translate('all', config.languageCode)
-                      : tab === 'Low Stock'
-                        ? translate('low stock', config.languageCode)
-                        : translate('out of stock', config.languageCode)}{' '}
-                    <span className={stockStatus === tab ? 'text-white/90 font-mono text-[10.5px] ml-0.5' : 'text-slate-600 font-mono text-[10.5px] ml-0.5'}>({count})</span>
-                  </button>
-                );
-              })}
+            <div>
+              <h2 className="text-base font-extrabold tracking-tight text-slate-900">{translate('invoice composer', config.languageCode)}</h2>
+              <span className="text-xs text-slate-500 font-medium">{translate('search warehouse items, adjust quantities, and edit company details', config.languageCode)}</span>
             </div>
           </div>
 
-          {/* Inventory Item Display (Desktop Table + Mobile Cards) */}
-          <div className="finnova-card p-3 overflow-hidden">
-            {/* Desktop View Table */}
-            <div className="hidden lg:block overflow-x-auto text-gray-900">
-              <table className="w-full text-left border-collapse table-fixed text-xs">
-                <thead>
-                  <tr className="neumorphic-table-header text-[10px] select-none">
-                    <th className={`py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition ${userRole === 2 ? 'w-[22%]' : 'w-[30%]'}`} onClick={() => toggleSort('name')}>
-                      <span className="flex items-center justify-center gap-1.5">
-                        {translate('product detail', config.languageCode)} {sortBy === 'name' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
-                      </span>
-                    </th>
-                    <th className={`py-3 px-3 text-center ${userRole === 2 ? 'w-[13%]' : 'w-[16%]'}`}>{translate('category', config.languageCode)}</th>
-                    <th className={`py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition ${userRole === 2 ? 'w-[11%]' : 'w-[14%]'}`} onClick={() => toggleSort('quantity')}>
-                      <span className="flex items-center justify-center gap-1.5">
-                        {translate('qty in hand', config.languageCode)} {sortBy === 'quantity' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
-                      </span>
-                    </th>
-                    {userRole === 2 && (
-                      <th className="py-3 px-3 text-center w-[11%]">{translate('cost price', config.languageCode)}</th>
-                    )}
-                    <th className={`py-3 px-3 text-center ${userRole === 2 ? 'w-[11%]' : 'w-[14%]'}`}>{translate('selling price', config.languageCode)}</th>
-                    <th className={`py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition ${userRole === 2 ? 'w-[12%]' : 'w-[16%]'}`} onClick={() => toggleSort('value')}>
-                      <span className="flex items-center justify-center gap-1.5">
-                        {translate('total value', config.languageCode)} {sortBy === 'value' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
-                      </span>
-                    </th>
-                    {userRole === 2 && (
-                      <th className="py-3 px-3 text-center font-black w-[11%]">{translate('profit per unit', config.languageCode)}</th>
-                    )}
-                    <th className={`py-3 px-3 text-center ${userRole === 2 ? 'w-[9%]' : 'w-[10%]'}`}>{translate('actions', config.languageCode)}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200/40 text-xs text-gray-700">
-                  {sortedItems.map(item => {
-                    const isOver = item.quantity <= item.reorderPoint;
-                    const isZero = item.quantity === 0;
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handleShowPreview}
+              className="w-full sm:w-auto px-6 py-2.5 neumorphic-btn-dark font-black rounded-full flex items-center justify-center gap-2 cursor-pointer text-xs shadow-md hover:brightness-110 active:scale-95 transition"
+            >
+              <Eye size={14} />
+              <span>{translate('preview invoice layout', config.languageCode)}</span>
+            </button>
+          </div>
+        </div>
 
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-50/80 border-b border-slate-100/40 transition duration-150">
-                        <td className="py-3.5 px-3 text-center overflow-hidden text-ellipsis">
-                          <div className="flex flex-col items-center justify-center text-center">
-                            <span className="font-extrabold text-slate-900 dark:text-white block truncate">{item.name}</span>
-                            <div className="flex gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate justify-center">
-                              <span>{translate('sku', config.languageCode)}: <strong className="font-mono text-slate-700 dark:text-slate-300">{item.sku}</strong></span>
-                              <span>•</span>
-                              <span>{translate('pref. supplier', config.languageCode)}: <strong>{item.supplier || translate('n/a', config.languageCode)}</strong></span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-3 text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                          <span className="neumorphic-btn text-slate-900 dark:text-white border border-white/80 dark:border-slate-700 rounded-full px-2.5 py-0.5 text-[9.5px] font-extrabold uppercase select-none inline-block">
-                            {translate(item.category.toLowerCase(), config.languageCode)}
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 text-center">
-                          <div className="flex flex-col items-center justify-center">
-                            <span className="font-extrabold font-mono text-slate-900 dark:text-white text-xs">
-                              {item.quantity} {translate('units', config.languageCode)}
-                            </span>
-                            {isZero ? (
-                              <span className="neumorphic-inset text-[8.5px] text-slate-900 dark:text-white font-extrabold uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full border border-white/80 dark:border-slate-800">{translate('out of stock', config.languageCode).toUpperCase()}</span>
-                            ) : isOver ? (
-                              <span className="neumorphic-inset text-[8.5px] text-slate-900 dark:text-white font-extrabold uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full border border-white/80 dark:border-slate-800">{translate('low stock', config.languageCode).toUpperCase()}</span>
-                            ) : null}
-                          </div>
-                        </td>
-                        {userRole === 2 && (
-                          <td className="py-4 px-4 text-center font-extrabold text-slate-900 dark:text-white font-mono">{formatMoney(item.unitCost)}</td>
-                        )}
-                        <td className="py-4 px-4 text-center font-extrabold text-slate-900 dark:text-white font-mono">{formatMoney(item.unitPrice)}</td>
-                        <td className="py-4 px-4 text-center font-extrabold text-slate-900 dark:text-white font-mono">
-                          {formatMoney(item.quantity * item.unitPrice)}
-                        </td>
-                        {userRole === 2 && (
-                          <td className="py-4 px-4 text-center font-bold font-mono text-slate-900 dark:text-white">
-                            {formatMoney(item.unitPrice - item.unitCost)}
-                          </td>
-                        )}
-                        <td className="py-4 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenAdjust(item)}
-                              className="w-7 h-7 flex items-center justify-center neumorphic-circle text-slate-800 hover:text-black cursor-pointer"
-                              title={translate('adjust stock units', config.languageCode)}
-                            >
-                              <ArrowUpDown size={13} />
-                            </button>
-                            {userRole !== 5 && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(item)}
-                                className="w-7 h-7 flex items-center justify-center neumorphic-circle text-slate-800 hover:text-black cursor-pointer"
-                                title={translate('edit details', config.languageCode)}
-                              >
-                                <Edit2 size={13} />
-                              </button>
-                            )}
-                            {userRole !== 5 && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteCheck(item.id, item.name)}
-                                className="w-7 h-7 flex items-center justify-center neumorphic-circle text-slate-800 hover:text-black cursor-pointer"
-                                title={translate('retire item', config.languageCode)}
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {sortedItems.length === 0 && (
-                    <tr>
-                      <td colSpan={userRole === 2 ? 8 : 6} className="py-12 text-center text-gray-400">
-                        <p className="font-medium text-xs">{translate('no matching inventory items found.', config.languageCode)}</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+        {/* Two-Column Split: Controls on Left, Live-Added & Inventory Lists on Right */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-            {/* Mobile View list Card style */}
-            <div className="block lg:hidden neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-3.5 space-y-4">
-              {sortedItems.map(item => {
-                const isOver = item.quantity <= item.reorderPoint;
-                const isZero = item.quantity === 0;
+          {/* ================= LEFT COLUMN: DETAILS & CUSTOMIZATIONS ================= */}
+          <div className="lg:col-span-5 flex flex-col gap-5 no-print">
 
-                return (
-                  <div key={item.id} className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 p-4 space-y-3.5 transition">
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="min-w-0">
-                        <span className="bg-indigo-50 text-indigo-700 text-[9px] px-2 py-0.5 rounded font-extrabold uppercase tracking-wide">
-                          {translate(item.category.toLowerCase(), config.languageCode)}
-                        </span>
-                        <h4 className="text-sm font-bold text-gray-900 leading-tight mt-1.5 truncate">{item.name}</h4>
-                        <p className="text-[10px] text-gray-500 mt-1 flex flex-wrap gap-x-2">
-                          <span>{translate('sku', config.languageCode)}: <strong className="font-mono text-gray-700 font-semibold">{item.sku}</strong></span>
-                          {item.location && (
-                            <>
-                              <span className="text-gray-300">•</span>
-                              <span>{translate('spot', config.languageCode) || 'Spot'}: <strong className="text-gray-700 font-semibold">{item.location}</strong></span>
-                            </>
-                          )}
-                        </p>
-                      </div>
-                      <span className={`text-[9px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide shrink-0 border ${isZero
-                        ? 'bg-rose-50 text-rose-800 border-rose-200'
-                        : isOver
-                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        }`}>
-                        {isZero ? translate('out of stock', config.languageCode) : isOver ? translate('low stock', config.languageCode) : translate('in stock', config.languageCode)}
-                      </span>
-                    </div>
+            {/* Format Presets */}
+            <div className="finnova-card p-4 sm:p-5 space-y-3.5">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 neumorphic-circle bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-sky-400 flex items-center justify-center shrink-0">
+                    <MaterialIcon name="tune" size={16} />
+                  </span>
+                  <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">{translate('layout format presets', config.languageCode)}</h2>
+                </div>
 
-                    <div className="grid grid-cols-3 gap-2 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-3 rounded-xl border border-white/70 dark:border-slate-700/70 text-[10px]">
-                      <div>
-                        <span className="block text-gray-400 text-[8px] uppercase tracking-wider font-semibold">{translate('qty in hand', config.languageCode)}</span>
-                        <strong className={`block text-xs mt-0.5 ${isZero ? 'text-rose-600' : isOver ? 'text-amber-500' : 'text-gray-900'}`}>{item.quantity} pcs</strong>
-                      </div>
-                      <div>
-                        <span className="block text-gray-400 text-[8px] uppercase tracking-wider font-semibold">{translate('selling price', config.languageCode)}</span>
-                        <strong className="block text-gray-900 text-xs mt-0.5 font-mono">{formatMoney(item.unitPrice)}</strong>
-                      </div>
-                      <div>
-                        <span className="block text-gray-400 text-[8px] uppercase tracking-wider font-semibold">{translate('total value', config.languageCode)}</span>
-                        <strong className="block text-gray-950 text-xs mt-0.5 font-mono">{formatMoney(item.quantity * item.unitPrice)}</strong>
-                      </div>
-                    </div>
+                <span className="text-[9px] neumorphic-btn text-slate-800 dark:text-white px-2.5 py-1 rounded-full font-extrabold">
+                  {translate('pdf-style print', config.languageCode)}
+                </span>
+              </div>
 
-                    <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-3 text-slate-600">
-                      {userRole === 2 ? (
-                        <span>{translate('profit per unit', config.languageCode)}: <strong className="text-emerald-700 font-extrabold font-mono">{formatMoney(item.unitPrice - item.unitCost)}</strong></span>
-                      ) : (
-                        <span></span>
-                      )}
-                      <span className="truncate max-w-[150px]">{translate('supplier', config.languageCode)}: <strong className="text-gray-800 font-semibold">{item.supplier || translate('n/a', config.languageCode)}</strong></span>
-                    </div>
+              <p className="text-[10px] text-slate-600 dark:text-slate-300 mb-3 leading-relaxed font-bold">
+                {translate('choose the pristine proforma invoice preset or standard custom drafting. supports live modifications.', config.languageCode)}
+              </p>
 
-                    {/* Mobile Touch Action Strip with 44px responsive target heights */}
-                    <div className="flex gap-2 pt-1 border-t border-slate-100/60">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenAdjust(item)}
-                        className="flex-1 min-h-[44px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center gap-1 font-bold text-xs transition cursor-pointer"
-                        title={translate('adjust stock units', config.languageCode)}
-                      >
-                        <ArrowUpDown size={14} /> {translate('adjust', config.languageCode)}
-                      </button>
-
-                      {userRole !== 5 && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDamageReport(item)}
-                          className="w-12 min-h-[44px] bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white rounded-xl flex items-center justify-center transition cursor-pointer shadow-xs hover:opacity-95"
-                          title={translate('report damage', config.languageCode)}
-                        >
-                          <AlertTriangle size={15} />
-                        </button>
-                      )}
-
-                      {userRole !== 5 && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(item)}
-                          className="flex-1 min-h-[44px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center gap-1 font-bold text-xs transition cursor-pointer"
-                          title={translate('edit details', config.languageCode)}
-                        >
-                          <Edit2 size={13} /> {translate('edit', config.languageCode)}
-                        </button>
-                      )}
-
-                      {userRole !== 5 && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCheck(item.id, item.name)}
-                          className="w-12 min-h-[44px] neumorphic-btn text-slate-900 dark:text-white hover:text-slate-950 dark:hover:text-white rounded-xl flex items-center justify-center transition cursor-pointer"
-                          title={translate('retire item', config.languageCode)}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleLoadPreset('invoice_credit')}
+                  className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'invoice_credit'
+                    ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
+                    : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                    }`}
+                >
+                  <div className="flex justify-between items-start w-full">
+                    <MaterialIcon name="description" size={16} className={activePreset === 'invoice_credit' ? 'text-sky-600 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400'} />
+                    <span className="text-[8px] neumorphic-btn text-slate-800 dark:text-white font-extrabold px-2 py-0.5 rounded uppercase font-mono">{translate('image exact', config.languageCode)}</span>
                   </div>
-                );
-              })}
-              {sortedItems.length === 0 && (
-                <div className="py-12 text-center text-gray-400">
-                  <p className="text-xs">{translate('no matching stock items discovered.', config.languageCode)}</p>
+                  <span className="text-[10px] mt-2 block font-black text-slate-900 dark:text-white">{companyName || translate('proforma invoice', config.languageCode)}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleLoadPreset('custom')}
+                  className={`p-3.5 rounded-2xl transition flex flex-col justify-between cursor-pointer ${activePreset === 'custom'
+                    ? 'neumorphic-inset border-2 border-sky-500 text-slate-900 dark:text-white font-black bg-sky-500/10'
+                    : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                    }`}
+                >
+                  <div className="flex justify-between items-start w-full">
+                    <MaterialIcon name="edit" size={16} className={activePreset === 'custom' ? 'text-sky-600 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400'} />
+                    <span className="text-[8px] neumorphic-btn text-slate-800 dark:text-white font-extrabold px-2 py-0.5 rounded uppercase font-mono">{translate('draft', config.languageCode)}</span>
+                  </div>
+                  <span className="text-[10px] mt-2 block font-black text-slate-900 dark:text-white">{translate('custom table template', config.languageCode)}</span>
+                </button>
+              </div>
+
+              {/* Credit account integration: auto fill details */}
+              {creditAccounts && creditAccounts.length > 0 && (
+                <div className="pt-3 border-t border-slate-200/50">
+                  <label className="block text-[8.5px] font-black text-slate-500 uppercase mb-1">
+                    {translate('autofill client account credit balance', config.languageCode)}
+                  </label>
+                  <NeumorphicSelect
+                    value={invoiceAccountId}
+                    onChange={handleInvoiceAccountSelect}
+                    options={invoiceAccountOptions}
+                    placeholder={`-- ${translate('choose account to auto-populate', config.languageCode)} --`}
+                    className="w-full"
+                  />
                 </div>
               )}
             </div>
-          </div>
-        </>
-      )}
 
-      {/* TAB 2: DAMAGED GOODS AUDITING LEDGER */}
-      {inventoryTab === 'damaged_audit' && (
-        <div className="space-y-6">
-          {/* Audit Financial Metrics Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="finnova-card p-5 text-slate-900">
-              <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider flex items-center gap-1">
-                <PackageX size={13} className="text-slate-800" /> {translate('units damaged (shrinkage)', config.languageCode)}
-              </span>
-              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 font-sans">
-                {damageMetrics.totalQty} {translate('units', config.languageCode)}
-              </strong>
-              <p className="text-[9.5px] text-slate-500 font-medium mt-1">{translate('total physical stock decommissioned', config.languageCode)}</p>
-            </div>
+            {/* Enterprise settings card */}
+            <div className="finnova-card p-4 sm:p-5 space-y-3.5">
+              <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2">
+                <span>{translate('enterprise identity', config.languageCode)}</span>
+                <span className="text-[9px] text-slate-600 dark:text-slate-300 lowercase font-mono font-bold">{translate('logo & headers', config.languageCode)}</span>
+              </h3>
 
-            <div className="finnova-card p-5 text-slate-900">
-              <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider">
-                {translate('capital sunk loss (at cost)', config.languageCode)}
-              </span>
-              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 font-sans">
-                {formatMoney(damageMetrics.totalCostLoss)}
-              </strong>
-              <p className="text-[9.5px] text-slate-500 font-medium mt-1">{translate('true capital loss based on procurement cost', config.languageCode)}</p>
-            </div>
+              {/* Logo Setup */}
+              <div className="bg-slate-50/50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/85 dark:border-white/10 space-y-2.5">
+                <label className="block text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                  <span>{translate('company logo image', config.languageCode)}</span>
+                  <span className="text-[7.5px] px-2 py-0.5 text-slate-800 dark:text-white neumorphic-btn rounded uppercase font-extrabold font-mono">{translate('custom upload', config.languageCode)}</span>
+                </label>
 
-            <div className="finnova-card p-5 text-slate-900">
-              <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider">
-                {translate('revenue loss potential', config.languageCode)}
-              </span>
-              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 font-sans">
-                {formatMoney(damageMetrics.totalRetailLoss)}
-              </strong>
-              <p className="text-[9.5px] text-slate-500 font-medium mt-1">{translate('selling value opportunity completely lost', config.languageCode)}</p>
-            </div>
-          </div>
-
-          {/* Damage Log Filter & Query Header */}
-          <div className="finnova-card p-4 sm:p-5 space-y-4">
-            <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
-              {/* Search Bar */}
-              <div className="relative flex-1 w-full">
-                <Search className="absolute left-3.5 top-2.5 text-slate-400" size={16} />
-                <input
-                  type="text"
-                  placeholder={translate('filter damages by item name, sku or auditor remarks...', config.languageCode)}
-                  value={damageSearchQuery}
-                  onChange={(e) => setDamageSearchQuery(e.target.value)}
-                  className="w-full text-xs text-slate-900 rounded-full pl-9 pr-4 py-2 neumorphic-inset focus:outline-hidden transition font-medium"
-                />
-              </div>
-
-              {/* Date Filter & Export */}
-              <div className="flex items-center gap-2 w-full md:w-auto shrink-0 justify-end">
-                <div className="relative" ref={dateDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setDateDropdownOpen(!dateDropdownOpen)}
-                    className="text-xs text-slate-900 rounded-full px-4 py-2 neumorphic-btn focus:outline-hidden transition font-extrabold flex items-center gap-2 cursor-pointer border border-white/80 hover:text-black"
+                <div className="text-[9px] space-y-2">
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file && file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          if (event.target?.result) {
+                            setLogoImage(event.target.result as string);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            if (event.target?.result) {
+                              setLogoImage(event.target.result as string);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                    className="neumorphic-inset p-5 rounded-2xl border-2 border-dashed border-slate-300 text-center cursor-pointer transition flex flex-col items-center gap-1.5"
                   >
-                    <span>
-                      {damageDateFilter === 'all'
-                        ? translate('all dates', config.languageCode)
-                        : damageDateFilter === 'today'
-                          ? translate('today', config.languageCode)
-                          : damageDateFilter === '7days'
-                            ? translate('last 7 days', config.languageCode)
-                            : translate('last 30 days', config.languageCode)}
-                    </span>
-                    <ChevronDown
-                      size={14}
-                      className={`text-slate-700 transition-transform duration-200 ${dateDropdownOpen ? 'rotate-180 text-blue-600' : ''}`}
-                    />
-                  </button>
-
-                  <AnimatePresence>
-                    {dateDropdownOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 4, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                        transition={{ duration: 0.15, ease: 'easeOut' }}
-                        className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl bg-[#ebf0f7] p-2 shadow-xl border border-white/90 z-50 overflow-hidden font-sans"
-                        style={{ boxShadow: '6px 6px 18px #cbd3e1, -6px -6px 18px #ffffff' }}
-                      >
-                        <div className="space-y-1 p-0.5">
-                          {[
-                            { val: 'all', label: translate('all dates', config.languageCode) },
-                            { val: 'today', label: translate('today', config.languageCode) },
-                            { val: '7days', label: translate('last 7 days', config.languageCode) },
-                            { val: '30days', label: translate('last 30 days', config.languageCode) }
-                          ].map(opt => {
-                            const isSelected = damageDateFilter === opt.val;
-                            return (
-                              <button
-                                key={opt.val}
-                                type="button"
-                                onClick={() => {
-                                  setDamageDateFilter(opt.val);
-                                  setDateDropdownOpen(false);
-                                }}
-                                className={`w-full text-left text-xs px-3.5 py-2.5 rounded-xl font-extrabold transition flex items-center justify-between cursor-pointer ${isSelected
-                                  ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
-                                  : 'text-slate-800 hover:bg-slate-200/70 hover:text-black'
-                                  }`}
-                              >
-                                <span>{opt.label}</span>
-                                {isSelected && <Check size={14} className="text-white shrink-0" />}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleExportDamagesCSV}
-                  disabled={filteredDamagedLogs.length === 0}
-                  className="flex items-center gap-1.5 neumorphic-btn bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-extrabold disabled:opacity-50 disabled:cursor-not-allowed rounded-full px-4.5 py-2 text-xs hover:opacity-95 transition cursor-pointer shadow-md shadow-sky-500/25 shrink-0"
-                >
-                  <FileDown size={14} className="text-white shrink-0" />
-                  <span className="text-white font-black">{translate('export audit excel', config.languageCode)}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Audit Ledger Table (Desktop) */}
-          <div className="hidden md:block finnova-card p-3 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="neumorphic-table-header text-[10px] select-none">
-                    <th className="py-3 px-4 font-bold text-slate-900">{translate('logged time', config.languageCode)}</th>
-                    <th className="py-3 px-4 font-bold text-slate-900">{translate('product particulars', config.languageCode)}</th>
-                    <th className="py-3 px-4 text-right font-bold text-slate-900">{translate('units decommissioned', config.languageCode)}</th>
-                    {userRole === 2 && (
+                    {logoImage ? (
+                      <div className="flex flex-col items-center gap-1.5">
+                        <img
+                          src={logoImage}
+                          alt="Uploaded logo preview"
+                          className="object-contain rounded border border-slate-100 bg-slate-50 p-0.5"
+                          style={{ width: `${Math.min(60, logoWidth)}px`, height: `${Math.min(60, logoHeight)}px` }}
+                          referrerPolicy="no-referrer"
+                        />
+                        <span className="text-[7.5px] text-slate-900 font-extrabold uppercase font-sans">{translate('image ready &middot; click to change', config.languageCode)}</span>
+                      </div>
+                    ) : (
                       <>
-                        <th className="py-3 px-4 text-right font-bold text-slate-900">{translate('unit cost price', config.languageCode)}</th>
-                        <th className="py-3 px-4 text-right font-bold text-slate-900">{translate('sunk cost loss', config.languageCode)}</th>
+                        <Upload size={14} className="text-slate-400 animate-pulse" />
+                        <p className="text-[8px] font-black text-slate-700 font-sans">{translate('drag & drop logo image here', config.languageCode)}</p>
+                        <p className="text-[7px] text-slate-400">{translate('or click to browse local files', config.languageCode)}</p>
                       </>
                     )}
-                    <th className="py-3 px-4 text-right font-bold text-slate-900">{translate('potential retail loss', config.languageCode)}</th>
-                    <th className="py-3 px-4 font-bold text-slate-900">{translate('auditor adjustment note / reason remarks', config.languageCode)}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-150 text-gray-900">
-                  {filteredDamagedLogs.map((log) => {
-                    const item = inventory.find(i => i.id === log.itemId);
-                    const unitCost = item?.unitCost || 0;
-                    const unitPrice = item?.unitPrice || 0;
-                    const qtyDecommissioned = Math.abs(log.qtyChanged);
-                    const costLoss = qtyDecommissioned * unitCost;
-                    const retailLoss = qtyDecommissioned * unitPrice;
+                  </div>
+
+                  {logoImage && (
+                    <button
+                      type="button"
+                      onClick={() => setLogoImage('')}
+                      className="w-full py-1 text-center font-extrabold text-red-500 bg-red-50 hover:bg-red-105 rounded-lg text-[7.5px] uppercase transition cursor-pointer border border-red-200/40"
+                    >
+                      {translate('remove logo image', config.languageCode)}
+                    </button>
+                  )}
+
+                  {/* Logo Size Adjustment Sliders */}
+                  <div className="pt-2 border-t border-slate-200/40 space-y-2">
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-[7.5px] font-black uppercase text-slate-500">
+                        <span>{translate('logo display width', config.languageCode)}</span>
+                        <span className="text-slate-900 font-mono text-[8px] font-black">{logoWidth}PX</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={20}
+                        max={240}
+                        step={2}
+                        value={logoWidth}
+                        onChange={(e) => setLogoWidth(Number(e.target.value))}
+                        className="neumorphic-range cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-[7.5px] font-black uppercase text-slate-500">
+                        <span>{translate('logo display height', config.languageCode)}</span>
+                        <span className="text-slate-900 font-mono text-[8px] font-black">{logoHeight}PX</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={20}
+                        max={240}
+                        step={2}
+                        value={logoHeight}
+                        onChange={(e) => setLogoHeight(Number(e.target.value))}
+                        className="neumorphic-range cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Company / Client Identities */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[8.5px] font-black text-slate-500 uppercase mb-1">{translate('company / enterprise name', config.languageCode)}</label>
+                  <DebouncedInput
+                    type="text"
+                    value={companyName}
+                    onChange={(val) => setCompanyName(val.toUpperCase())}
+                    placeholder="e.g. Your business name"
+                    className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[8.5px] font-black text-slate-500 uppercase mb-1">{translate('store slogan banner', config.languageCode)}</label>
+                  <DebouncedInput
+                    type="text"
+                    value={companySubHeader}
+                    onChange={(val) => setCompanySubHeader(val.toUpperCase())}
+                    className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[8.5px] font-black text-slate-500 uppercase mb-1">{translate('physical location address', config.languageCode)}</label>
+                  <DebouncedInput
+                    type="text"
+                    value={companyAddress}
+                    onChange={(val) => setCompanyAddress(val.toUpperCase())}
+                    className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[8.5px] font-black text-slate-500 uppercase mb-1">{translate('store direct contact / phone / email', config.languageCode)}</label>
+                  <DebouncedInput
+                    type="text"
+                    value={companyContact}
+                    onChange={(val) => setCompanyContact(val)}
+                    className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/40 space-y-2">
+                  <div className="text-[8.5px] font-black text-slate-500 uppercase">Payment instructions (optional)</div>
+                  <DebouncedInput
+                    type="text"
+                    value={paymentInstructionsTitle}
+                    onChange={(val) => setPaymentInstructionsTitle(val.toUpperCase())}
+                    placeholder="e.g. Payment details"
+                    className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                  <DebouncedInput
+                    type="text"
+                    value={paymentBankName}
+                    onChange={(val) => setPaymentBankName(val.toUpperCase())}
+                    placeholder="Bank or payment provider"
+                    className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <DebouncedInput
+                      type="text"
+                      value={paymentAccountNumber}
+                      onChange={setPaymentAccountNumber}
+                      placeholder="Account / wallet number"
+                      className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                    />
+                    <DebouncedInput
+                      type="text"
+                      value={paymentBranch}
+                      onChange={(val) => setPaymentBranch(val.toUpperCase())}
+                      placeholder="Branch or payment note"
+                      className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Subheading Alignment and Styling */}
+              <div className="finnova-card p-3.5 space-y-2.5">
+                <div>
+                  <label className="block text-[8.5px] font-black text-slate-500 uppercase mb-1">{translate('sub-heading label tagline', config.languageCode)}</label>
+                  <DebouncedInput
+                    type="text"
+                    value={professionalTag}
+                    onChange={(val) => setProfessionalTag(val.toUpperCase())}
+                    className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+
+                <div>
+                  <span className="block text-[7.5px] font-black text-slate-400 uppercase tracking-wider mb-1">{translate('tagline alignment', config.languageCode)}</span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(['left', 'center', 'right'] as const).map((align) => (
+                      <button
+                        key={align}
+                        type="button"
+                        onClick={() => setProfessionalAlign(align)}
+                        className={`py-1.5 px-2 text-[8px] font-black rounded-full uppercase transition cursor-pointer ${professionalAlign === align
+                          ? 'neumorphic-inset text-slate-900 font-extrabold bg-slate-200/50'
+                          : 'finnova-card text-slate-600 hover:text-slate-900'
+                          }`}
+                      >
+                        {translate(align, config.languageCode)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 pt-2 border-t border-slate-200/50">
+                  <div>
+                    <div className="flex justify-between items-center text-[7.5px] font-black uppercase text-slate-500">
+                      <span>{translate('tag text font size', config.languageCode)}</span>
+                      <span className="text-slate-900 font-mono text-[8px] font-black">{professionalFontSize}PX</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={8}
+                      max={22}
+                      step={1}
+                      value={professionalFontSize}
+                      onChange={(e) => setProfessionalFontSize(Number(e.target.value))}
+                      className="neumorphic-range cursor-pointer mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center text-[7.5px] font-black uppercase text-slate-500 font-sans">
+                      <span>{translate('tag padding vertical', config.languageCode)}</span>
+                      <span className="text-slate-900 font-mono text-[8px] font-black">{professionalPaddingY}PX</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={30}
+                      step={1}
+                      value={professionalPaddingY}
+                      onChange={(e) => setProfessionalPaddingY(Number(e.target.value))}
+                      className="neumorphic-range cursor-pointer mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center text-[7.5px] font-black uppercase text-slate-500 font-sans">
+                      <span>{translate('tag border width span', config.languageCode)}</span>
+                      <span className="text-slate-900 font-mono text-[8px] font-black">{professionalWidthPct}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={20}
+                      max={100}
+                      step={5}
+                      value={professionalWidthPct}
+                      onChange={(e) => setProfessionalWidthPct(Number(e.target.value))}
+                      className="neumorphic-range cursor-pointer mt-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Document Designation Badge and dates */}
+            <div className="finnova-card p-4 sm:p-5 space-y-3.5">
+              <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-800 border-b border-slate-100 pb-2">
+                <span>{translate('designation & dates', config.languageCode)}</span>
+              </h3>
+
+              <div>
+                <label className="block text-[8.5px] font-black text-slate-500 uppercase mb-1">{translate('invoice designation title badge', config.languageCode)}</label>
+                <DebouncedInput
+                  type="text"
+                  value={documentTopic}
+                  onChange={(val) => setDocumentTopic(val.toUpperCase())}
+                  className="w-full text-xs text-slate-900 rounded-full px-4 py-2.5 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[8.0px] font-black text-slate-500 uppercase mb-0.5">{translate('invoice no', config.languageCode)}</label>
+                  <DebouncedInput
+                    type="text"
+                    value={invoiceNo}
+                    onChange={(val) => setInvoiceNo(val)}
+                    className="w-full text-xs text-slate-900 rounded-full px-3 py-2 neumorphic-inset font-mono font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8.0px] font-black text-slate-500 uppercase mb-0.5">{translate('invoice date', config.languageCode)}</label>
+                  <DebouncedInput
+                    type="text"
+                    value={invoiceDate}
+                    onChange={(val) => setInvoiceDate(val)}
+                    className="w-full text-xs text-slate-900 rounded-full px-3 py-2 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+              </div>
+
+              {/* Bill To & Client Address */}
+              <div className="grid grid-cols-2 gap-3 border-t border-slate-200/50 pt-3">
+                <div>
+                  <label className="block text-[8px] font-black text-slate-500 uppercase mb-1">{translate('bill to client', config.languageCode)}</label>
+                  <DebouncedInput
+                    type="text"
+                    value={billTo}
+                    onChange={(val) => setBillTo(val)}
+                    placeholder="e.g. Samuel Zar"
+                    className="w-full text-xs text-slate-900 rounded-full px-3 py-2 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-black text-slate-500 uppercase mb-1">{translate('client address location', config.languageCode)}</label>
+                  <DebouncedInput
+                    type="text"
+                    value={clientAddress}
+                    onChange={(val) => setClientAddress(val)}
+                    placeholder="e.g. Accra, Ghana"
+                    className="w-full text-xs text-slate-900 rounded-full px-3 py-2 neumorphic-inset font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 border-t border-slate-200/50 pt-3">
+                {/* Currency Symbol change */}
+                <div>
+                  <label className="block text-[8px] font-black text-slate-500 uppercase mb-0.5 flex justify-between items-center">
+                    <span>{translate('currency symbol', config.languageCode)}</span>
+                    {config?.currencySymbol && selectedCurrency !== config.currencySymbol && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCurrency(config.currencySymbol)}
+                        className="text-[7px] font-extrabold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded transition uppercase shrink-0 border border-indigo-150 cursor-pointer"
+                      >
+                        {translate('reset', config.languageCode)}
+                      </button>
+                    )}
+                  </label>
+                  <DebouncedInput
+                    type="text"
+                    value={selectedCurrency}
+                    onChange={(val) => setSelectedCurrency(val)}
+                    placeholder={config?.currencySymbol || "GH₵ or $"}
+                    className="w-full text-xs text-slate-900 rounded-full px-3 py-2 neumorphic-inset font-mono font-bold text-center focus:outline-hidden transition"
+                  />
+                </div>
+
+                <div className="flex flex-col justify-end">
+                  <span className="text-[8px] font-black text-slate-450 uppercase mb-1">{translate('display client address', config.languageCode)}</span>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showMetaBlock}
+                      onChange={(e) => setShowMetaBlock(e.target.checked)}
+                      className="neumorphic-checkbox"
+                    />
+                    <span className="ml-1.5 text-[9px] font-bold text-slate-650">{translate('show borders on pdf', config.languageCode)}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* ================= RIGHT COLUMN: INTERACTIVE ITEMS & INVENTORY ================= */}
+          <div className="lg:col-span-7 flex flex-col gap-5">
+
+            {/* STORE WAREHOUSE INVENTORY FAST-ADD WIDGET */}
+            <div className="finnova-card p-4 sm:p-5 space-y-3.5">
+              <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-full neumorphic-circle text-slate-900 dark:text-white flex items-center justify-center font-bold shrink-0 border border-slate-300 dark:border-slate-700">
+                    <Search size={14} className="text-slate-900 dark:text-white" />
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-950 dark:text-white font-jakarta">
+                      {translate('store inventory search', config.languageCode)}
+                    </h3>
+                    <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-none mt-0.5 font-extrabold font-jakarta">
+                      {translate('search hardware stock to instantly populate your invoice page', config.languageCode)}
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-[9px] neumorphic-btn text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 px-3 py-1 rounded-full font-extrabold font-jakarta uppercase">
+                  {inventory.length} {translate('products', config.languageCode)}
+                </span>
+              </div>
+
+              {/* SEARCH TEXTBOX */}
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 dark:text-slate-400">
+                  <Search size={13} />
+                </span>
+                <input
+                  type="text"
+                  placeholder={translate('type description, category or sku code to select...', config.languageCode)}
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                  className="w-full text-xs text-slate-950 dark:text-white rounded-full pl-9 pr-4 py-2.5 neumorphic-inset focus:outline-hidden transition placeholder:text-slate-500 dark:placeholder:text-slate-400 font-extrabold font-jakarta"
+                />
+              </div>
+
+              {/* MATCHED STOCK ITEMS GRID */}
+              <div className="max-h-60 overflow-y-auto pr-1 [scrollbar-width:thin] space-y-2">
+                {(() => {
+                  const query = inventorySearch.trim().toLowerCase();
+                  const filtered = inventory.filter(item =>
+                    item.name.toLowerCase().includes(query) ||
+                    item.sku.toLowerCase().includes(query) ||
+                    (item.category || '').toLowerCase().includes(query)
+                  );
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-6 neumorphic-inset rounded-2xl">
+                        <p className="text-[10px] text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider font-jakarta">
+                          {translate('no matching inventory goods found', config.languageCode)}
+                        </p>
+                        <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-bold font-jakarta">
+                          {translate('search the live inventory list above to add an item to this invoice.', config.languageCode)}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return filtered.slice(0, 10).map(item => {
+                    // Check if this SKU is already added on our current invoice rows, and sum the quantity
+                    const addedRowsOfItem = rows.filter(r => r.type === 'billable' && r.sku === item.sku);
+                    const totalQtyAdded = addedRowsOfItem.reduce((acc, curr) => acc + (curr.qty || 0), 0);
 
                     return (
-                      <tr key={log.id} className="hover:bg-slate-200/20 transition border-b border-slate-100">
-                        <td className="py-3.5 px-4 font-medium text-gray-500 whitespace-nowrap">
-                          {new Date(log.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-gray-900">{log.itemName}</div>
-                          <div className="text-[10px] text-gray-400">{translate('sku', config.languageCode)}: {item?.sku || translate('n/a', config.languageCode)} • {translate('category', config.languageCode)}: {item?.category ? translate(item.category.toLowerCase(), config.languageCode) : translate('uncategorized', config.languageCode)}</div>
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-bold text-rose-750 font-mono">
-                          -{qtyDecommissioned} pcs
-                        </td>
-                        {userRole === 2 && (
-                          <>
-                            <td className="py-3.5 px-4 text-right font-mono text-gray-500">
-                              {formatMoney(unitCost)}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-bold font-mono text-rose-600 bg-rose-50/10">
-                              {formatMoney(costLoss)}
-                            </td>
-                          </>
-                        )}
-                        <td className="py-3.5 px-4 text-right font-medium font-mono text-amber-600">
-                          {formatMoney(retailLoss)}
-                        </td>
-                        <td className="py-3.5 px-4 text-gray-600 max-w-xs" title={log.notes}>
-                          <span className="neumorphic-inset px-2.5 py-1 text-slate-800 font-medium break-words block text-[10px] leading-relaxed rounded-lg">
-                            {log.notes}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredDamagedLogs.length === 0 && (
-                    <tr>
-                      <td colSpan={userRole === 2 ? 7 : 5} className="py-12 text-center text-gray-450 font-medium">
-                        <p>{translate('no damage claims or audits registered based on your current filters.', config.languageCode)}</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      <div
+                        key={item.id}
+                        className="p-3 neumorphic-inset rounded-2xl flex items-center justify-between gap-3 text-[10.5px]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-slate-950 dark:text-white uppercase block truncate font-jakarta" title={item.name}>
+                              {item.name}
+                            </span>
+                            <span className="text-[8.5px] neumorphic-btn px-2 py-0.5 rounded text-slate-900 dark:text-white font-extrabold font-jakarta uppercase tracking-wider border border-slate-300 dark:border-slate-700 shrink-0">
+                              SKU: {item.sku}
+                            </span>
+                          </div>
 
-          {/* Audit Ledger Table (Mobile) */}
-          <div className="block md:hidden space-y-3.5">
-            {filteredDamagedLogs.map((log) => {
-              const item = inventory.find(i => i.id === log.itemId);
-              const unitCost = item?.unitCost || 0;
-              const unitPrice = item?.unitPrice || 0;
-              const qtyDecommissioned = Math.abs(log.qtyChanged);
-              const costLoss = qtyDecommissioned * unitCost;
-              const retailLoss = qtyDecommissioned * unitPrice;
+                          <div className="flex items-center gap-3 text-[9.5px] text-slate-700 dark:text-slate-300 font-extrabold font-jakarta mt-1">
+                            <span>
+                              {translate('stock', config.languageCode)}: <b className={`font-jakarta ${item.quantity <= item.reorderPoint ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-slate-900 dark:text-white font-black'}`}>{item.quantity}</b> {translate('rem.', config.languageCode)}
+                            </span>
+                            <span>&middot;</span>
+                            <span>
+                              {translate('price', config.languageCode)}: <b className="text-slate-950 dark:text-white font-black font-jakarta">{selectedCurrency}{item.unitPrice.toFixed(2)}</b>
+                            </span>
+                          </div>
+                        </div>
 
-              return (
-                <div key={log.id} className="finnova-card p-4 space-y-3">
-                  <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <strong className="text-sm font-bold text-gray-905 leading-tight block">{log.itemName}</strong>
-                      <span className="text-[10px] text-gray-400">{translate('logged on', config.languageCode)} {new Date(log.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
-                    </div>
-                    <span className="bg-rose-50 border border-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 font-mono">
-                      -{qtyDecommissioned} pcs
-                    </span>
-                  </div>
-
-                  <div className={`grid ${userRole === 2 ? 'grid-cols-2' : 'grid-cols-1'} gap-2 neumorphic-inset p-2.5 rounded-xl text-[10px] font-mono`}>
-                    {userRole === 2 && (
-                      <div>
-                        <span className="block text-gray-400 text-[8px] uppercase font-bold">{translate('cost loss', config.languageCode)}</span>
-                        <strong className="text-rose-600 text-xs font-bold">{formatMoney(costLoss)}</strong>
+                        {/* Actions controls */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {totalQtyAdded > 0 && (
+                            <span className="text-[8.5px] bg-indigo-600 text-white font-extrabold font-jakarta px-2.5 py-0.5 rounded-full uppercase shadow-xs">
+                              {translate('added', config.languageCode)}: {totalQtyAdded}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleInitiateAddPrompt(item)}
+                            className="neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white font-extrabold font-jakarta uppercase px-3.5 py-1.5 text-[9.5px] cursor-pointer flex items-center gap-1 rounded-xl shadow-sm hover:scale-[1.02] active:scale-[0.98] transition"
+                          >
+                            <Plus size={11} />
+                            <span>{translate('add', config.languageCode)}</span>
+                          </button>
+                        </div>
                       </div>
-                    )}
-                    <div>
-                      <span className="block text-gray-400 text-[8px] uppercase font-bold">{translate('revenue sunk loss', config.languageCode)}</span>
-                      <strong className="text-amber-600 text-xs font-bold">{formatMoney(retailLoss)}</strong>
-                    </div>
-                  </div>
+                    );
+                  });
+                })()}
 
-                  <div className="neumorphic-inset text-slate-700 text-[10px] p-2.5 rounded-xl">
-                    <span className="text-[8px] uppercase text-slate-400 block font-bold mb-0.5">{translate('auditor reason / note', config.languageCode)}</span>
-                    {log.notes}
-                  </div>
-                </div>
-              );
-            })}
-            {filteredDamagedLogs.length === 0 && (
-              <div className="py-12 finnova-card text-center text-gray-400 font-medium">
-                {translate('no damage logs recorded for the selected search terms.', config.languageCode)}
+                {inventory.length > 10 && (
+                  <p className="text-[9px] text-slate-500 dark:text-slate-400 text-center italic pt-1.5 font-bold font-jakarta">
+                    {translate('showing top matching items. use the search box above to narrow down results.', config.languageCode)}
+                  </p>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {inventoryTab === 'restock_validations' && userRole === 2 && (
-        <div className="space-y-6">
-          {/* Header section with Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] p-5 text-slate-900 dark:text-white text-left">
-              <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider flex items-center gap-1">
-                <PackageCheck size={13} className="text-slate-800 dark:text-slate-200" /> Pending Validations
-              </span>
-              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 dark:text-white font-sans">
-                {activePendingRestocks?.filter(r => r.status === 'pending').length || 0} items
-              </strong>
-              <p className="text-[9.5px] text-slate-500 font-medium mt-1">Awaiting blind admin verification</p>
             </div>
 
-            <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] p-5 text-slate-900 dark:text-white text-left">
-              <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider flex items-center gap-1">
-                <ShieldAlert size={13} className="text-slate-800 dark:text-slate-200" /> On Hold (Conflicts)
-              </span>
-              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 dark:text-white font-sans">
-                {activePendingRestocks?.filter(r => r.status === 'on_hold').length || 0} items
-              </strong>
-              <p className="text-[9.5px] text-slate-500 font-medium mt-1">Discrepancies found & query open</p>
-            </div>
-
-            <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] p-5 text-slate-900 dark:text-white text-left">
-              <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider flex items-center gap-1">
-                <CheckCircle2 size={13} className="text-slate-800 dark:text-slate-200" /> Resolved / Approved
-              </span>
-              <strong className="text-xl md:text-2xl font-black block mt-1 text-slate-900 dark:text-white font-sans">
-                {activePendingRestocks?.filter(r => r.status === 'resolved' || r.status === 'approved').length || 0} items
-              </strong>
-              <p className="text-[9.5px] text-slate-500 font-medium mt-1">Successfully added to physical inventory</p>
-            </div>
-          </div>
-
-          {/* Verification section */}
-          <div className="neumorphic-card bg-[#ebf0f7] dark:bg-[#131924] border border-white/90 dark:border-slate-700/80 p-6 space-y-6 text-slate-900 dark:text-white text-left">
-            <div>
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">Verify Pending Restock Quantities</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                Enter your independently counted stock quantity for each restock submission below. If your count matches the attendant's log, the restock is approved automatically. Otherwise, it will be marked "On Hold" so you can query the attendant and resolve any discrepancies.
-              </p>
-            </div>
-
-            {/* List of Pending Restocks */}
-            <div className="space-y-4">
-              {(!activePendingRestocks || activePendingRestocks.filter(r => r.status !== 'resolved' && r.status !== 'approved').length === 0) ? (
-                <div className="p-8 text-center neumorphic-inset rounded-2xl">
-                  <MaterialIcon name="inventory_2" size={32} className="text-slate-700 mb-2 mx-auto block" />
-                  <p className="font-extrabold text-xs text-slate-900">All Restocks Verified</p>
-                  <p className="text-[10.5px] text-slate-500 mt-0.5">There are no pending restock submissions requiring validation at this time.</p>
+            {/* BILL GOODS CURRENTLY ADDED PANEL */}
+            <div className="finnova-card p-4 sm:p-5 space-y-3.5">
+              <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-full neumorphic-circle text-slate-950 dark:text-white font-extrabold text-xs flex items-center justify-center font-jakarta shrink-0 border border-slate-300 dark:border-slate-700">
+                    {rows.length}
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-950 dark:text-white font-jakarta">
+                      {translate('invoice goods on sheet', config.languageCode)}
+                    </h3>
+                    <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 font-extrabold font-jakarta">
+                      {translate('verify added store items and physical quantities below', config.languageCode)}
+                    </p>
+                  </div>
                 </div>
-              ) : (
-                activePendingRestocks.filter(r => r.status !== 'resolved' && r.status !== 'approved').map((restock) => {
-                  return (
-                    <RestockVerificationRow
-                      key={restock.id}
-                      restock={restock}
-                      onVerifyRestock={async (id, adminQty, notes, forceValue) => {
-                        if (onVerifyRestock) {
-                          return await onVerifyRestock(id, adminQty, notes, forceValue);
-                        }
-                        return (restock.attendantQty === adminQty || forceValue !== undefined) ? 'resolved_matched' : 'on_hold';
-                      }}
-                      config={config}
-                    />
-                  );
-                })
+
+
+              </div>
+
+              {/* Added items list mapping */}
+              <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                {rows.length === 0 ? (
+                  <div className="text-center py-10 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl bg-slate-50/20 dark:bg-slate-900/20">
+                    <p className="text-xs text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider font-jakarta">
+                      {translate('no items added to invoice yet', config.languageCode)}
+                    </p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto leading-normal font-bold font-jakarta">
+                      {translate('search and click on live inventory goods in the panel above to populate this invoice.', config.languageCode)}
+                    </p>
+                  </div>
+                ) : (
+                  rows.map((row, index) => (
+                    <div
+                      key={row.id}
+                      className="finnova-card p-4 space-y-3 relative group transition text-[10px] border border-slate-200/80 dark:border-slate-800"
+                    >
+                      {/* Row meta/header actions */}
+                      <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-extrabold text-slate-950 dark:text-white font-jakarta text-xs">
+                            {translate('item #', config.languageCode)} {index + 1}
+                          </span>
+                          <span className="text-[8.5px] neumorphic-btn px-2.5 py-0.5 rounded-full text-slate-900 dark:text-white font-extrabold font-jakarta uppercase tracking-wider border border-slate-300 dark:border-slate-700">
+                            {row.sku ? `SKU: ${row.sku}` : translate('custom', config.languageCode)}
+                          </span>
+
+                          {/* Subtotal calculation */}
+                          <span className="text-[10.5px] text-slate-950 dark:text-white font-extrabold font-jakarta ml-1">
+                            {translate('subtotal', config.languageCode)}: {selectedCurrency}{((row.qty || 0) * (row.rate || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Row reorder buttons */}
+                          <button
+                            type="button"
+                            onClick={() => handleMoveRow(index, 'up')}
+                            disabled={index === 0}
+                            className="w-8 h-8 flex items-center justify-center neumorphic-circle disabled:opacity-30 text-slate-950 dark:text-white hover:text-black dark:hover:text-white font-extrabold cursor-pointer transition active:scale-95 border border-slate-300 dark:border-slate-700"
+                            title={translate('move up', config.languageCode)}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveRow(index, 'down')}
+                            disabled={index === rows.length - 1}
+                            className="w-8 h-8 flex items-center justify-center neumorphic-circle disabled:opacity-30 text-slate-950 dark:text-white hover:text-black dark:hover:text-white font-extrabold cursor-pointer transition active:scale-95 border border-slate-300 dark:border-slate-700"
+                            title={translate('move down', config.languageCode)}
+                          >
+                            ↓
+                          </button>
+
+                          {/* Delete Item */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRow(row.id)}
+                            className="w-8 h-8 flex items-center justify-center neumorphic-circle text-slate-950 dark:text-white hover:text-red-600 dark:hover:text-red-400 cursor-pointer transition active:scale-95 border border-slate-300 dark:border-slate-700"
+                            title={translate('remove item', config.languageCode)}
+                          >
+                            <Trash2 size={13} className="text-slate-950 dark:text-white" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Inputs */}
+                      <div className="space-y-2.5">
+                        <div>
+                          <label className="block text-[9px] text-slate-700 dark:text-slate-300 font-extrabold uppercase mb-1 text-left font-jakarta">{translate('item description / name', config.languageCode)}</label>
+                          <DebouncedInput
+                            type="text"
+                            value={row.title}
+                            onChange={(val) => handleUpdateRow(row.id, { title: val.toUpperCase() })}
+                            className="w-full text-xs text-slate-950 dark:text-white rounded-full px-4 py-2.5 neumorphic-inset font-extrabold font-jakarta text-center uppercase focus:outline-hidden transition"
+                            placeholder={translate('e.g. 8mm nuts', config.languageCode)}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-[9px] text-slate-700 dark:text-slate-300 font-extrabold uppercase mb-1 text-left font-jakarta">{translate('unit price', config.languageCode)}</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={row.rate || 0}
+                              onChange={(e) => handleUpdateRow(row.id, { rate: Number(e.target.value) })}
+                              className="w-full text-xs text-slate-950 dark:text-white rounded-full px-3 py-2.5 neumorphic-inset font-extrabold font-jakarta text-center focus:outline-hidden transition"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] text-slate-700 dark:text-slate-300 font-extrabold uppercase mb-1 text-left font-jakarta">{translate('quantity', config.languageCode)}</label>
+                            <input
+                              type="number"
+                              value={row.qty || 1}
+                              onChange={(e) => handleUpdateRow(row.id, { qty: Number(e.target.value) })}
+                              className="w-full text-xs text-slate-950 dark:text-white rounded-full px-3 py-2.5 neumorphic-inset font-extrabold font-jakarta text-center focus:outline-hidden transition"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] text-slate-700 dark:text-slate-300 font-extrabold uppercase mb-1 text-left font-jakarta">{translate('sku / code', config.languageCode)}</label>
+                            <DebouncedInput
+                              type="text"
+                              value={row.sku || ''}
+                              onChange={(val) => handleUpdateRow(row.id, { sku: val })}
+                              className="w-full text-xs text-slate-950 dark:text-white rounded-full px-3 py-2.5 neumorphic-inset font-extrabold font-jakarta text-center focus:outline-hidden transition"
+                              placeholder={translate('optional', config.languageCode)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Invoice Grand summary total */}
+              {rows.length > 0 && (
+                <div className="neumorphic-inset p-4 sm:p-5 rounded-2xl flex justify-between items-center text-xs">
+                  <span className="font-extrabold uppercase tracking-wider text-slate-900 text-[11px]">
+                    {translate('grand total balance added', config.languageCode)}:
+                  </span>
+                  <span className="font-mono text-sm font-black text-slate-900 tracking-wider">
+                    {selectedCurrency}{invoiceCalculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
               )}
             </div>
 
-            {/* History of Resolved Restocks */}
-            {activePendingRestocks && activePendingRestocks.filter(r => r.status === 'resolved' || r.status === 'approved').length > 0 && (
-              <div className="pt-6 border-t border-white/70 dark:border-slate-700/70">
-                <h4 className="font-bold text-xs text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-3">Validation History (Latest Resolved)</h4>
-                <div className="overflow-x-auto neumorphic-card border border-white/90 dark:border-slate-700/80 rounded-2xl">
-                  <table className="w-full text-left text-[11px] border-collapse">
-                    <thead>
-                      <tr className="neumorphic-inset bg-[#ebf0f7]/70 dark:bg-[#202225]/70 text-slate-600 dark:text-slate-300 border-b border-slate-200/60 dark:border-slate-700/60 font-bold">
-                        <th className="p-3">Item Name</th>
-                        <th className="p-3 text-center">Attendant Qty</th>
-                        <th className="p-3 text-center">Admin Qty</th>
+            {/* Bottom Preview & Print navigation card */}
+            <div className="finnova-card p-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] font-bold text-slate-700">
+              <div className="flex flex-col text-left">
+                <span>{translate('customization details complete?', config.languageCode)}</span>
+                <span className="text-[9px] text-slate-440 font-normal leading-normal mt-0.5">
+                  {translate('press below to build and verify the exact proforma layout format representation.', config.languageCode)}
+                </span>
+              </div>
 
-                        <th className="p-3 text-center">Approved Qty</th>
-                        <th className="p-3">Submitted By</th>
-                        <th className="p-3">Resolved Date</th>
-                        <th className="p-3">Resolution Details</th>
+              <button
+                type="button"
+                onClick={handleShowPreview}
+                className="w-full sm:w-auto px-7 py-3 neumorphic-btn-dark text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Eye size={14} />
+                <span>{translate('preview invoice layout', config.languageCode)}</span>
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* RIGHT: A4 Printable Worksheet/Invoice Live Desk Layout Preview */}
+      <div className={`flex-1 flex flex-col gap-5 overflow-hidden ${viewMode === 'composer' ? 'hidden' : 'w-full'}`}>
+
+        {/* Render Live Top Bar Actions (Crextio & Finnova Aesthetic) */}
+        <div className="finnova-card p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 no-print">
+          <div className="flex items-center gap-3.5">
+            <button
+              type="button"
+              onClick={handleBackToEditor}
+              className="text-xs neumorphic-inset text-slate-900 font-extrabold uppercase tracking-wider px-4 py-2 rounded-full transition flex items-center gap-2 cursor-pointer hover:bg-slate-200/60 pointer-events-auto"
+            >
+              <Undo2 size={14} className="text-slate-700" />
+              <span>{translate('back to editor', config.languageCode)}</span>
+            </button>
+            <div className="hidden md:flex flex-col">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900">{translate('proforma live preview', config.languageCode)}</span>
+              <span className="text-[10px] text-slate-500 font-medium">{translate('exact standard layout template', config.languageCode)}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={handlePrintInvoice}
+              disabled={isPdfBusy}
+              className="text-xs neumorphic-btn-dark px-7 py-3 flex items-center gap-2 cursor-pointer font-sans font-black uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed shadow-md hover:brightness-110 active:scale-95 transition-all"
+            >
+              <Printer size={15} />
+              <span>{translate('print invoice', config.languageCode)}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* The Digital Page Desktop canvas board */}
+        <div id="invoice-print-root" className={`flex-1 overflow-auto px-2 py-6 finnova-card rounded-3xl flex flex-col items-center gap-6 [scrollbar-width:thin] ${isPreviewMode ? 'p-12 bg-slate-300' : ''
+          }`}>
+
+          {itemsPages.map((pageItems, pageIndex) => {
+            const isFirstPage = pageIndex === 0;
+            const isLastPage = pageIndex === itemsPages.length - 1;
+
+            return (
+              <div
+                key={`page-${pageIndex}`}
+                style={{
+                  zoom: previewZoom,
+                  maxWidth: `${sheetWidthMm}mm`
+                }}
+                className="printable-sheet bg-white text-black w-full min-h-[297mm] p-10 sm:p-14 shadow-xl border border-slate-300 relative flex flex-col select-all font-sans text-[12px] leading-relaxed transition-all duration-300 space-y-4 page-break"
+              >
+
+                {/* Top reference strip */}
+                <div className="absolute top-2 left-0 right-0 flex justify-between items-center px-10 sm:px-14 opacity-20 select-none no-print text-[7.5px] font-mono uppercase tracking-widest text-slate-500">
+                  <span>{companyName || translate('proforma invoice', config.languageCode)}</span>
+                  <span>{translate('page', config.languageCode)} {pageIndex + 1} {translate('of', config.languageCode)} {itemsPages.length}</span>
+                </div>
+
+                {/* Header Area: logo and business text use independent positioning layers. */}
+                {isFirstPage && (
+                  <div
+                    className="relative w-full border-b-[5px] border-black pb-3 select-text"
+                    style={{ minHeight: `${Math.max(logoHeight + 12, 98)}px` }}
+                  >
+                    {/* Logo layer: does not participate in the text layout. */}
+                    <div
+                      className="absolute left-0 bottom-1 flex items-center justify-center p-0.5 bg-white overflow-hidden z-10"
+                      style={{ width: `${logoWidth}px`, height: `${logoHeight}px` }}
+                    >
+                      {logoImage ? (
+                        <img
+                          src={logoImage}
+                          alt={translate('company logo', config.languageCode)}
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        // Standard Google MaterialIcon store badge fallback
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 border border-slate-300 rounded-xl text-slate-900">
+                          <MaterialIcon name="storefront" size={Math.min(36, logoWidth * 0.5)} />
+                          <span className="text-[7.5px] font-black uppercase text-slate-900 tracking-wider mt-0.5">
+                            {translate('company', config.languageCode)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Text layer: always uses the full header width and remains centered. */}
+                    <div className="w-full flex flex-col items-center text-center">
+                      <h1 className="text-xl sm:text-2xl font-extrabold tracking-wider text-black uppercase" style={{ fontFamily: 'Arial, sans-serif' }}>
+                        {companyName}
+                      </h1>
+
+                      {/* Black solid bar with white text */}
+                      <div className="bg-black text-white px-2 sm:px-4 py-1 w-full text-[10px] sm:text-[11px] font-black uppercase text-center my-1 tracking-wider">
+                        {companySubHeader}
+                      </div>
+
+                      <div className="text-[9px] sm:text-[10px] font-extrabold text-black uppercase tracking-wider leading-tight">
+                        {companyAddress}
+                      </div>
+
+                      <div className="text-[8.5px] sm:text-[9.5px] font-extrabold text-black uppercase tracking-wide mt-0.5">
+                        {companyContact}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Professional Subheading line */}
+                {isFirstPage && (
+                  <div
+                    style={{
+                      paddingTop: `${professionalPaddingY}px`,
+                      paddingBottom: `${professionalPaddingY}px`,
+                      width: `${professionalWidthPct}%`,
+                      marginLeft: professionalAlign === 'center' ? 'auto' : professionalAlign === 'right' ? 'auto' : '0px',
+                      marginRight: professionalAlign === 'center' ? 'auto' : professionalAlign === 'left' ? 'auto' : '0px',
+                    }}
+                    className=""
+                  >
+                    <h2
+                      style={{
+                        fontSize: `${professionalFontSize}px`,
+                        textAlign: professionalAlign,
+                      }}
+                      className="font-black text-black uppercase tracking-wider leading-tight select-text"
+                    >
+                      {professionalTag}
+                    </h2>
+                  </div>
+                )}
+
+                {/* Proforma Invoice Rounded Black Pill */}
+                {isFirstPage && (
+                  <div className="flex justify-start pt-1">
+                    <div className="bg-black text-white px-5 py-1.5 rounded-lg text-xs sm:text-xs font-black uppercase tracking-widest">
+                      {documentTopic}
+                    </div>
+                  </div>
+                )}
+
+                {/* Metadata (Invoice No & Date) */}
+                {isFirstPage && (
+                  <div className="flex justify-between items-center text-xs sm:text-[13px] font-black text-black pt-1">
+                    <div className="shrink-0 whitespace-nowrap">
+                      {translate('invoice no', config.languageCode).toUpperCase()}: <span>{invoiceNo}</span>
+                    </div>
+                    <div className="shrink-0 whitespace-nowrap">
+                      {translate('date', config.languageCode).toUpperCase()}: <span>{invoiceDate}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bill To & Address columns */}
+                {showMetaBlock && isFirstPage && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="border border-black bg-white flex flex-col font-black text-black">
+                      <div className="border-b border-black px-2 py-0.5 bg-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-black">
+                        {translate('bill to', config.languageCode).toUpperCase()}
+                      </div>
+                      <div className="p-2 min-h-[44px] text-xs font-extrabold text-black uppercase whitespace-pre-wrap select-text">
+                        {billTo || <div className="h-4 border-b border-dashed border-gray-300 w-full mt-2" />}
+                      </div>
+                    </div>
+
+                    <div className="border border-black bg-white flex flex-col font-black text-black">
+                      <div className="border-b border-black px-2 py-0.5 bg-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-black">
+                        {translate('address', config.languageCode).toUpperCase()} :
+                      </div>
+                      <div className="p-2 min-h-[44px] text-xs font-extrabold text-black uppercase whitespace-pre-wrap select-text">
+                        {clientAddress || <div className="h-4 border-b border-dashed border-gray-300 w-full mt-2" />}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* The High-Fidelity Items Grid Table */}
+                <div className="w-full pt-2">
+                  <table className="w-full border-collapse font-sans text-xs sm:text-[13px] text-black font-extrabold table-fixed">
+                    <thead>
+                      <tr className="bg-black text-white text-center">
+                        <th className="border border-black px-2 py-1.5 text-center text-[10px] sm:text-[11px] font-black uppercase tracking-wider w-[12%]">{translate('qty', config.languageCode).toUpperCase()}</th>
+                        <th className="border border-black px-2 py-1.5 text-center text-[10px] sm:text-[11px] font-black uppercase tracking-wider w-[52%]">{translate('item description', config.languageCode).toUpperCase()}</th>
+                        <th className="border border-black px-2 py-1.5 text-center text-[10px] sm:text-[11px] font-black uppercase tracking-wider w-[18%]">{translate('unit price', config.languageCode).toUpperCase()}</th>
+                        <th className="border border-black px-2 py-1.5 text-center text-[10px] sm:text-[11px] font-black uppercase tracking-wider w-[18%]">{translate('total due', config.languageCode).toUpperCase()}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 text-slate-700 dark:text-slate-200">
-                      {activePendingRestocks.filter(r => r.status === 'resolved' || r.status === 'approved').slice(0, 10).map((r) => (
-                        <tr key={r.id} className="hover:bg-slate-50/50 transition">
-                          <td className="p-3 font-bold text-slate-900 dark:text-white">{r.itemName}</td>
-                          <td className="p-3 text-center font-mono font-medium">{r.attendantQty}</td>
-                          <td className="p-3 text-center font-mono font-medium">{r.adminInputQty ?? 'N/A'}</td>
-                          <td className="p-3 text-center font-mono font-bold text-emerald-600">{r.resolvedQty}</td>
-                          <td className="p-3 font-medium">{r.submittedBy}</td>
-                          <td className="p-3 font-mono text-slate-500">
-                            {new Date(r.resolvedAt || r.date).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td className="p-3 max-w-xs truncate" title={r.discrepancyNotes || 'Automatically approved (quantities matched)'}>
-                            <span className="text-[10px] text-slate-500 dark:text-slate-300 leading-snug">
-                              {r.discrepancyNotes || 'Auto-approved (matched)'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody>
+                      {/* Map actual rows for this page pageItems */}
+                      {pageItems.map((row) => {
+                        const qty = row.qty || 0;
+                        const rate = row.rate || 0;
+                        const total = qty * rate;
+                        return (
+                          <tr key={row.id} className="text-black font-black uppercase h-[32px]">
+                            <td className="border border-black px-2 py-1 text-center font-mono text-[11px] sm:text-xs">
+                              {qty}
+                            </td>
+                            <td className="border border-black px-3 py-1 font-sans truncate text-center" title={row.title}>
+                              {row.title}
+                            </td>
+                            <td className="border border-black px-2 py-1 text-center font-mono text-[11px] sm:text-xs">
+                              {selectedCurrency}{rate.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="border border-black px-2 py-1 text-center font-mono text-[11px] sm:text-xs">
+                              {selectedCurrency}{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* MODAL: ADD / EDIT ITEM */}
-      {showAddEditModal && (
-        <div
-          onClick={() => setShowAddEditModal(false)}
-          className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 overflow-y-auto cursor-pointer"
-        >
-          <motion.div
-            onClick={(e) => e.stopPropagation()}
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col cursor-default border border-white/80 dark:border-slate-800 neumorphic-card"
-          >
-            {/* Header */}
-            <div className="bg-slate-100/90 dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-slate-200/80 dark:border-slate-800">
-              <h3 className="font-extrabold text-sm flex items-center gap-1.5">
-                <Package size={16} className="text-sky-600 dark:text-sky-400" /> {editingItemId ? translate('update inventory card', config.languageCode) : translate('create new stock profile', config.languageCode)}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowAddEditModal(false)}
-                className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-3 py-1 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
-              >
-                {translate('close', config.languageCode)}
-              </button>
-            </div>
-
-            {/* Form body */}
-            <form onSubmit={handleSaveItem} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-              {itemSaveError && (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2 animate-fade-in">
-                  <AlertCircle size={16} className="shrink-0 text-red-500" />
-                  <span>{itemSaveError}</span>
-                </div>
-              )}
-
-              {/* Product Name */}
-              <div>
-                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('product title *', config.languageCode)}</label>
-                <input
-                  type="text"
-                  placeholder={translate('e.g. ergonomic premium desk pad', config.languageCode)}
-                  value={itemName}
-                  onChange={(e) => setItemName(e.target.value)}
-                  className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
-                />
-              </div>
-              {/* Product Image */}
-              <div>
-                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">Product image</label>
-                <div className="flex items-center gap-3">
-                  <div className="w-24 h-24 rounded-xl neumorphic-inset bg-[#ebf0f7] dark:bg-slate-950/80 border border-white/80 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
-                    {itemImagePreview ? (
-                      <img src={itemImagePreview} alt="Product preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <ImagePlus size={24} className="text-slate-400 dark:text-slate-500" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <input
-                      ref={itemImageInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => void handleImageFileChange(e.target.files?.[0])}
-                      className="block w-full text-xs text-slate-600 dark:text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-xs file:font-extrabold file:text-white hover:file:bg-sky-600 file:cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void startCamera()}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-[11px] font-extrabold text-white hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 cursor-pointer"
-                    >
-                      <Camera size={13} />
-                      Take photo
-                    </button>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Upload an image up to 5 MB or take a live photo with your device camera.</p>
-                    {itemImageFile && (
-                      <button
-                        type="button"
-                        onClick={handleClearSelectedImage}
-                        className="text-[10px] font-extrabold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
-                      >
-                        Remove selected image
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {isCameraOpen && (
-                  <div className="mt-3 rounded-xl neumorphic-inset bg-[#ebf0f7] dark:bg-slate-950/80 border border-white/80 dark:border-slate-800 p-2">
-                    <video
-                      ref={cameraVideoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full max-h-64 rounded-lg bg-black object-cover"
-                    />
-                    <div className="flex items-center justify-end gap-2 mt-2">
-                      <button
-                        type="button"
-                        onClick={stopCamera}
-                        className="rounded-lg px-3 py-1.5 text-[11px] font-extrabold text-slate-700 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800 cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={captureCameraPhoto}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-extrabold text-white hover:bg-sky-600 cursor-pointer"
-                      >
-                        <Camera size={13} />
-                        Capture photo
-                      </button>
+                {/* Unbreakable Payment Footer Container (Grand Total Box + Bank Details Block) */}
+                {isLastPage && (
+                  <div className="invoice-payment-footer-container w-full pt-2">
+                    {/* Grand Total Box (aligned with right table columns) */}
+                    <div className="flex justify-end mb-3">
+                      <div className="flex border-2 border-black font-black bg-white select-text">
+                        <div className="border-r-2 border-black px-4 py-1.5 text-center font-black uppercase tracking-wide text-[10.5px] sm:text-[11px] bg-white text-black">
+                          {translate('grand total', config.languageCode).toUpperCase()}
+                        </div>
+                        <div className="px-5 py-1.5 text-center font-black font-mono text-xs sm:text-[13.5px] bg-white text-black min-w-[130px]">
+                          {selectedCurrency}
+                          {invoiceCalculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-              {/* SKU & Category Row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('stock sku *', config.languageCode)}</label>
-                  <input
-                    type="text"
-                    placeholder={translate('e.g. dp-881', config.languageCode)}
-                    value={itemSku}
-                    onChange={(e) => setItemSku(e.target.value)}
-                    className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white font-mono placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('classification category', config.languageCode)}</label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const willOpen = !isCategoryDropdownOpen;
-                        setIsCategoryDropdownOpen(willOpen);
-                        if (willOpen && allAvailableCategories.length === 0) {
-                          setIsAddingNewCategory(true);
-                        }
-                      }}
-                      className="w-full rounded-xl neumorphic-inset p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white font-extrabold text-left flex items-center justify-between cursor-pointer border border-white/80 dark:border-slate-800 shadow-sm"
-                    >
-                      <span className="truncate">{itemCategory || translate('select category', config.languageCode)}</span>
-                      <ChevronDown size={14} className={`transition-transform duration-200 text-sky-500 shrink-0 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
 
-                    {isCategoryDropdownOpen && (
-                      <div className="absolute z-50 mt-1.5 w-full rounded-2xl neumorphic-card p-2.5 bg-[#ebf0f7] dark:bg-[#1e2124] border border-white/90 dark:border-slate-700/80 shadow-2xl space-y-1.5 animate-fade-in max-h-64 flex flex-col">
-                        <div className="flex-1 overflow-y-auto space-y-1 pr-1 [scrollbar-width:thin] max-h-40">
-                          {allAvailableCategories.length === 0 ? (
-                            <div className="py-3 px-2 text-center text-slate-500 dark:text-slate-400">
-                              <p className="text-xs font-bold">{translate('no custom categories yet', config.languageCode) || 'No categories created yet.'}</p>
-                              <p className="text-[10px] text-slate-400 font-medium">{translate('add your first category below', config.languageCode) || 'Create your business category below'}</p>
-                            </div>
-                          ) : (
-                            allAvailableCategories.map((catName) => (
-                              <div
-                                key={catName}
-                                className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between group cursor-pointer ${itemCategory === catName
-                                  ? 'neumorphic-inset bg-gradient-to-r from-sky-500 to-blue-600 text-white font-black shadow-inner'
-                                  : 'hover:bg-white/60 dark:hover:bg-slate-800/60 text-slate-800 dark:text-slate-200'
-                                  }`}
-                                onClick={() => {
-                                  setItemCategory(catName);
-                                  setIsCategoryDropdownOpen(false);
-                                }}
-                              >
-                                <span className="truncate">{translate(catName.toLowerCase(), config.languageCode) || catName}</span>
-                                <div className="flex items-center gap-1.5">
-                                  {itemCategory === catName && <Check size={13} className="text-white shrink-0" />}
-                                  {businessCategories.includes(catName) && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => void handleDeleteCategory(catName, e)}
-                                      className={`p-1 rounded-lg opacity-0 group-hover:opacity-100 transition hover:bg-red-500 hover:text-white ${itemCategory === catName ? 'text-white/80' : 'text-slate-400 hover:text-white'
-                                        }`}
-                                      title={translate('delete category', config.languageCode)}
-                                    >
-                                      <Trash2 size={11} />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-
-                        {/* Add New Custom Category row */}
-                        <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80">
-                          {isAddingNewCategory ? (
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="text"
-                                autoFocus
-                                value={newCategoryInput}
-                                onChange={(e) => setNewCategoryInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    void handleCreateCategory(newCategoryInput);
-                                  } else if (e.key === 'Escape') {
-                                    setIsAddingNewCategory(false);
-                                    setNewCategoryInput('');
-                                  }
-                                }}
-                                placeholder={translate('category name...', config.languageCode)}
-                                className="flex-1 min-w-0 w-0 text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-sky-400/80 focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  void handleCreateCategory(newCategoryInput);
-                                }}
-                                disabled={!newCategoryInput.trim()}
-                                className="flex-none min-w-[52px] px-2.5 py-1.5 rounded-xl bg-sky-500 text-white text-[11px] font-black hover:bg-sky-600 active:scale-95 transition disabled:opacity-40 cursor-pointer"
-                              >
-                                {translate('add', config.languageCode)}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsAddingNewCategory(false);
-                                  setNewCategoryInput('');
-                                }}
-                                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
-                              >
-                                <X size={13} />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setIsAddingNewCategory(true);
-                              }}
-                              className="w-full py-1.5 px-3 rounded-xl border border-dashed border-sky-500/50 hover:border-sky-500 text-sky-600 dark:text-sky-400 text-xs font-extrabold flex items-center justify-center gap-1.5 hover:bg-sky-500/10 active:scale-95 transition cursor-pointer"
-                            >
-                              <Plus size={13} />
-                              <span>{translate('add custom category', config.languageCode)}</span>
-                            </button>
-                          )}
-                        </div>
+                    {/* Optional tenant-specific payment instructions. */}
+                    {[paymentInstructionsTitle, paymentBankName, paymentAccountNumber, paymentBranch].some((value) => value.trim()) && (
+                      <div className="text-left self-start max-w-sm select-text font-sans space-y-0.5">
+                        {paymentInstructionsTitle.trim() && (
+                          <div className="text-[11px] font-black text-black uppercase tracking-wider underline decoration-black decoration-1.5 underline-offset-2 mb-1">
+                            {paymentInstructionsTitle}
+                          </div>
+                        )}
+                        {paymentBankName.trim() && (
+                          <div className="text-[11px] font-black text-black uppercase leading-snug">
+                            {paymentBankName}
+                          </div>
+                        )}
+                        {paymentAccountNumber.trim() && (
+                          <div className="text-[11px] font-black text-black tracking-wide leading-snug select-all">
+                            {paymentAccountNumber}
+                          </div>
+                        )}
+                        {paymentBranch.trim() && (
+                          <div className="text-[11px] font-black text-black uppercase leading-snug">
+                            {paymentBranch}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
+                )}
 
-              {/* Qty & Reorder Trigger Row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('initial hand quantity', config.languageCode)}</label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder={translate('e.g. 50', config.languageCode)}
-                    value={itemQty}
-                    onChange={(e) => setItemQty(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('low-stock guard level', config.languageCode)}</label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder={translate('e.g. 10 (will alert)', config.languageCode)}
-                    value={itemReorder}
-                    onChange={(e) => setItemReorder(e.target.value === '' ? '' : Number(e.target.value))}
-                    disabled={userRole !== 2}
-                    className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
-                  {userRole !== 2 && (
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 block font-semibold">Only Admins can set the shortage level.</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Cost & retail selling Price Row */}
-              <div className={userRole === 2 ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
-                {userRole === 2 && (
-                  <div>
-                    <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('incoming asset cost', config.languageCode)} ({config.currencySymbol})</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder={translate('e.g. 15.00', config.languageCode)}
-                      value={itemCost}
-                      onChange={(e) => setItemCost(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium font-mono"
-                    />
+                {/* Custom generic notes or non-billable rows helper */}
+                {isLastPage && rows.filter(r => r.type !== 'billable').length > 0 && (
+                  <div className="pt-2 space-y-2 border-t border-dashed border-gray-400 no-print">
+                    {rows.filter(r => r.type !== 'billable').map((row, idx) => (
+                      <div key={row.id} className="text-xs font-bold text-black uppercase">
+                        <div>{idx + 1}. {row.title}</div>
+                        {row.blankSpacingLines && row.blankSpacingLines > 0 ? (
+                          <div className="space-y-2 pt-1">
+                            {Array.from({ length: row.blankSpacingLines }).map((_, lIdx) => (
+                              <div key={lIdx} className="h-0 border-b border-dashed border-gray-400 w-full" />
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
                 )}
-                <div>
-                  <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('retail selling price', config.languageCode)} ({config.currencySymbol})</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder={translate('e.g. 29.99', config.languageCode)}
-                    value={itemPrice}
-                    onChange={(e) => setItemPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                    disabled={userRole !== 2}
-                    className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium font-mono disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
-                  {userRole !== 2 && (
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 block font-semibold">Only Admins can edit the selling price.</span>
-                  )}
+
+                {/* Print Footer Details */}
+                <div className="border-t border-black pt-2 text-[8px] sm:text-[9.5px] text-center font-mono uppercase tracking-widest text-black shrink-0 mt-auto flex justify-center select-none">
+                  <span>{companyName}</span>
                 </div>
+
+              </div>
+            );
+          })}
+        </div>
+
+      </div>
+
+      {/* POPUP QUANTITY PROMPT DIALOG overlay */}
+      <AnimatePresence>
+        {qtyModalOpen && (
+          <div
+            onClick={() => setQtyModalOpen(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print cursor-pointer"
+          >
+            <motion.div
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="finnova-card rounded-3xl border border-slate-700/60 dark:border-slate-800 p-6 w-full max-w-sm shadow-2xl flex flex-col gap-5 relative cursor-default text-slate-900 dark:text-white"
+            >
+              {/* Header Badge & Title */}
+              <div className="text-center space-y-1.5">
+                <span className="neumorphic-btn px-3 py-1 rounded-full text-[9px] font-extrabold font-jakarta uppercase tracking-wider text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 inline-block">
+                  {qtyModalItem ? translate('stock item quantity prompt', config.languageCode) : translate('custom line quantity prompt', config.languageCode)}
+                </span>
+                <h3 className="text-sm font-extrabold text-slate-950 dark:text-white uppercase tracking-wide pt-1 font-jakarta">
+                  {qtyModalItem ? qtyModalItem.name : translate('custom good or credit line', config.languageCode)}
+                </h3>
+                {qtyModalItem && (
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-extrabold font-jakarta">
+                    {translate('sku', config.languageCode)}: <b className="text-slate-900 dark:text-slate-200 font-bold uppercase">{qtyModalItem.sku}</b> &middot; {translate('price', config.languageCode)}: <b className="text-slate-900 dark:text-white font-bold">{selectedCurrency}{qtyModalItem.unitPrice.toFixed(2)}</b> &middot; {translate('stock', config.languageCode)}: <b className="text-slate-900 dark:text-white font-bold">{qtyModalItem.quantity}</b>
+                  </p>
+                )}
               </div>
 
-              {/* Vendor & Shelf Location Row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('supplier vendor source', config.languageCode)}</label>
-                  <input
-                    type="text"
-                    placeholder={translate('e.g. eldorado goods', config.languageCode)}
-                    value={itemSupplier}
-                    onChange={(e) => setItemSupplier(e.target.value)}
-                    className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('shelf location designation', config.languageCode)}</label>
-                  <input
-                    type="text"
-                    placeholder={translate('e.g. aisle e - shelf 3', config.languageCode)}
-                    value={itemLocation}
-                    onChange={(e) => setItemLocation(e.target.value)}
-                    className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
-                  />
-                </div>
-              </div>
-
-              {/* Remarks / Spec Notes */}
-              <div>
-                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('internal item remarks', config.languageCode)}</label>
-                <textarea
-                  placeholder={translate('insert special quality traits or re-stocking parameters...', config.languageCode)}
-                  value={itemNotes}
-                  onChange={(e) => setItemNotes(e.target.value)}
-                  className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium h-20 resize-none"
-                />
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 flex justify-end gap-2.5 shrink-0">
+              {/* STEPPER CONTAINER (INSET NEUMORPHIC TRACK WITH ZERO OVERFLOW) */}
+              <div className="neumorphic-inset bg-slate-100/90 dark:bg-slate-950/80 p-3 rounded-2xl flex items-center justify-between gap-3 border border-slate-200/80 dark:border-slate-800 w-full overflow-hidden">
                 <button
                   type="button"
-                  onClick={() => setShowAddEditModal(false)}
-                  disabled={isSavingItem || isPreparingImage}
-                  className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-5 py-2.5 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700 disabled:opacity-50"
+                  onClick={() => {
+                    const current = parseInt(qtyInputValue, 10) || 0;
+                    if (current > 1) {
+                      setQtyInputValue(String(current - 1));
+                    }
+                  }}
+                  className="w-11 h-11 rounded-xl neumorphic-btn text-slate-900 dark:text-white font-extrabold text-xl flex items-center justify-center cursor-pointer transition active:scale-95 shrink-0"
                 >
-                  {translate('dismiss', config.languageCode)}
+                  -
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSavingItem || isPreparingImage}
-                  className="px-6 py-2.5 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold rounded-xl neumorphic-btn shadow-md transition-all text-xs cursor-pointer border border-white/30 dark:border-slate-700/60 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {isSavingItem ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin text-white" />
-                      <span>{translate('saving product...', config.languageCode) || 'Saving product...'}</span>
-                    </>
-                  ) : (
-                    <span>{translate('save product', config.languageCode)}</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
 
-      {/* MODAL: STOCK ADJUSTMENT */}
-      {showAdjustModal && (
-        <div
-          onClick={() => setShowAdjustModal(false)}
-          className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 cursor-pointer"
-        >
-          <motion.div
-            onClick={(e) => e.stopPropagation()}
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col cursor-default border border-white/80 dark:border-slate-800 neumorphic-card"
-          >
-            {/* Header */}
-            <div className="bg-slate-100/90 dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-slate-200/80 dark:border-slate-800">
-              <h3 className="font-extrabold text-sm flex items-center gap-1.5">
-                <ArrowUpDown size={15} className="text-sky-600 dark:text-sky-400" /> {translate('change item inventory units', config.languageCode)}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowAdjustModal(false)}
-                className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-3 py-1 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
-              >
-                {translate('close', config.languageCode)}
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSaveAdjustment} className="p-6 space-y-4 text-xs">
-              <div>
-                <span className="block text-slate-500 dark:text-slate-400 font-extrabold mb-1">{translate('target product', config.languageCode)}:</span>
-                <strong className="text-slate-900 dark:text-white text-sm block bg-[#ebf0f7] dark:bg-slate-950/80 p-3 rounded-xl border border-white/80 dark:border-slate-800 neumorphic-inset font-bold">
-                  {inventory.find(i => i.id === adjustItemId)?.name} (SKU: {inventory.find(i => i.id === adjustItemId)?.sku})
-                </strong>
-              </div>
-
-              {/* Adjustment Reason Type */}
-              <div>
-                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1.5">{translate('movement reason / action', config.languageCode)}</label>
-                <div className={`grid ${userRole === 5 ? 'grid-cols-1' : 'grid-cols-2'} gap-2.5`}>
-                  <button
-                    type="button"
-                    onClick={() => setAdjustType('purchase_in')}
-                    className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'purchase_in'
-                      ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                      : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
-                      }`}
-                  >
-                    <ArrowDownCircle size={14} className={adjustType === 'purchase_in' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('stock procurement (+ in)', config.languageCode)}
-                  </button>
-                  {userRole !== 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setAdjustType('sale_out')}
-                      className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'sale_out'
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                        : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
-                        }`}
-                    >
-                      <ArrowUpCircle size={14} className={adjustType === 'sale_out' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('product outflow (- out)', config.languageCode)}
-                    </button>
-                  )}
-                  {userRole !== 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setAdjustType('damaged')}
-                      className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'damaged'
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                        : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
-                        }`}
-                    >
-                      {translate('stock damaged (- out)', config.languageCode)}
-                    </button>
-                  )}
-                  {userRole !== 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setAdjustType('returned')}
-                      className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 cursor-pointer font-extrabold text-xs transition ${adjustType === 'returned'
-                        ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-md shadow-sky-500/25 border-none'
-                        : 'neumorphic-btn text-slate-800 dark:text-white hover:text-black dark:hover:text-white border border-white/80 dark:border-slate-700'
-                        }`}
-                    >
-                      <RotateCcw size={14} className={adjustType === 'returned' ? 'text-white' : 'text-slate-800 dark:text-slate-200'} /> {translate('client return (+ in)', config.languageCode)}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Units Amount */}
-              <div>
-                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('adjust quantity amount', config.languageCode)}</label>
                 <input
-                  type="number"
-                  min="1"
-                  required
-                  placeholder={translate('quantity (e.g. 15)', config.languageCode) || 'Quantity (e.g. 15)'}
-                  value={qtyChangeAmt}
-                  onChange={(e) => setQtyChangeAmt(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
-                />
-              </div>
-
-              {/* Optional comments */}
-              <div>
-                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('movement comments', config.languageCode) || 'Movement Comments'}</label>
-                <input
+                  ref={qtyInputRef}
                   type="text"
-                  placeholder={translate('e.g. received shipment from anker', config.languageCode) || 'e.g. Received shipment from Anker'}
-                  value={adjustNotes}
-                  onChange={(e) => setAdjustNotes(e.target.value)}
-                  className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={qtyInputValue}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '');
+                    setQtyInputValue(val);
+                  }}
+                  onKeyDown={handleQtyKeyDown}
+                  className="w-24 text-center bg-transparent text-3xl font-black font-jakarta text-slate-950 dark:text-white border-none outline-hidden focus:ring-0 select-all"
                 />
-              </div>
 
-              {/* Submit Buttons */}
-              <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 flex justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setShowAdjustModal(false)}
-                  className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-5 py-2.5 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
+                  onClick={() => {
+                    const current = parseInt(qtyInputValue, 10) || 0;
+                    setQtyInputValue(String(current + 1));
+                  }}
+                  className="w-11 h-11 rounded-xl neumorphic-btn text-slate-900 dark:text-white font-extrabold text-xl flex items-center justify-center cursor-pointer transition active:scale-95 shrink-0"
                 >
-                  {translate('dismiss', config.languageCode)}
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold rounded-xl neumorphic-btn shadow-md transition-all text-xs cursor-pointer border border-white/30 dark:border-slate-700/60 active:scale-[0.98]"
-                >
-                  {translate('publish adjustment', config.languageCode) || 'Publish Adjustment'}
+                  +
                 </button>
               </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
 
-      {/* MODAL: REPORT DAMAGED GOODS */}
-      {showDamageModal && (
-        <div
-          onClick={() => setShowDamageModal(false)}
-          className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 cursor-pointer"
-        >
-          <motion.div
-            onClick={(e) => e.stopPropagation()}
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#ebf0f7] dark:bg-[#131924] text-slate-900 dark:text-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col cursor-default border border-white/80 dark:border-slate-800 neumorphic-card"
-          >
-            {/* Header */}
-            <div className="bg-slate-100/90 dark:bg-[#0f172a] p-4 text-slate-900 dark:text-white flex justify-between items-center shrink-0 border-b border-slate-200/80 dark:border-slate-800">
-              <h3 className="font-extrabold text-sm flex items-center gap-1.5 text-slate-900 dark:text-white">
-                <PackageX size={15} className="text-rose-500 dark:text-rose-400" /> {translate('report damaged stock (audit writeoff)', config.languageCode)}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowDamageModal(false)}
-                className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-3 py-1 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
-              >
-                {translate('close', config.languageCode)}
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSaveDamageReport} className="p-6 space-y-4 text-xs animate-fadeIn">
-              {/* Product Selection */}
-              <div>
-                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1.5">{translate('select damaged product', config.languageCode)}</label>
-                <select
-                  value={damageItemId}
-                  onChange={(e) => setDamageItemId(e.target.value)}
-                  className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
-                >
-                  <option value="" disabled className="dark:bg-slate-900">{translate('-- choose product --', config.languageCode)}</option>
-                  {inventory.map(item => (
-                    <option key={item.id} value={item.id} className="dark:bg-slate-900">
-                      {item.name} (SKU: {item.sku}) [{translate('in stock', config.languageCode)}: {item.quantity} pcs]
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Display Stock Warning if selected */}
-              {damageItemId && (
-                <div className="bg-[#ebf0f7] dark:bg-slate-950/60 p-3 rounded-xl border border-white/80 dark:border-slate-800 flex justify-between text-xs text-slate-600 dark:text-slate-300 neumorphic-inset">
-                  <span>{translate('current available qty', config.languageCode)}:</span>
-                  <strong className="text-slate-900 dark:text-white font-extrabold">
-                    {inventory.find(i => i.id === damageItemId)?.quantity || 0} {translate('units', config.languageCode)}
-                  </strong>
+              {/* QUICK QUANTITY PRESETS */}
+              <div className="space-y-2">
+                <span className="text-[9px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-left font-jakarta">
+                  {translate('quick quantity presets', config.languageCode)}
+                </span>
+                <div className="grid grid-cols-5 gap-2 font-jakarta">
+                  {[1, 5, 10, 50, 100].map((presetVal) => {
+                    const isSelected = parseInt(qtyInputValue, 10) === presetVal;
+                    return (
+                      <button
+                        key={presetVal}
+                        type="button"
+                        onClick={() => setQtyInputValue(String(presetVal))}
+                        className={`py-2 rounded-xl text-xs font-extrabold transition cursor-pointer text-center font-jakarta ${isSelected
+                          ? 'neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white border border-slate-700/60 shadow-md scale-105'
+                          : 'neumorphic-btn text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
+                          }`}
+                      >
+                        {presetVal}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
-
-              {/* Units Damaged */}
-              <div>
-                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('quantity damaged', config.languageCode)}</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  placeholder={translate('units count (e.g. 5)', config.languageCode)}
-                  value={damageQty}
-                  onChange={(e) => setDamageQty(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white font-mono placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"
-                />
               </div>
 
-              {/* Mandatory Explanation Reasoning */}
-              <div>
-                <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('audit justification / comments', config.languageCode) || 'Audit Justification / Comments'}</label>
-                <textarea
-                  required
-                  placeholder={translate('mandatory reasons (e.g. water damage, dropping packages, product expiration...)', config.languageCode)}
-                  value={damageNotes}
-                  onChange={(e) => setDamageNotes(e.target.value)}
-                  rows={3}
-                  className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium resize-none"
-                />
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 flex justify-end gap-2.5 shrink-0">
+              {/* CONFIRMATION ACTIONS */}
+              <div className="grid grid-cols-2 gap-3 pt-1 font-jakarta">
                 <button
                   type="button"
-                  onClick={() => setShowDamageModal(false)}
-                  className="neumorphic-btn text-slate-900 dark:text-white rounded-full px-5 py-2.5 text-xs font-extrabold hover:text-black dark:hover:text-white transition cursor-pointer border border-white/80 dark:border-slate-700"
+                  onClick={() => setQtyModalOpen(false)}
+                  className="neumorphic-btn py-3 px-4 rounded-2xl text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-white hover:text-red-600 dark:hover:text-red-400 transition cursor-pointer active:scale-95"
                 >
-                  {translate('dismiss', config.languageCode)}
+                  {translate('cancel', config.languageCode)}
                 </button>
                 <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 dark:from-rose-500 dark:to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-extrabold rounded-xl neumorphic-btn shadow-md transition-all text-xs cursor-pointer border border-white/30 dark:border-slate-700/60 active:scale-[0.98]"
+                  type="button"
+                  disabled={!qtyInputValue || parseInt(qtyInputValue, 10) <= 0}
+                  onClick={handleConfirmAddQty}
+                  className="neumorphic-btn bg-slate-950 text-white dark:bg-slate-800 dark:text-white py-3 px-4 rounded-2xl text-xs font-extrabold uppercase tracking-wider hover:scale-[1.02] active:scale-[0.98] transition cursor-pointer shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {translate('write off damaged stock', config.languageCode)}
+                  {translate('confirm add', config.languageCode)}
                 </button>
               </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
