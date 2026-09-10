@@ -30,7 +30,7 @@ import NeumorphicSelect, { NeumorphicSelectOption } from './NeumorphicSelect';
 
 export interface InvoiceAiCommand {
   id: string;
-  action: 'generate_invoice' | 'add_invoice_item' | 'preview_invoice' | 'print_invoice';
+  action: 'generate_invoice' | 'add_invoice_item' | 'adjust_invoice_item_price' | 'preview_invoice' | 'print_invoice';
   args: Record<string, any>;
 }
 
@@ -640,6 +640,28 @@ export default function InvoiceGeneratorScreen({
         ? [args]
         : [];
 
+    if (aiCommand.action === 'adjust_invoice_item_price') {
+      const itemId = String(args.itemId || '');
+      const itemName = String(args.itemName || args.name || '').trim().toLowerCase();
+      const requestedPrice = Number(args.newPrice ?? args.price);
+      const matchingInventoryItem = inventory.find(item =>
+        (itemId && item.id === itemId) ||
+        (itemName && item.name.toLowerCase() === itemName)
+      );
+      if (Number.isFinite(requestedPrice) && requestedPrice >= 0) {
+        setRows(previousRows => previousRows.map(row => {
+          const matchesItem = row.type === 'billable' && (
+            (matchingInventoryItem && row.sku === matchingInventoryItem.sku) ||
+            (itemName && row.title.toLowerCase() === itemName)
+          );
+          return matchesItem ? { ...row, rate: requestedPrice } : row;
+        }));
+        setGuidedInvoiceStep('confirming-print');
+      }
+      onAiCommandHandled?.(aiCommand.id);
+      return;
+    }
+
     if (args.invoiceNumber || args.invoiceNo) setInvoiceNo(String(args.invoiceNumber || args.invoiceNo));
     if (args.invoiceDate) setInvoiceDate(String(args.invoiceDate));
     if (args.customerName || args.billTo) setBillTo(String(args.customerName || args.billTo).toUpperCase());
@@ -676,9 +698,9 @@ export default function InvoiceGeneratorScreen({
           );
           if (!inventoryItem) return;
           const quantity = Math.max(1, Number(requestedItem.quantity ?? requestedItem.qty ?? 1) || 1);
-          const rate = requestedItem.rate !== undefined
-            ? Number(requestedItem.rate) || inventoryItem.unitPrice
-            : inventoryItem.unitPrice;
+          // Invoice creation starts from the catalog selling price. Any
+          // negotiated estimate is a separate, explicit invoice-line edit.
+          const rate = Number(inventoryItem.unitPrice) || 0;
           const existingIndex = nextRows.findIndex(row => row.type === 'billable' && row.sku === inventoryItem.sku);
           if (existingIndex >= 0) {
             nextRows[existingIndex] = {

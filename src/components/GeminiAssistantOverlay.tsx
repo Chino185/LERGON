@@ -47,7 +47,7 @@ interface GeminiAssistantOverlayProps {
   setPendingRestocks?: React.Dispatch<React.SetStateAction<PendingRestock[]>>;
   setConfig?: React.Dispatch<React.SetStateAction<BusinessConfig>>;
   onUpdateConfig?: (cfg: BusinessConfig) => void;
-  onInvoiceCommand?: (command: { action: 'generate_invoice' | 'add_invoice_item' | 'preview_invoice' | 'print_invoice'; args: Record<string, any> }) => void;
+  onInvoiceCommand?: (command: { action: 'generate_invoice' | 'add_invoice_item' | 'adjust_invoice_item_price' | 'preview_invoice' | 'print_invoice'; args: Record<string, any> }) => void;
   businessId?: string;
   backendNotifications?: BackendNotification[];
   readNotificationIds?: string[];
@@ -895,15 +895,15 @@ export default function GeminiAssistantOverlay({
 
           console.log("🤖 [GEMINI LIVE OVERLAY] Executing tool call request from AI:", name, args);
 
-          const guidedInvoiceActions = ['generate_invoice', 'add_invoice_item', 'preview_invoice', 'print_invoice'];
+          const guidedInvoiceActions = ['generate_invoice', 'add_invoice_item', 'adjust_invoice_item_price', 'preview_invoice', 'print_invoice'];
           if (guidedInvoiceActions.includes(name)) {
             if ((name === 'preview_invoice' || name === 'print_invoice') && args?.confirmed !== true) {
               addCorrectionToast("Invoice confirmation required", "The invoice action was not performed because confirmation was missing.");
               return;
             }
             setActiveScreen('invoice');
-            onInvoiceCommand?.({ action: name as 'generate_invoice' | 'add_invoice_item' | 'preview_invoice' | 'print_invoice', args: args || {} });
-            addCorrectionToast("Invoice assistant", name === 'print_invoice' ? "Printing the confirmed invoice." : name === 'preview_invoice' ? "Opening the confirmed invoice preview." : "Invoice details updated.");
+            onInvoiceCommand?.({ action: name as 'generate_invoice' | 'add_invoice_item' | 'adjust_invoice_item_price' | 'preview_invoice' | 'print_invoice', args: args || {} });
+            addCorrectionToast("Invoice assistant", name === 'print_invoice' ? "Printing the confirmed invoice." : name === 'preview_invoice' ? "Opening the confirmed invoice preview." : name === 'adjust_invoice_item_price' ? `Invoice line price adjusted to ${config.currencySymbol || ''}${Number(args?.newPrice ?? args?.price ?? 0).toFixed(2)}.` : "Invoice details updated.");
             return;
           }
 

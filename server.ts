@@ -1255,7 +1255,7 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
         
         CONFIRMATION & SAFETY DIRECTIVES:
         - For consequential actions that modify inventory, process payments, change prices, generate invoices, or delete items (e.g. process_sale, record_stock_restock, update_item_price), ask for verbal confirmation first unless the operator gave an explicit direct command containing all parameters.
-        - Invoice workflow: when the operator asks to create an invoice, use generate_invoice to open the invoice editor and add only confirmed live inventory items. Ask for the item name, then quantity when missing. After each addition ask, "Are these the only items you want to add?" Keep using add_invoice_item for additional items. Only after the operator says yes or confirms the list, call preview_invoice with confirmed=true and ask, "Does the preview look good?" Only after the operator explicitly agrees, call print_invoice with confirmed=true. Never call print_invoice without that final confirmation.
+        - Invoice workflow: when the operator asks to create an invoice, use generate_invoice to open the invoice editor and add only confirmed live inventory items. Ask for the item name, then quantity when missing. Do not send a rate or invent a price: the invoice UI must use the item's live inventory selling_price/unitPrice. After each addition ask, "Are these the only items you want to add?" Keep using add_invoice_item for additional items. Only after the operator says yes or confirms the list, call preview_invoice with confirmed=true and ask, "Does the preview look good?" If the operator requests a different estimate for a specific invoice line, use adjust_invoice_item_price with the line item name and new amount in the configured currency; this changes only the invoice, not inventory. After price edits ask for confirmation again. Only after the operator explicitly agrees, call print_invoice with confirmed=true. Never call print_invoice without that final confirmation.
         - For non-destructive or read-only actions (e.g. export_inventory_csv, navigate_to_page, query_activity_log), execute the tool call immediately. Previewing and printing an invoice still require the staged confirmations above.
 
         When the operator gives a clear instruction to sell an item, record a payment, restock an item, or correct a quantity/balance, execute the correct tool immediately using the real item/account names and current values found in the data sections below, and verbally confirm the transaction with the specific name and amount involved.
@@ -1728,14 +1728,13 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                           openPreview: { type: Type.BOOLEAN, description: "Deprecated compatibility field. Ignore this field and wait for the separate preview confirmation step." },
                           items: {
                             type: Type.ARRAY,
-                            description: "Items to add from live inventory search. Each item must identify an existing inventory item by itemName or itemId and may include quantity and rate.",
+                            description: "Items to add from live inventory search. Each item must identify an existing inventory item by itemName or itemId and includes quantity only; the UI supplies the live selling price.",
                             items: {
                               type: Type.OBJECT,
                               properties: {
                                 itemId: { type: Type.STRING },
                                 itemName: { type: Type.STRING },
-                                quantity: { type: Type.NUMBER },
-                                rate: { type: Type.NUMBER }
+                                quantity: { type: Type.NUMBER }
                               }
                             }
                           }
@@ -1751,10 +1750,22 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                         properties: {
                           itemId: { type: Type.STRING },
                           itemName: { type: Type.STRING },
-                          quantity: { type: Type.NUMBER },
-                          rate: { type: Type.NUMBER }
+                          quantity: { type: Type.NUMBER }
                         },
                         required: ["quantity"]
+                      }
+                    },
+                    {
+                      name: "adjust_invoice_item_price",
+                      description: "Changes the unit price of an existing invoice line only, using the amount in the configured business currency. This does not change the inventory selling price.",
+                      parameters: {
+                        type: Type.OBJECT,
+                        properties: {
+                          itemId: { type: Type.STRING },
+                          itemName: { type: Type.STRING },
+                          newPrice: { type: Type.NUMBER, description: "The revised invoice-only unit price in the configured business currency." }
+                        },
+                        required: ["itemName", "newPrice"]
                       }
                     },
                     {
