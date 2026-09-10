@@ -1952,14 +1952,14 @@ body {
     min-width: 36rem;
   }
 
-  #app-main-content .fixed.inset-0 {
+  #app-main-content .fixed.inset-0:not(.gemini-panel-backdrop) {
     padding: 0.5rem;
     padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
 
-  #app-main-content .fixed.inset-0 > div,
-  #app-main-content .fixed.inset-0 > form,
-  #app-main-content .fixed.inset-0 > section {
+  #app-main-content .fixed.inset-0:not(.gemini-panel-backdrop) > div,
+  #app-main-content .fixed.inset-0:not(.gemini-panel-backdrop) > form,
+  #app-main-content .fixed.inset-0:not(.gemini-panel-backdrop) > section {
     width: min(100%, 42rem);
     max-width: 100%;
     max-height: calc(100dvh - 1rem);

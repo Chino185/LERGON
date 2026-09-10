@@ -1932,6 +1932,12 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
             audio: { data: msg.audio, mimeType: "audio/pcm;rate=16000" },
           });
         }
+      } else if (msg.type === "text") {
+        if (liveSession && msg.text) {
+          liveSession.sendRealtimeInput({
+            text: msg.text,
+          });
+        }
       }
     } catch (err: any) {
       console.error("Error processing websocket message:", err);

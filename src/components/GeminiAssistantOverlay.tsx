@@ -23,7 +23,8 @@ import {
   Briefcase,
   Layers,
   Users,
-  ShieldCheck
+  ShieldCheck,
+  Send
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { BusinessConfig, InventoryItem, CreditAccount, StockAdjustment, CreditTransaction, PendingRestock, BackendNotification, Organization } from "../types";
@@ -85,6 +86,7 @@ export default function GeminiAssistantOverlay({
   // AI Hub UI Panel states
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"health" | "speech" | "live">("health");
+  const [textPromptInput, setTextPromptInput] = useState("");
 
   // Weekly Speech Advisor config
   const [closingDay, setClosingDay] = useState<number>(() => {
@@ -819,8 +821,24 @@ export default function GeminiAssistantOverlay({
       setVoiceError("");
 
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const inputAudioCtx = new AudioContextClass({ sampleRate: 16000 });
-      const outputAudioCtx = new AudioContextClass({ sampleRate: 24000 });
+      if (!AudioContextClass) {
+        throw new Error("Web Audio API is not supported in this browser.");
+      }
+
+      let inputAudioCtx: AudioContext;
+      let outputAudioCtx: AudioContext;
+
+      try {
+        inputAudioCtx = new AudioContextClass({ sampleRate: 16000 });
+      } catch {
+        inputAudioCtx = new AudioContextClass();
+      }
+
+      try {
+        outputAudioCtx = new AudioContextClass({ sampleRate: 24000 });
+      } catch {
+        outputAudioCtx = new AudioContextClass();
+      }
       
       if (inputAudioCtx.state === "suspended") {
         await inputAudioCtx.resume();
@@ -1548,18 +1566,51 @@ export default function GeminiAssistantOverlay({
     }
   };
 
+  function downsampleTo16k(input: Float32Array, inputSampleRate: number): Float32Array {
+    if (inputSampleRate === 16000) return input;
+    const ratio = inputSampleRate / 16000;
+    const newLength = Math.round(input.length / ratio);
+    const result = new Float32Array(newLength);
+    let offsetResult = 0;
+    let offsetInput = 0;
+    while (offsetResult < result.length) {
+      const nextOffsetInput = Math.round((offsetResult + 1) * ratio);
+      let accum = 0;
+      let count = 0;
+      for (let i = offsetInput; i < nextOffsetInput && i < input.length; i++) {
+        accum += input[i];
+        count++;
+      }
+      result[offsetResult] = count > 0 ? accum / count : input[offsetInput];
+      offsetResult++;
+      offsetInput = nextOffsetInput;
+    }
+    return result;
+  }
+
   const startMicRecording = async () => {
     try {
-      // 1. Request hardware & browser echo/noise suppression constraints
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: { ideal: 16000 },
-          channelCount: 1
-        }
-      });
+      // 1. Request hardware & browser echo/noise suppression constraints with mobile fallback
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: { ideal: 16000 },
+            channelCount: 1
+          }
+        });
+      } catch {
+        // Fallback for mobile devices that reject ideal sampleRate or channelCount constraints
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        });
+      }
       micStreamRef.current = stream;
 
       const inputAudioCtx = inputAudioCtxRef.current;
@@ -1622,7 +1673,9 @@ export default function GeminiAssistantOverlay({
           setIsNoiseGateActive(false);
         }
 
-        const pcmBuffer = floatTo16BitPCM(channelData);
+        const currentSampleRate = inputAudioCtx.sampleRate || 16000;
+        const resampledData = currentSampleRate === 16000 ? channelData : downsampleTo16k(channelData, currentSampleRate);
+        const pcmBuffer = floatTo16BitPCM(resampledData);
         const base64PCM = arrayBufferToBase64(pcmBuffer);
 
         wsRef.current.send(JSON.stringify({
@@ -1632,7 +1685,9 @@ export default function GeminiAssistantOverlay({
       };
     } catch (err: any) {
       console.error("Mic error:", err);
-      setVoiceError("Microphone access failed.");
+      setVoiceError(err.name === "NotAllowedError" || err.name === "PermissionDeniedError" 
+        ? "Microphone access was denied. Please allow microphone permissions in browser settings."
+        : "Microphone access failed: " + (err.message || "Device error"));
       setVoiceStatus("error");
     }
   };
@@ -1653,8 +1708,7 @@ export default function GeminiAssistantOverlay({
       }
     }
 
-    const outputAudioCtx = outputAudioCtxRef.current;
-    nextStartTimeRef.current = outputAudioCtx?.currentTime ?? 0;
+    nextStartTimeRef.current = 0;
   };
 
   const playAudioChunk = (base64PCM: string) => {
@@ -1666,8 +1720,29 @@ export default function GeminiAssistantOverlay({
     }
 
     const float32Data = base64ToFloat32(base64PCM);
-    const audioBuffer = outputAudioCtx.createBuffer(1, float32Data.length, 24000);
-    audioBuffer.getChannelData(0).set(float32Data);
+    let audioBuffer: AudioBuffer;
+    try {
+      audioBuffer = outputAudioCtx.createBuffer(1, float32Data.length, 24000);
+      audioBuffer.getChannelData(0).set(float32Data);
+    } catch {
+      const targetRate = outputAudioCtx.sampleRate || 24000;
+      if (targetRate === 24000) {
+        audioBuffer = outputAudioCtx.createBuffer(1, float32Data.length, 24000);
+        audioBuffer.getChannelData(0).set(float32Data);
+      } else {
+        const ratio = targetRate / 24000;
+        const newLen = Math.round(float32Data.length * ratio);
+        audioBuffer = outputAudioCtx.createBuffer(1, newLen, targetRate);
+        const outData = audioBuffer.getChannelData(0);
+        for (let i = 0; i < newLen; i++) {
+          const origIdx = i / ratio;
+          const i0 = Math.floor(origIdx);
+          const i1 = Math.min(i0 + 1, float32Data.length - 1);
+          const frac = origIdx - i0;
+          outData[i] = float32Data[i0] * (1 - frac) + float32Data[i1] * frac;
+        }
+      }
+    }
 
     const source = outputAudioCtx.createBufferSource();
     source.buffer = audioBuffer;
@@ -1731,6 +1806,31 @@ export default function GeminiAssistantOverlay({
       disconnectVoiceSession();
     } else {
       connectVoiceSession();
+    }
+  };
+
+  const sendTextToLive = (textToSend?: string) => {
+    const text = (textToSend ?? textPromptInput).trim();
+    if (!text) return;
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "text", text }));
+      addCorrectionToast("AI Prompt Sent", `"${text}"`);
+      setTextPromptInput("");
+    } else {
+      connectVoiceSession();
+      addCorrectionToast("Connecting AI", "Connecting Live session to process prompt...");
+    }
+  };
+
+  const handleOrbClick = () => {
+    if (!isPanelOpen) {
+      setIsPanelOpen(true);
+      setActiveTab("live");
+      if (!isVoiceConnected && voiceStatus !== "connecting") {
+        connectVoiceSession();
+      }
+    } else {
+      closePanel();
     }
   };
 
@@ -1811,8 +1911,7 @@ export default function GeminiAssistantOverlay({
                   onClick={() => {
                     setIsPanelOpen(true);
                     setActiveTab("speech");
-                    // Delay slightly to allow the panel transition, then play!
-                    setTimeout(() => speakBriefing(), 300);
+                    speakBriefing();
                   }}
                   className="neumorphic-inset bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white font-black text-xs px-4.5 py-2 rounded-full cursor-pointer flex items-center gap-1.5 shadow-md hover:scale-[1.02] active:scale-[0.98] transition"
                 >
@@ -1826,7 +1925,12 @@ export default function GeminiAssistantOverlay({
       </AnimatePresence>
 
       {/* 2. FLOATING SIRI-STYLE ORB LAUNCHER */}
-      <div className="fixed bottom-6 right-6 z-50 no-print" id="floating-siri-launcher">
+      <div 
+        className={`fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] right-5 sm:right-6 sm:bottom-6 z-50 no-print transition-all duration-300 ${
+          isPanelOpen ? "opacity-0 pointer-events-none scale-75" : "opacity-100 scale-100"
+        }`} 
+        id="floating-siri-launcher"
+      >
         <div className="relative flex items-center justify-center">
           
           {/* Continuous Ambient Breathing Glow Aura (Shows Active AI State) */}
@@ -1886,8 +1990,8 @@ export default function GeminiAssistantOverlay({
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            onClick={toggleVoiceSession}
-            title={isWakeWordListening ? "AI Assistant (Say 'RICHARD' to wake up)" : "Start AI Voice Conversation"}
+            onClick={handleOrbClick}
+            title={isWakeWordListening ? "AI Assistant (Say 'RICHARD' to wake up)" : "Open AI Command Center & Voice"}
             className="h-14 w-14 !rounded-full neumorphic-card neumorphic-circle shadow-2xl flex items-center justify-center text-white cursor-pointer relative z-20 border-2 border-white/80 dark:border-slate-700/80 transition-all select-none bg-slate-900 dark:bg-[#1a1c1e]"
           >
             {voiceStatus === "connecting" ? (
@@ -1933,14 +2037,14 @@ export default function GeminiAssistantOverlay({
       {/* 3. SLIDE-OUT AI INTELLIGENCE COMMAND PANEL */}
       <AnimatePresence>
         {isPanelOpen && (
-          <div className="fixed inset-0 z-40 flex justify-end bg-slate-950/60 no-print" onClick={closePanel}>
+          <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/70 backdrop-blur-xs no-print gemini-panel-backdrop" onClick={closePanel}>
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 26, stiffness: 220 }}
               onClick={(e) => e.stopPropagation()} // Prevent closing when clicking panel
-              className="w-full max-w-md h-full bg-slate-950 border-l border-slate-900 shadow-2xl flex flex-col overflow-hidden text-slate-100"
+              className="w-full max-w-md h-full bg-slate-950 border-l border-slate-900 shadow-2xl flex flex-col overflow-hidden text-slate-100 safe-bottom"
             >
               {/* Panel Header */}
               <div className="p-4 border-b border-slate-900 bg-slate-950 flex items-center justify-between">
@@ -2389,6 +2493,56 @@ export default function GeminiAssistantOverlay({
                           <span>{voiceError || "Voice error. Verify microphone permissions."}</span>
                         </div>
                       )}
+                    </div>
+
+                    {/* Quick Command Prompt & Text Fallback Input (Optimized for Mobile & Noisy Environments) */}
+                    <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between text-[10px] text-slate-300 font-bold uppercase tracking-wider">
+                        <span>Direct Action Command</span>
+                        <span className="text-[9px] text-slate-500 font-normal lowercase">type or tap to execute</span>
+                      </div>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          sendTextToLive();
+                        }}
+                        className="flex items-center gap-1.5"
+                      >
+                        <input
+                          type="text"
+                          value={textPromptInput}
+                          onChange={(e) => setTextPromptInput(e.target.value)}
+                          placeholder="e.g. Sell 2 backpacks for cash..."
+                          className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 transition"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!textPromptInput.trim()}
+                          className="p-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white rounded-xl transition cursor-pointer shrink-0 flex items-center justify-center"
+                          title="Send command to AI"
+                        >
+                          <Send size={15} />
+                        </button>
+                      </form>
+
+                      {/* Quick Mobile Action Chips */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {[
+                          "Sell 1 backpack for cash",
+                          "Restock 5 Tumblers",
+                          "Go to inventory",
+                          "Scroll down"
+                        ].map((chip) => (
+                          <button
+                            key={chip}
+                            type="button"
+                            onClick={() => sendTextToLive(chip)}
+                            className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 transition cursor-pointer active:scale-95"
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Mute toggle / details */}
