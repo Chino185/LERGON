@@ -111,48 +111,71 @@ export default function InvoiceGeneratorScreen({
   aiCommand = null,
   onAiCommandHandled
 }: InvoiceGeneratorScreenProps) {
+  // Persistent Invoice Draft Storage Key (scoped to business/org or user)
+  const draftStorageKey = `velo_invoice_draft_${currentOrgId || currentUserUid || 'default'}`;
+
+  // Helper to load draft safely
+  const loadSavedDraft = () => {
+    try {
+      const raw = localStorage.getItem(draftStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (e) {
+      console.warn('Failed to parse invoice draft from storage', e);
+    }
+    return null;
+  };
+
+  const [initialDraft] = useState(() => loadSavedDraft());
+
   // Preset types
   type PresetType = 'invoice_credit' | 'custom';
-  const [activePreset, setActivePreset] = useState<PresetType>('invoice_credit');
+  const [activePreset, setActivePreset] = useState<PresetType>(() => initialDraft?.activePreset || 'invoice_credit');
 
   // Page layout state
-  const [companyName, setCompanyName] = useState(() => config?.businessName || '');
-  const [companySubHeader, setCompanySubHeader] = useState('');
-  const [companyAddress, setCompanyAddress] = useState(() => config?.address || '');
-  const [companyContact, setCompanyContact] = useState(() => [config?.phone, config?.email].filter(Boolean).join('   '));
-  const [professionalTag, setProfessionalTag] = useState('');
-  const [documentTopic, setDocumentTopic] = useState('PROFORMA INVOICE');
-  const [paymentInstructionsTitle, setPaymentInstructionsTitle] = useState('');
-  const [paymentBankName, setPaymentBankName] = useState('');
-  const [paymentAccountNumber, setPaymentAccountNumber] = useState('');
-  const [paymentBranch, setPaymentBranch] = useState('');
+  const [companyName, setCompanyName] = useState(() => initialDraft?.companyName ?? (config?.businessName || ''));
+  const [companySubHeader, setCompanySubHeader] = useState(() => initialDraft?.companySubHeader ?? '');
+  const [companyAddress, setCompanyAddress] = useState(() => initialDraft?.companyAddress ?? (config?.address || ''));
+  const [companyContact, setCompanyContact] = useState(() => initialDraft?.companyContact ?? [config?.phone, config?.email].filter(Boolean).join('   '));
+  const [professionalTag, setProfessionalTag] = useState(() => initialDraft?.professionalTag ?? '');
+  const [documentTopic, setDocumentTopic] = useState(() => initialDraft?.documentTopic ?? 'PROFORMA INVOICE');
+  const [paymentInstructionsTitle, setPaymentInstructionsTitle] = useState(() => initialDraft?.paymentInstructionsTitle ?? '');
+  const [paymentBankName, setPaymentBankName] = useState(() => initialDraft?.paymentBankName ?? '');
+  const [paymentAccountNumber, setPaymentAccountNumber] = useState(() => initialDraft?.paymentAccountNumber ?? '');
+  const [paymentBranch, setPaymentBranch] = useState(() => initialDraft?.paymentBranch ?? '');
 
-  const [invoiceNo, setInvoiceNo] = useState(() => `INV-${Date.now().toString().slice(-8)}`);
-  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
-  const [billTo, setBillTo] = useState('');
-  const [clientAddress, setClientAddress] = useState('');
+  const [invoiceNo, setInvoiceNo] = useState(() => initialDraft?.invoiceNo ?? `INV-${Date.now().toString().slice(-8)}`);
+  const [invoiceDate, setInvoiceDate] = useState(() => initialDraft?.invoiceDate ?? new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
+  const [billTo, setBillTo] = useState(() => initialDraft?.billTo ?? '');
+  const [clientAddress, setClientAddress] = useState(() => initialDraft?.clientAddress ?? '');
 
   // Sizing and scaling state
-  const [showMetaBlock, setShowMetaBlock] = useState(true);
-  const [spacingScale, setSpacingScale] = useState<number>(3); // 1 to 5 scale for spacing
+  const [showMetaBlock, setShowMetaBlock] = useState(() => initialDraft?.showMetaBlock ?? true);
+  const [spacingScale, setSpacingScale] = useState<number>(() => initialDraft?.spacingScale ?? 3); // 1 to 5 scale for spacing
   const [successAnimation, setSuccessAnimation] = useState(false);
   const [isPdfBusy, setIsPdfBusy] = useState(false);
   const persistedInvoiceFingerprint = useRef<string | null>(null);
   const persistedInvoiceId = useRef<string | null>(null);
 
   // Customizable Logo state (Custom files only + size adjustment)
-  const [logoImage, setLogoImage] = useState<string>(''); // base64 uploaded image string
-  const [logoWidth, setLogoWidth] = useState<number>(84); // logo display width in px
-  const [logoHeight, setLogoHeight] = useState<number>(84); // logo display height in px
+  const [logoImage, setLogoImage] = useState<string>(() => initialDraft?.logoImage ?? ''); // base64 uploaded image string
+  const [logoWidth, setLogoWidth] = useState<number>(() => initialDraft?.logoWidth ?? 84); // logo display width in px
+  const [logoHeight, setLogoHeight] = useState<number>(() => initialDraft?.logoHeight ?? 84); // logo display height in px
 
   // Sub-heading tag line customization (left aligned by default + size/width/height controls)
-  const [professionalAlign, setProfessionalAlign] = useState<'left' | 'center' | 'right'>('left');
-  const [professionalFontSize, setProfessionalFontSize] = useState<number>(13); // text size in px
-  const [professionalPaddingY, setProfessionalPaddingY] = useState<number>(6); // controls tagline padding/height in px
-  const [professionalWidthPct, setProfessionalWidthPct] = useState<number>(100); // controls tagline wrapper width %
+  const [professionalAlign, setProfessionalAlign] = useState<'left' | 'center' | 'right'>(() => initialDraft?.professionalAlign ?? 'left');
+  const [professionalFontSize, setProfessionalFontSize] = useState<number>(() => initialDraft?.professionalFontSize ?? 13); // text size in px
+  const [professionalPaddingY, setProfessionalPaddingY] = useState<number>(() => initialDraft?.professionalPaddingY ?? 6); // controls tagline padding/height in px
+  const [professionalWidthPct, setProfessionalWidthPct] = useState<number>(() => initialDraft?.professionalWidthPct ?? 100); // controls tagline wrapper width %
 
-  // Custom document rows state
-  const [rows, setRows] = useState<DocRow[]>([]);
+  // Custom document rows state (loaded from draft so switching tabs never loses items)
+  const [rows, setRows] = useState<DocRow[]>(() => {
+    if (Array.isArray(initialDraft?.rows)) {
+      return initialDraft.rows;
+    }
+    return [];
+  });
   const [inventorySearch, setInventorySearch] = useState('');
 
   // Quantity prompt modal states
@@ -177,10 +200,102 @@ export default function InvoiceGeneratorScreen({
   const [viewMode, setViewMode] = useState<'composer' | 'preview'>('composer');
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [guidedInvoiceStep, setGuidedInvoiceStep] = useState<'idle' | 'confirming-items' | 'confirming-preview' | 'confirming-print'>('idle');
-  const [invoiceAccountId, setInvoiceAccountId] = useState<string>('');
-  const [selectedCurrency, setSelectedCurrency] = useState(config?.currencySymbol || 'GH₵');
+  const [invoiceAccountId, setInvoiceAccountId] = useState<string>(() => initialDraft?.invoiceAccountId ?? '');
+  const [selectedCurrency, setSelectedCurrency] = useState(() => initialDraft?.selectedCurrency ?? (config?.currencySymbol || 'GH₵'));
   const [previewZoom, setPreviewZoom] = useState<number>(0.85); // default 0.85 scale for print preview fit
   const [sheetWidthMm, setSheetWidthMm] = useState<number>(210); // standard A4 sheet width (210mm)
+
+  // Automatically persist invoice draft to localStorage so switching tabs or refreshing never loses items or draft work
+  useEffect(() => {
+    try {
+      const draftPayload = {
+        rows,
+        activePreset,
+        companyName,
+        companySubHeader,
+        companyAddress,
+        companyContact,
+        professionalTag,
+        documentTopic,
+        paymentInstructionsTitle,
+        paymentBankName,
+        paymentAccountNumber,
+        paymentBranch,
+        invoiceNo,
+        invoiceDate,
+        billTo,
+        clientAddress,
+        invoiceAccountId,
+        selectedCurrency,
+        showMetaBlock,
+        spacingScale,
+        logoImage,
+        logoWidth,
+        logoHeight,
+        professionalAlign,
+        professionalFontSize,
+        professionalPaddingY,
+        professionalWidthPct,
+      };
+      localStorage.setItem(draftStorageKey, JSON.stringify(draftPayload));
+    } catch (err) {
+      console.warn('Failed to save invoice draft to localStorage', err);
+    }
+  }, [
+    draftStorageKey,
+    rows,
+    activePreset,
+    companyName,
+    companySubHeader,
+    companyAddress,
+    companyContact,
+    professionalTag,
+    documentTopic,
+    paymentInstructionsTitle,
+    paymentBankName,
+    paymentAccountNumber,
+    paymentBranch,
+    invoiceNo,
+    invoiceDate,
+    billTo,
+    clientAddress,
+    invoiceAccountId,
+    selectedCurrency,
+    showMetaBlock,
+    spacingScale,
+    logoImage,
+    logoWidth,
+    logoHeight,
+    professionalAlign,
+    professionalFontSize,
+    professionalPaddingY,
+    professionalWidthPct,
+  ]);
+
+  // Explicitly clear all invoice rows (called only by the user)
+  const handleClearAllRows = () => {
+    if (rows.length === 0) return;
+    setRows([]);
+  };
+
+  // Explicitly start a fresh invoice (called only by the user)
+  const handleNewInvoice = () => {
+    if (rows.length > 0 || billTo) {
+      const confirmed = window.confirm(
+        translate('Are you sure you want to clear this draft and start a new invoice?', config.languageCode)
+      );
+      if (!confirmed) return;
+    }
+    setRows([]);
+    setBillTo('');
+    setClientAddress('');
+    setInvoiceAccountId('');
+    setInvoiceNo(`INV-${Date.now().toString().slice(-8)}`);
+    setInvoiceDate(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
+    try {
+      localStorage.removeItem(draftStorageKey);
+    } catch {}
+  };
 
   // Active credit account computing for autofills
   const activeUnpaidDetails = useMemo(() => {
@@ -200,17 +315,10 @@ export default function InvoiceGeneratorScreen({
     };
   }, [invoiceAccountId, creditAccounts, adjustments, transactions, selectedCurrency]);
 
-  // Load layout preset without inventing business or inventory records.
-  // Billable rows are always selected from the live inventory search widget.
+  // Load layout preset without wiping user's items or client details
   const handleLoadPreset = (preset: PresetType, selectedAccId?: string) => {
     setActivePreset(preset);
-    setCompanyName(config?.businessName || '');
-    setCompanyAddress(config?.address || '');
-    setCompanyContact([config?.phone, config?.email].filter(Boolean).join('   '));
-    setCompanySubHeader('');
-    setProfessionalTag('');
     setDocumentTopic(preset === 'invoice_credit' ? 'PROFORMA INVOICE' : 'INVOICE');
-    setSelectedCurrency(config?.currencySymbol || '');
 
     setLogoWidth(preset === 'invoice_credit' ? 84 : 90);
     setLogoHeight(preset === 'invoice_credit' ? 84 : 90);
@@ -225,13 +333,8 @@ export default function InvoiceGeneratorScreen({
         setBillTo(acc.name.toUpperCase());
         setClientAddress(acc.email || '');
         setInvoiceDate(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase());
-        return;
       }
     }
-
-    setBillTo('');
-    setClientAddress('');
-    setRows([]);
   };
 
   // Autofill selector change
@@ -891,6 +994,17 @@ export default function InvoiceGeneratorScreen({
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
+            {(rows.length > 0 || billTo) && (
+              <button
+                type="button"
+                onClick={handleNewInvoice}
+                className="w-full sm:w-auto px-4 py-2.5 neumorphic-btn text-red-600 dark:text-red-400 font-extrabold rounded-full flex items-center justify-center gap-1.5 cursor-pointer text-xs hover:bg-red-50 dark:hover:bg-red-950/30 transition border border-red-200 dark:border-red-900/40"
+                title={translate('clear invoice draft and start a new one', config.languageCode)}
+              >
+                <Trash2 size={13} />
+                <span>{translate('new invoice', config.languageCode)}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleShowPreview}
@@ -1495,7 +1609,17 @@ export default function InvoiceGeneratorScreen({
                   </div>
                 </div>
 
-
+                {rows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllRows}
+                    className="text-[10px] font-extrabold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1.5 neumorphic-btn px-3 py-1.5 rounded-xl transition cursor-pointer border border-red-200 dark:border-red-900/40"
+                    title={translate('remove all added goods from this invoice', config.languageCode)}
+                  >
+                    <Trash2 size={12} />
+                    <span>{translate('clear all items', config.languageCode)}</span>
+                  </button>
+                )}
               </div>
 
               {/* Added items list mapping */}
