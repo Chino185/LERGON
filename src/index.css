@@ -1386,7 +1386,6 @@ html {
 
   #app-shell {
     width: 100%;
-    overflow-x: hidden;
     /* Safe-area padding for notched devices */
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
@@ -1394,7 +1393,6 @@ html {
 
   #app-main-content {
     width: 100%;
-    overflow-x: hidden;
     padding-left: 0.75rem;
     padding-right: 0.75rem;
   }
@@ -1700,26 +1698,32 @@ body,
   min-height: 100%;
 }
 
+html,
+body {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
 #app-shell {
   min-height: 100dvh;
+  width: 100%;
 }
 
 #app-shell.app-shell {
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100dvh;
+  height: auto;
+  overflow: visible;
 }
 
 #app-main-content {
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior-y: contain;
-  scrollbar-gutter: stable;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  overflow: visible;
 }
 
 #app-main-content > div {
   min-width: 0;
+  width: 100%;
 }
 
 @media (max-width: 1279px) {
@@ -1728,7 +1732,9 @@ body,
   }
 
   #app-shell.app-shell {
-    height: 100dvh;
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
   }
 
   #app-shell > header {
@@ -1740,7 +1746,7 @@ body,
   }
 
   #app-main-content {
-    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
