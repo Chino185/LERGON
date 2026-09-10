@@ -943,9 +943,7 @@ export default function GeminiAssistantOverlay({
 
           console.log("⚡ [ACTION REGISTRY RESULT]:", actionResult);
 
-          if (actionResult.success) {
-            addCorrectionToast("AI Action Executed", actionResult.message);
-          } else {
+          if (!actionResult.success) {
             addCorrectionToast("AI Action Blocked", actionResult.message);
           }
 
@@ -1014,69 +1012,65 @@ export default function GeminiAssistantOverlay({
             }
           } else if (name === "scroll_page") {
             const { direction, amount } = args;
-            const scrollContainers = [
-              document.querySelector('main.overflow-y-auto'),
-              document.documentElement,
-              document.body,
-              window
-            ];
 
-            for (const target of scrollContainers) {
-              if (!target) continue;
+            // Collect active scrollable containers across modals, main content, and the window
+            const scrollTargets: (Element | Window)[] = [];
 
-              let clientHeight = 0;
-              let scrollHeight = 0;
+            // 1. Any active modal dialog or popover with overflow
+            const activeModal = document.querySelector('.fixed.inset-0 .overflow-y-auto, [role="dialog"] .overflow-y-auto');
+            if (activeModal && activeModal.scrollHeight > activeModal.clientHeight) {
+              scrollTargets.push(activeModal);
+            }
 
-              if (target === window) {
-                clientHeight = window.innerHeight;
-                scrollHeight = document.documentElement.scrollHeight;
-              } else {
-                clientHeight = (target as HTMLElement).clientHeight;
-                scrollHeight = (target as HTMLElement).scrollHeight;
+            // 2. Main content panels and internal scroll containers
+            const pageContainers = document.querySelectorAll('#app-main-content, .overflow-y-auto, .overflow-y-scroll');
+            pageContainers.forEach(el => {
+              if (el.scrollHeight > el.clientHeight + 10 && !scrollTargets.includes(el)) {
+                scrollTargets.push(el);
               }
+            });
 
-              if (target === window || scrollHeight > clientHeight) {
-                let scrollDistance = 400;
-                if (amount === 'half_page') {
-                  scrollDistance = clientHeight * 0.5;
-                } else if (amount === 'full_page') {
-                  scrollDistance = clientHeight * 0.85;
-                } else if (amount === 'small') {
-                  scrollDistance = 150;
-                }
+            // 3. Always include window and documentElement for full page scroll
+            scrollTargets.push(window);
+            if (document.documentElement.scrollHeight > window.innerHeight) {
+              scrollTargets.push(document.documentElement);
+            }
 
+            // Calculate gentle or standard distance
+            const viewportH = window.innerHeight || 800;
+            let scrollDistance = Math.min(360, viewportH * 0.45);
+            if (amount === 'gentle' || amount === 'small') {
+              scrollDistance = Math.min(180, viewportH * 0.22);
+            } else if (amount === 'half_page') {
+              scrollDistance = viewportH * 0.5;
+            } else if (amount === 'full_page') {
+              scrollDistance = viewportH * 0.85;
+            }
+
+            for (const target of scrollTargets) {
+              if (target === window) {
                 if (direction === 'down') {
-                  if (target === window) {
-                    window.scrollBy({ top: scrollDistance, behavior: 'smooth' });
-                  } else {
-                    (target as HTMLElement).scrollBy({ top: scrollDistance, behavior: 'smooth' });
-                  }
+                  window.scrollBy({ top: scrollDistance, behavior: 'smooth' });
                 } else if (direction === 'up') {
-                  if (target === window) {
-                    window.scrollBy({ top: -scrollDistance, behavior: 'smooth' });
-                  } else {
-                    (target as HTMLElement).scrollBy({ top: -scrollDistance, behavior: 'smooth' });
-                  }
+                  window.scrollBy({ top: -scrollDistance, behavior: 'smooth' });
                 } else if (direction === 'top') {
-                  if (target === window) {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  } else {
-                    (target as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
-                  }
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else if (direction === 'bottom') {
-                  if (target === window) {
-                    window.scrollTo({ top: scrollHeight, behavior: 'smooth' });
-                  } else {
-                    (target as HTMLElement).scrollTo({ top: scrollHeight, behavior: 'smooth' });
-                  }
+                  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+                }
+              } else {
+                const el = target as HTMLElement;
+                if (direction === 'down') {
+                  el.scrollBy({ top: scrollDistance, behavior: 'smooth' });
+                } else if (direction === 'up') {
+                  el.scrollBy({ top: -scrollDistance, behavior: 'smooth' });
+                } else if (direction === 'top') {
+                  el.scrollTo({ top: 0, behavior: 'smooth' });
+                } else if (direction === 'bottom') {
+                  el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
                 }
               }
             }
-
-            addCorrectionToast(
-              "Viewport Scrolled",
-              `AI scrolled your screen ${direction === "down" ? "downwards" : direction === "up" ? "upwards" : direction === "top" ? "to the top" : "to the bottom"}.`
-            );
           } else if (name === "correct_inventory_stock") {
             const { itemId, itemName, newQuantity, reason } = args;
             if (setInventory) {

@@ -1237,8 +1237,9 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
         CRITICAL: Only navigate to 'activity_log' or 'settings' if the user role is Administrator. If the role is Attendant, those pages are not authorized.
 
         SCROLLING CAPABILITIES:
-        You can scroll the current viewport or page when requested.
-        Use the 'scroll_page' tool when the operator says 'scroll down', 'scroll up', 'page down', 'page up', 'go to the top', 'go to the bottom', 'show more details', etc.
+        You can scroll the current screen, page, or modal when requested.
+        Use the 'scroll_page' tool when the operator says 'scroll down', 'scroll gently', 'scroll slowly', 'scroll a bit', 'scroll up', 'page down', 'page up', 'go to the top', 'go to the bottom', 'show more details', 'scroll through the page', etc.
+        Pass 'direction' ('down', 'up', 'top', 'bottom') and optional 'amount' ('gentle', 'small', 'half_page', 'full_page').
         
         CRITICAL DATA CORRECTION & TRANSACTIONAL POWERS:
         You have the power to instantly perform sales, process credit payments, record restocks, add new items/accounts, or correct data in the application state when requested by the user. Use the following tools:
@@ -1437,8 +1438,8 @@ You MUST filter out all background noise fragments, trailing filler phrases, or 
                           },
                           amount: {
                             type: Type.STRING,
-                            description: "The amount to scroll. Must be one of: 'half_page' (scrolls 50% of screen), 'full_page' (scrolls 95% of screen), 'small' (scrolls 150px), or omitted for standard scrolling.",
-                            enum: ["half_page", "full_page", "small"]
+                            description: "The amount to scroll. Must be one of: 'gentle' (slow, gentle scroll), 'small' (short scroll), 'half_page' (scrolls 50% of screen), 'full_page' (scrolls 85% of screen), or omitted for standard scrolling.",
+                            enum: ["gentle", "small", "half_page", "full_page"]
                           }
                         },
                         required: ["direction"]
