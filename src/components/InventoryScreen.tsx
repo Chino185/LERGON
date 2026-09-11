@@ -741,11 +741,24 @@ export default function InventoryScreen({
     }
   };
 
+  // Helper: Auto-generate a clean, unique SKU
+  const generateUniqueSku = (): string => {
+    const existing = new Set(inventory.map(i => (i.sku || '').trim().toUpperCase()));
+    let candidate = '';
+    let attempts = 0;
+    do {
+      const randomNum = Math.floor(10000 + Math.random() * 90000);
+      candidate = `SKU-${randomNum}`;
+      attempts++;
+    } while (existing.has(candidate) && attempts < 100);
+    return candidate;
+  };
+
   // 4. Open Modal for Add
   const handleOpenAdd = () => {
     setEditingItemId(null);
     setItemName('');
-    setItemSku('');
+    setItemSku(generateUniqueSku());
     setItemCategory('');
     setIsCategoryDropdownOpen(false);
     setIsAddingNewCategory(false);
@@ -805,7 +818,7 @@ export default function InventoryScreen({
     }
 
     // Use entered SKU or auto-assign a clean unique SKU if left blank
-    const finalSku = cleanSkuStr || `SKU-${Math.floor(Math.random() * 90000) + 10000}`;
+    const finalSku = cleanSkuStr || generateUniqueSku();
 
     if (!cleanCategory) {
       setItemSaveError('Create or select a custom category before saving this item.');
@@ -1977,10 +1990,20 @@ export default function InventoryScreen({
               {/* SKU & Category Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-extrabold text-slate-700 dark:text-slate-300 mb-1">{translate('stock sku *', config.languageCode)}</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-extrabold text-slate-700 dark:text-slate-300">{translate('stock sku *', config.languageCode)}</label>
+                    <button
+                      type="button"
+                      onClick={() => setItemSku(generateUniqueSku())}
+                      className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 flex items-center gap-1 cursor-pointer transition"
+                      title="Auto-generate a new unique SKU"
+                    >
+                      <RotateCcw size={10} /> Auto-generate
+                    </button>
+                  </div>
                   <input
                     type="text"
-                    placeholder={translate('e.g. dp-881', config.languageCode)}
+                    placeholder="e.g. SKU-13488"
                     value={itemSku}
                     onChange={(e) => setItemSku(e.target.value)}
                     className="w-full neumorphic-inset rounded-xl p-2.5 bg-[#ebf0f7] dark:bg-slate-950/80 text-slate-900 dark:text-white font-mono placeholder-slate-400 focus:outline-none transition-all border border-white/80 dark:border-slate-800 text-xs font-medium"

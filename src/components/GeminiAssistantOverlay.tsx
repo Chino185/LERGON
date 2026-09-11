@@ -492,6 +492,29 @@ export default function GeminiAssistantOverlay({
     window.speechSynthesis.speak(utterance);
   };
 
+  // Immediate voice feedback helper for user commands and tool executions
+  const speakVoiceFeedback = (text: string) => {
+    if (!('speechSynthesis' in window) || !text) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const premiumVoice = voices.find(v => 
+        v.name.includes("Google US English") || 
+        v.name.includes("Microsoft Zira") || 
+        v.name.includes("Samantha") ||
+        v.name.includes("Natural") ||
+        v.lang.startsWith("en")
+      );
+      if (premiumVoice) utterance.voice = premiumVoice;
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn("Speech synthesis error:", err);
+    }
+  };
+
   // Close panel helper
   const closePanel = () => {
     setIsPanelOpen(false);
@@ -978,6 +1001,9 @@ export default function GeminiAssistantOverlay({
           setVoiceStatus("listening");
           startMicRecording();
         } else if (msg.type === "audio") {
+          if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+            window.speechSynthesis.cancel();
+          }
           setVoiceStatus("speaking");
           playAudioChunk(msg.audio);
         } else if (msg.type === "interrupted") {
@@ -990,6 +1016,7 @@ export default function GeminiAssistantOverlay({
           }
           if (allowedPages.includes(msg.page)) {
             setActiveScreen(msg.page);
+            speakVoiceFeedback(`Opening ${msg.page.replace('_', ' ')}`);
           }
         } else if (msg.type === "tool_call") {
           const { name, args } = msg;
@@ -1045,12 +1072,14 @@ export default function GeminiAssistantOverlay({
             document.documentElement.classList.toggle('dark', requestedTheme === 'dark');
             document.documentElement.setAttribute('data-theme', requestedTheme);
             onUpdateConfig?.({ themeMode: requestedTheme } as BusinessConfig);
+            speakVoiceFeedback(`Switched to ${requestedTheme} mode`);
             return;
           }
 
           if (name === "generate_invoice" && actionResult.success) {
             setActiveScreen('invoice');
             onInvoiceCommand?.({ action: 'generate_invoice', args: args || {} });
+            speakVoiceFeedback("Invoice generated");
             return;
           }
 
@@ -1090,6 +1119,7 @@ export default function GeminiAssistantOverlay({
                 },
                 ...previous.filter(transaction => transaction.id !== actionResult.data.id)
               ]);
+              speakVoiceFeedback(`Recorded payment for ${paymentAccount.name}`);
             }
             return;
           }
@@ -1102,24 +1132,29 @@ export default function GeminiAssistantOverlay({
             }
             if (allowedPages.includes(page)) {
               setActiveScreen(page);
+              speakVoiceFeedback(`Opening ${page.replace('_', ' ')}`);
             }
           } else if (name === "stop_scroll") {
             stopContinuousScroll();
+            speakVoiceFeedback("Stopped scrolling");
           } else if (name === "scroll_page") {
             const { direction, amount } = args;
 
             if (direction === "stop") {
               stopContinuousScroll();
+              speakVoiceFeedback("Stopped scrolling");
             } else if (direction === "top") {
               stopContinuousScroll();
               window.scrollTo({ top: 0, behavior: 'smooth' });
               const modal = document.querySelector('.fixed.inset-0 .overflow-y-auto, [role="dialog"] .overflow-y-auto');
               if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
+              speakVoiceFeedback("Scrolled to top");
             } else if (direction === "bottom") {
               stopContinuousScroll();
               window.scrollTo({ top: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, 0), behavior: 'smooth' });
               const modal = document.querySelector('.fixed.inset-0 .overflow-y-auto, [role="dialog"] .overflow-y-auto');
               if (modal) modal.scrollTo({ top: modal.scrollHeight, behavior: 'smooth' });
+              speakVoiceFeedback("Scrolled to bottom");
             } else if (amount === 'half_page' || amount === 'full_page') {
               stopContinuousScroll();
               const viewportH = window.innerHeight || 800;
@@ -1128,9 +1163,12 @@ export default function GeminiAssistantOverlay({
               window.scrollBy({ top: delta, behavior: 'smooth' });
               const modal = document.querySelector('.fixed.inset-0 .overflow-y-auto, [role="dialog"] .overflow-y-auto');
               if (modal) modal.scrollBy({ top: delta, behavior: 'smooth' });
+              speakVoiceFeedback(direction === 'up' ? "Scrolled up" : "Scrolled down");
             } else {
               // Start continuous gentle scrolling until user says "stop"
-              startContinuousScroll(direction === 'up' ? 'up' : 'down');
+              const dir = direction === 'up' ? 'up' : 'down';
+              startContinuousScroll(dir);
+              speakVoiceFeedback(dir === 'up' ? "Scrolling up now" : "Scrolling down now");
             }
           } else if (name === "correct_inventory_stock") {
             const { itemId, itemName, newQuantity, reason } = args;
@@ -1180,6 +1218,7 @@ export default function GeminiAssistantOverlay({
                   "Inventory Stock Corrected",
                   `Reset '${targetName}' count from ${prevQty} to ${newQuantity} units. Discrepancy resolved.`
                 );
+                speakVoiceFeedback(`Stock updated for ${targetName}`);
               } else {
                 console.error("Item not found for correction:", itemName || itemId);
                 addCorrectionToast(
@@ -1489,6 +1528,7 @@ export default function GeminiAssistantOverlay({
                   "Stock Replenished",
                   `Added +${restockQty} units to '${itemNameRestocked}'. New stock level: ${newQty} units.`
                 );
+                speakVoiceFeedback(`Restocked ${restockQty} units of ${itemNameRestocked}`);
               }
             }
           } else if (name === "add_inventory_item") {
@@ -1499,7 +1539,7 @@ export default function GeminiAssistantOverlay({
 
             if (prodName && setInventory) {
               const newItemId = 'item_ai_' + Math.random().toString(36).substr(2, 9);
-              const skuCode = 'SKU-AI-' + Math.floor(1000 + Math.random() * 9000);
+              const skuCode = `SKU-${Math.floor(10000 + Math.random() * 90000)}`;
 
               const newItem: InventoryItem = {
                 id: newItemId,
@@ -1540,6 +1580,7 @@ export default function GeminiAssistantOverlay({
                 "Product Catalog Created",
                 `Registered new product '${prodName}' (${newQty} units @ ${formatMoney(price)}).`
               );
+              speakVoiceFeedback(`Added ${prodName} to inventory`);
             }
           } else if (name === "create_credit_account") {
             const { name: accName, type, phone, email, initialAmount } = args;
