@@ -613,21 +613,32 @@ app.post("/api/auth/reset-request", (req, res) => {
   const { businessId, businessName, username } = req.body || {};
   if (!username) return res.status(400).json({ error: "username is required" });
   const bId = String(businessId || "").trim();
+  const uname = String(username).trim();
   const record = {
     businessId: bId,
     businessName: businessName || "Business",
-    username: String(username).trim(),
+    username: uname,
     requestedAt: Date.now()
   };
   if (bId) {
     pendingResetRequests.set(bId, record);
   }
+  pendingResetRequests.set("latest", record);
+  pendingResetRequests.set(uname.toLowerCase(), record);
   return res.json({ success: true, record });
+});
+
+app.get("/api/auth/reset-request", (req, res) => {
+  const record = pendingResetRequests.get("latest");
+  return res.json({ success: true, record: record || null });
 });
 
 app.get("/api/auth/reset-request/:businessId", (req, res) => {
   const businessId = String(req.params.businessId || "").trim();
-  const record = pendingResetRequests.get(businessId);
+  let record = pendingResetRequests.get(businessId);
+  if (!record) {
+    record = pendingResetRequests.get("latest");
+  }
   return res.json({ success: true, record: record || null });
 });
 

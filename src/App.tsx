@@ -604,59 +604,61 @@ export default function App() {
         targetOrg = organizations[0];
       }
 
-      if (!targetOrg) {
-        setForgotError(`No registered organization found for username "${cleanUsername}".`);
-        return;
+      const businessId = targetOrg?.id || '';
+      const businessName = targetOrg?.name || 'Business';
+      const requestTimestamp = Date.now();
+
+      if (targetOrg) {
+        const updatedOrg: Organization = {
+          ...targetOrg,
+          attendantResetRequested: true,
+          attendantResetUsername: cleanUsername,
+          attendantResetTimestamp: requestTimestamp
+        };
+
+        setOrganizations(prev => {
+          const exists = prev.some(o => o.id === updatedOrg.id);
+          const nextList = exists
+            ? prev.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
+            : [updatedOrg, ...prev];
+          try {
+            saveLocalState('velo_ic_organizations', nextList);
+          } catch {}
+          return nextList;
+        });
+
+        // Insert notification for admin notification area
+        try {
+          await supabase.from('notifications').insert({
+            business_id: updatedOrg.id,
+            title: '🔑 Password Reset Request',
+            message: `User "${cleanUsername}" is requesting a password reset. Check Settings → Security to generate their code.`,
+            category: 'system',
+            severity: 'warning',
+            target_screen: 'settings',
+            target_tab: 'security',
+            is_active: true
+          });
+        } catch (logErr) {
+          console.warn('[Forgot Password] Notification log note:', logErr);
+        }
       }
 
-      const requestTimestamp = Date.now();
-      const updatedOrg: Organization = {
-        ...targetOrg,
-        attendantResetRequested: true,
-        attendantResetUsername: cleanUsername,
-        attendantResetTimestamp: requestTimestamp
-      };
-
-      // Notify server so admin workspace immediately displays the request
+      // Always notify server so admin workspace immediately displays the request
       fetch('/api/auth/reset-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          businessId: updatedOrg.id,
-          businessName: updatedOrg.name,
+          businessId,
+          businessName,
           username: cleanUsername
         })
       }).catch(() => {});
 
-      // Insert notification for admin notification area
-      try {
-        await supabase.from('notifications').insert({
-          business_id: updatedOrg.id,
-          title: '🔑 Password Reset Request',
-          message: `User "${cleanUsername}" is requesting a password reset. Check Settings → Security to generate their code.`,
-          category: 'system',
-          severity: 'warning',
-          target_screen: 'settings',
-          target_tab: 'security',
-          is_active: true
-        });
-      } catch (logErr) {
-        console.warn('[Forgot Password] Notification log note:', logErr);
-      }
-
-      setOrganizations(prev => {
-        const exists = prev.some(o => o.id === updatedOrg.id);
-        const nextList = exists
-          ? prev.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
-          : [updatedOrg, ...prev];
-        try {
-          saveLocalState('velo_ic_organizations', nextList);
-        } catch {}
-        return nextList;
-      });
-
+      setForgotSuccess(
+        `Request has been sent! Your business administrator has been notified to generate your 6-digit temporary PIN.`
+      );
       setForgotError('');
-      setForgotSuccess(`Request has been sent! Your business administrator has been notified.`);
     } catch (err: any) {
       setForgotError(err?.message || 'An error occurred. Please try again.');
     } finally {
