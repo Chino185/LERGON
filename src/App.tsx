@@ -558,6 +558,10 @@ export default function App() {
 
     setShowAuthModal(false);
     setIsDataLoading(true);
+    setActiveScreen('dashboard');
+    try {
+      localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
+    } catch {}
 
     setLoginError('');
     setPasscode('');
@@ -846,23 +850,35 @@ export default function App() {
         return null;
       }
 
-      // When Supabase email confirmation is enabled, signUp returns a user
-      // without a usable session. Keep the user in the auth modal and show
-      // the existing verification view instead of sending them to the homepage.
-      if (!authRes.session) {
-        await logoutUser();
-        setPendingVerifyEmail(cleanEmail);
-        setShowAuthModal(true);
-        setActiveView('verify_email');
-        setIsLoggedIn(false);
+      // Attempt direct sign-in so user lands directly on dashboard
+      let activeSession = authRes.session;
+      if (!activeSession) {
+        const loginRes = await loginUser(cleanEmail, cleanAdminPass);
+        if (loginRes.success && loginRes.session) {
+          activeSession = loginRes.session;
+        }
+      }
+
+      if (activeSession) {
+        setShowAuthModal(false);
+        setIsLoggedIn(true);
+        setActiveScreen('dashboard');
+        try {
+          window.localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
+        } catch {}
         setRegisterError('');
-        setEmailOtpError('');
-        setEmailOtpSuccess(`Business registration successful! A verification link has been sent to ${cleanEmail}. Check your email, verify your account, then sign in.`);
         return newOrg;
       }
 
-      setShowAuthModal(false);
+      // When Supabase email confirmation is strictly enforced without an immediate session
+      await logoutUser();
+      setPendingVerifyEmail(cleanEmail);
+      setShowAuthModal(true);
+      setActiveView('verify_email');
+      setIsLoggedIn(false);
       setRegisterError('');
+      setEmailOtpError('');
+      setEmailOtpSuccess(`Business registration successful! A verification link has been sent to ${cleanEmail}. Check your email, verify your account, then sign in.`);
       return newOrg;
     } catch (err: any) {
       console.error('SIGNUP ERROR:', err?.code, err?.message || err);
@@ -995,10 +1011,29 @@ export default function App() {
     // The signup trigger consumes the validated invite code and assigns the
     // attendant profile to the business before email confirmation completes.
 
-    // Immediately sign out - Don't auto-login after Sign Up!
-    await logoutUser();
+    // Attempt direct sign-in so newly joined attendant is taken directly to dashboard
+    let activeSession = authRes.session;
+    if (!activeSession) {
+      const loginRes = await loginUser(cleanEmail, cleanPass);
+      if (loginRes.success && loginRes.session) {
+        activeSession = loginRes.session;
+      }
+    }
 
-    // Transition to Verify Email screen
+    if (activeSession) {
+      setShowAuthModal(false);
+      setIsLoggedIn(true);
+      setActiveScreen('dashboard');
+      try {
+        window.localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
+      } catch {}
+      setJoinError('');
+      setAttendantPasswordError('');
+      return;
+    }
+
+    // Transition to Verify Email screen if email confirmation is strictly required by Supabase
+    await logoutUser();
     setPendingVerifyEmail(cleanEmail);
     setShowAuthModal(true);
     setActiveView('verify_email');
@@ -1085,6 +1120,12 @@ export default function App() {
           console.warn('[Theme] Unable to persist session marker:', error);
         }
         setIsLoggedIn(true);
+        if (event === 'SIGNED_IN') {
+          setActiveScreen('dashboard');
+          try {
+            localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
+          } catch {}
+        }
         setCurrentUserUid(user.id);
         // Fetch initial profile data
         const { data: profileData } = await supabase
