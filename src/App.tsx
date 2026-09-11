@@ -578,16 +578,33 @@ export default function App() {
       }
 
       const requestTimestamp = Date.now();
+      const generatedPin = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = requestTimestamp + 15 * 60 * 1000;
+
       const updatedOrg: Organization = {
         ...targetOrg,
+        attendantPass: generatedPin,
+        tempPasswordExpiresAt: expiresAt,
         attendantResetRequested: true,
         attendantResetEmail: cleanEmail,
         attendantResetUsername: targetOrg.attendantName || cleanEmail.split('@')[0],
         attendantResetPhone: targetOrg.attendantResetPhone || '',
         attendantResetTimestamp: requestTimestamp,
         previousAttendantPass: targetOrg.attendantPass,
-        tempPasswordExpiresAt: undefined
       };
+
+      // Sync to server so admin workspace immediately receives and displays the code
+      fetch('/api/auth/temp-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: updatedOrg.id,
+          businessName: updatedOrg.name,
+          pin: generatedPin,
+          requestedByEmail: cleanEmail,
+          expiresInSec: 900
+        })
+      }).catch(() => {});
 
       setOrganizations(prev => {
         const exists = prev.some(o => o.id === updatedOrg.id);
@@ -1367,6 +1384,12 @@ export default function App() {
               country: businessData?.base_country || localOrg?.country,
               currency: businessData?.base_currency_code || localOrg?.currency,
               currencySymbol: businessData?.base_currency_symbol || localOrg?.currencySymbol,
+              attendantResetRequested: localOrg?.attendantResetRequested,
+              attendantResetEmail: localOrg?.attendantResetEmail,
+              attendantResetUsername: localOrg?.attendantResetUsername,
+              attendantResetPhone: localOrg?.attendantResetPhone,
+              tempPasswordExpiresAt: localOrg?.tempPasswordExpiresAt,
+              isTempPassword: localOrg?.isTempPassword,
             };
             setOrganizations(prev => [normalizedOrg, ...prev.filter(o => o.id !== normalizedOrg.id && o.id !== localOrg?.id)]);
             if (businessData) {

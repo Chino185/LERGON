@@ -601,20 +601,39 @@ interface TempPinRecord {
   businessName: string;
   pin: string;
   expiresAt: number;
+  requestedByEmail?: string;
+  requestedAt?: number;
 }
 const activeTempPins = new Map<string, TempPinRecord>();
+const businessTempPins = new Map<string, TempPinRecord>();
 
 app.post("/api/auth/temp-pin", (req, res) => {
-  const { businessId, businessName, pin, expiresInSec = 120 } = req.body || {};
+  const { businessId, businessName, pin, requestedByEmail, expiresInSec = 120 } = req.body || {};
   if (!pin) return res.status(400).json({ error: "pin is required" });
   const expiresAt = Date.now() + expiresInSec * 1000;
-  activeTempPins.set(String(pin).trim(), {
+  const record: TempPinRecord = {
     businessId: businessId || "",
     businessName: businessName || "Business",
     pin: String(pin).trim(),
-    expiresAt
-  });
-  return res.json({ success: true, pin: String(pin).trim(), expiresAt });
+    expiresAt,
+    requestedByEmail,
+    requestedAt: Date.now()
+  };
+  activeTempPins.set(String(pin).trim(), record);
+  if (businessId) {
+    businessTempPins.set(String(businessId).trim(), record);
+  }
+  return res.json({ success: true, pin: String(pin).trim(), expiresAt, record });
+});
+
+app.get("/api/auth/temp-pin/active/:businessId", (req, res) => {
+  const businessId = String(req.params.businessId || "").trim();
+  const record = businessTempPins.get(businessId);
+  if (!record || Date.now() > record.expiresAt) {
+    if (record) businessTempPins.delete(businessId);
+    return res.json({ active: false });
+  }
+  return res.json({ active: true, record });
 });
 
 app.get("/api/auth/temp-pin/:pin", (req, res) => {
