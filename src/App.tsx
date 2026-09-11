@@ -430,52 +430,59 @@ export default function App() {
         }
       }
 
-      const requestTimestamp = Date.now();
-
-      // 1. Notify administrator by updating organization reset request flag
-      if (targetOrg) {
-        const updatedOrgs = organizations.map(org => {
-          if (org.id === targetOrg!.id) {
-            return {
-              ...org,
-              attendantResetRequested: true,
-              attendantResetEmail: cleanEmail,
-              attendantResetUsername: targetOrg!.attendantName || cleanEmail.split('@')[0],
-              attendantResetPhone: targetOrg!.attendantResetPhone || org.attendantResetPhone || '',
-              attendantResetTimestamp: requestTimestamp,
-              previousAttendantPass: org.attendantPass,
-              tempPasswordExpiresAt: undefined
-            };
-          }
-          return org;
-        });
-        setOrganizations(updatedOrgs);
-
-        // Also record an audit activity log entry for admin visibility
-        try {
-          await logActivity(
-            `Password reset requested for ${cleanEmail}`,
-            'AUTH_RESET',
-            undefined,
-            targetOrg.id
-          );
-        } catch (logErr) {
-          console.warn('[Forgot Password] Activity log note:', logErr);
-        }
-      }
-
-      // 2. Auto-generate token & send password reset email to user
-      const resetRes = await resetPasswordForEmail(cleanEmail);
-      if (!resetRes.success) {
-        setForgotError(resetRes.error || 'Failed to send password reset email. Please try again.');
+      if (!targetOrg) {
+        setForgotError('No registered account found for this email. Please check your email or contact your administrator.');
         return;
       }
 
-      // 3. User feedback and return to sign in
-      setSuccess(`A password reset link & token have been sent to ${cleanEmail}. Your administrator has also been notified.`);
-      setForgotEmail('');
-      setActiveView('signin');
-      setTimeout(() => setSuccess(null), 8000);
+      const requestTimestamp = Date.now();
+
+      // 1. Notify administrator by updating organization reset request flag
+      const updatedOrgs = organizations.map(org => {
+        if (org.id === targetOrg!.id) {
+          return {
+            ...org,
+            attendantResetRequested: true,
+            attendantResetEmail: cleanEmail,
+            attendantResetUsername: targetOrg!.attendantName || cleanEmail.split('@')[0],
+            attendantResetPhone: targetOrg!.attendantResetPhone || org.attendantResetPhone || '',
+            attendantResetTimestamp: requestTimestamp,
+            previousAttendantPass: org.attendantPass,
+            tempPasswordExpiresAt: undefined
+          };
+        }
+        return org;
+      });
+      setOrganizations(updatedOrgs);
+
+      // 2. Also record an audit activity log entry and realtime notification for admin
+      try {
+        await logActivity(
+          `Password reset requested for ${targetOrg.attendantName || cleanEmail}`,
+          'AUTH_RESET',
+          undefined,
+          targetOrg.id
+        );
+        await supabase.from('notifications').insert({
+          business_id: targetOrg.id,
+          title: '🔑 Password Reset Request',
+          message: `User "${targetOrg.attendantName || cleanEmail}" requested a temporary passcode. Generate and forward via WhatsApp.`,
+          category: 'system',
+          severity: 'warning',
+          target_screen: 'settings',
+          target_tab: 'security',
+          is_active: true
+        });
+      } catch (logErr) {
+        console.warn('[Forgot Password] Notification log note:', logErr);
+      }
+
+      // 3. Open temporary passcode modal so user can enter the PIN forwarded by admin via WhatsApp
+      setVerificationOrgId(targetOrg.id);
+      setVerificationCodeInput('');
+      setVerificationError('');
+      setVerificationSuccess('');
+      setShowCodeVerificationModal(true);
     } catch (err: any) {
       console.error('[Forgot Password Error]', err);
       setForgotError(err?.message || 'An error occurred. Please try again.');
@@ -3926,10 +3933,10 @@ export default function App() {
                         {isForgotLoading ? (
                           <>
                             <RefreshCw size={16} className="animate-spin" />
-                            <span>Sending Token...</span>
+                            <span>Sending Request...</span>
                           </>
                         ) : (
-                          <span>Send Reset Token</span>
+                          <span>Request Temporary Passcode</span>
                         )}
                       </button>
                     </div>
