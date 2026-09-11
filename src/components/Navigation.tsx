@@ -216,8 +216,17 @@ export default function Navigation({
 
   // Critical Alerts list: includes Out of Stock and Overdue Credit lines
   const criticalNotifications = React.useMemo(() => {
-    if (backendNotifications !== undefined) {
-      return backendNotifications
+    const list: Array<{
+      id: string;
+      title: string;
+      description: string;
+      type: 'error' | 'warning' | 'success';
+      date: string;
+      category: string;
+      targetScreen: string;
+      targetTab?: string;
+    }> = backendNotifications !== undefined
+      ? backendNotifications
         .filter(notification => notification.isActive)
         .map(notification => ({
           id: notification.eventKey || notification.id,
@@ -228,19 +237,10 @@ export default function Navigation({
           category: notification.category === 'inventory' ? 'Inventory' : notification.category === 'credit' ? 'Credit' : 'System',
           targetScreen: notification.targetScreen,
           targetTab: notification.targetTab
-        }));
-    }
+        }))
+      : [];
 
-    const list: Array<{
-      id: string;
-      title: string;
-      description: string;
-      type: 'error' | 'warning' | 'success';
-      date: string;
-      category: string;
-      targetScreen: string;
-      targetTab?: string;
-    }> = [];
+    if (backendNotifications === undefined) {
 
     // 1. Inventory stock levels monitoring
     inventory.forEach(item => {
@@ -335,14 +335,15 @@ export default function Navigation({
         });
       }
     });
+    }
 
-    // 5. Attendant passcode reset requested
-    if (userRole === 2 && currentOrg?.attendantResetRequested && currentOrg?.attendantPass?.startsWith('__RESETTING_')) {
+    // 5. Attendant / staff password reset requested
+    if (userRole === 2 && currentOrg?.attendantResetRequested) {
       list.push({
         id: `notif-pass-reset-${currentOrg.id}`,
-        title: 'Attendant PIN Reset Request',
-        description: `Your attendant "${currentOrg.attendantResetUsername || 'Attendant'}" has requested a PIN reset. Click to set.`,
-        type: 'error',
+        title: '🔑 Password Reset Request',
+        description: `"${currentOrg.attendantResetUsername || 'Staff member'}" requested a password reset. Click to set temporary code & forward via WhatsApp.`,
+        type: 'warning',
         date: new Date(currentOrg.attendantResetTimestamp || Date.now()).toISOString(),
         category: 'Security',
         targetScreen: 'settings',

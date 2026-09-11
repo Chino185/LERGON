@@ -136,7 +136,9 @@ export interface Organization {
   attendantResetRequested?: boolean;
   attendantResetEmail?: string;
   attendantResetUsername?: string;
+  attendantResetPhone?: string;
   attendantResetTimestamp?: number;
+  tempPasswordExpiresAt?: number;
   isTempPassword?: boolean;
   previousAttendantPass?: string;
   activeInvite?: OrganizationInvite;

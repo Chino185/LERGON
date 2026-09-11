@@ -354,6 +354,7 @@ export default function App() {
   // --- Forgot Passcode states ---
   const [forgotOrgId, setForgotOrgId] = useState('');
   const [forgotUsername, setForgotUsername] = useState('');
+  const [forgotPhone, setForgotPhone] = useState('');
   const [forgotError, setForgotError] = useState('');
 
   // --- Code Verification Modal states ---
@@ -362,8 +363,8 @@ export default function App() {
   const [verificationCodeInput, setVerificationCodeInput] = useState('');
   const [verificationError, setVerificationError] = useState('');
   const [verificationSuccess, setVerificationSuccess] = useState('');
-  const [timeRemainingText, setTimeRemainingText] = useState('05:00');
-  const [resendCooldown, setResendCooldown] = useState(300);
+  const [timeRemainingText, setTimeRemainingText] = useState('02:00');
+  const [resendCooldown, setResendCooldown] = useState(120);
   const [settingsTabOverride, setSettingsTabOverride] = useState<'profile' | 'system' | 'security' | null>(null);
   const [inventoryTabOverride, setInventoryTabOverride] = useState<'active_stock' | 'damaged_audit' | 'restock_validations' | null>(null);
 
@@ -376,9 +377,13 @@ export default function App() {
       return;
     }
 
-    const usernameCheck = validateUsername(forgotUsername);
-    if (!usernameCheck.isValid) {
-      setForgotError(usernameCheck.error || 'Please specify a valid attendant username.');
+    if (!forgotUsername.trim()) {
+      setForgotError('Please enter your attendant or staff username.');
+      return;
+    }
+
+    if (!forgotPhone.trim()) {
+      setForgotError('Please enter your WhatsApp contact number so the admin can forward your temporary code.');
       return;
     }
 
@@ -388,43 +393,34 @@ export default function App() {
       return;
     }
 
+    const trimmedInput = forgotUsername.trim().toLowerCase();
     const expectedUsername = (targetOrg.attendantName || 'Attendant').trim().toLowerCase();
-    const enteredUsername = usernameCheck.cleanUsername.toLowerCase();
+    const matchesAttendant = expectedUsername === trimmedInput;
+    const matchesEmail = (targetOrg.attendantEmail || '').trim().toLowerCase() === trimmedInput;
+    const matchesAdmin = (targetOrg.adminName || 'Admin').trim().toLowerCase() === trimmedInput || (targetOrg.adminEmail || '').trim().toLowerCase() === trimmedInput;
 
-    if (enteredUsername !== expectedUsername) {
-      setForgotError(`Invalid Attendant Username for this organization. (Hint: Default is "Samuel Zar" or "Attendant" if not customized)`);
-      return;
+    if (!matchesAttendant && !matchesEmail && !matchesAdmin) {
+      const usernameCheck = validateUsername(forgotUsername);
+      if (!usernameCheck.isValid) {
+        setForgotError(`Invalid username for this organization. (Hint: Attendant username or email registered with this business)`);
+        return;
+      }
     }
 
-    const capturedUserEmail = 'zarsamuel105@gmail.com';
-    const isExistingValidRequest = !!(
-      targetOrg.attendantResetRequested &&
-      targetOrg.attendantResetTimestamp &&
-      (Date.now() - targetOrg.attendantResetTimestamp < 5 * 60 * 1000)
-    );
+    const requestTimestamp = Date.now();
 
-    const requestTimestamp = isExistingValidRequest && targetOrg.attendantResetTimestamp
-      ? targetOrg.attendantResetTimestamp
-      : Date.now();
-
-    const generatedPIN = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Find and update the organization
+    // Update organization with reset request and attendant WhatsApp phone
     const updatedOrgs = organizations.map(org => {
       if (org.id === forgotOrgId) {
-        if (isExistingValidRequest) {
-          // Keep the existing organization state (preserving the original timestamp and the current attendantPass/PIN)
-          return org;
-        }
         return {
           ...org,
           attendantResetRequested: true,
-          attendantResetEmail: capturedUserEmail,
+          attendantResetEmail: org.attendantEmail || 'staff@business.local',
           attendantResetUsername: forgotUsername.trim(),
+          attendantResetPhone: forgotPhone.trim(),
           attendantResetTimestamp: requestTimestamp,
           previousAttendantPass: org.attendantPass,
-          // Generate a real temporary 6-digit PIN for authentication
-          attendantPass: generatedPIN
+          tempPasswordExpiresAt: undefined
         };
       }
       return org;
@@ -437,8 +433,6 @@ export default function App() {
     setVerificationError('');
     setVerificationSuccess('');
     setShowCodeVerificationModal(true);
-
-    setForgotUsername('');
   };
 
   const getOrgStorageKey = (baseKey: string, orgId: string) => {
@@ -1548,52 +1542,36 @@ export default function App() {
     }
 
     const org = organizations.find(o => o.id === verificationOrgId);
-    if (!org || !org.attendantResetTimestamp) {
+    if (!org || !org.attendantResetRequested) {
       setTimeRemainingText('Expired');
       setResendCooldown(0);
       return;
     }
 
-    const interval = setInterval(() => {
+    const updateTimer = () => {
       const now = Date.now();
-      const elapsed = now - (org.attendantResetTimestamp || 0);
-      const fiveMinutes = 5 * 60 * 1000;
-      const remaining = fiveMinutes - elapsed;
-
-      const elapsedSec = Math.floor(elapsed / 1000);
-      setResendCooldown(Math.max(0, 300 - elapsedSec));
-
-      if (remaining <= 0) {
-        setTimeRemainingText('Expired');
-        setVerificationError('This passcode reset window has expired. Please close this window and request a new passcode reset.');
-        clearInterval(interval);
+      if (org.tempPasswordExpiresAt) {
+        const remaining = org.tempPasswordExpiresAt - now;
+        if (remaining <= 0) {
+          setTimeRemainingText('Expired');
+          setVerificationError('This temporary passcode has expired (2-minute limit). Please ask your admin to issue a new code.');
+        } else {
+          const minutes = Math.floor(remaining / 60000);
+          const seconds = Math.floor((remaining % 60000) / 1000);
+          const formatted = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+          setTimeRemainingText(formatted);
+        }
       } else {
-        const minutes = Math.floor(remaining / 60000);
-        const seconds = Math.floor((remaining % 60000) / 1000);
-        const formatted = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        setTimeRemainingText(formatted);
+        setTimeRemainingText('Awaiting Admin');
       }
-    }, 1000);
 
-    // Initial run immediately to avoid delay
-    const now = Date.now();
-    const elapsed = now - (org.attendantResetTimestamp || 0);
-    const fiveMinutes = 5 * 60 * 1000;
-    const remaining = fiveMinutes - elapsed;
+      const elapsed = now - (org.attendantResetTimestamp || 0);
+      const elapsedSec = Math.floor(elapsed / 1000);
+      setResendCooldown(Math.max(0, 120 - elapsedSec));
+    };
 
-    const elapsedSec = Math.floor(elapsed / 1000);
-    setResendCooldown(Math.max(0, 300 - elapsedSec));
-
-    if (remaining <= 0) {
-      setTimeRemainingText('Expired');
-      setVerificationError('This reset request has expired. Code must be verified within 5 minutes.');
-    } else {
-      const minutes = Math.floor(remaining / 60000);
-      const seconds = Math.floor((remaining % 60000) / 1000);
-      const formatted = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      setTimeRemainingText(formatted);
-    }
-
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
   }, [showCodeVerificationModal, verificationOrgId, organizations]);
 
@@ -1608,55 +1586,57 @@ export default function App() {
       return;
     }
 
-    if (!targetOrg.attendantResetTimestamp) {
-      setVerificationError('No reset request found for this organization.');
+    if (!targetOrg.attendantResetRequested) {
+      setVerificationError('No active reset request found for this organization.');
       return;
     }
 
-    // Check expiry
-    const now = Date.now();
-    const elapsed = now - targetOrg.attendantResetTimestamp;
-    if (elapsed > 5 * 60 * 1000) {
-      setVerificationError('This reset request has expired. Code must be verified within 5 minutes.');
+    // Check 2-minute temporary code expiry
+    if (targetOrg.tempPasswordExpiresAt && Date.now() > targetOrg.tempPasswordExpiresAt) {
+      setVerificationError('This temporary passcode has expired (2-minute limit). Please ask your admin to issue a new code.');
       return;
     }
 
     if (!verificationCodeInput.trim()) {
-      setVerificationError('Please enter the temporary passcode PIN.');
+      setVerificationError('Please enter the temporary passcode sent by your admin.');
       return;
     }
 
-    // Check if the input code matches the temporary passcode set by the admin!
+    // Check if the input code matches the temporary passcode configured by the admin
     if (verificationCodeInput.trim() !== targetOrg.attendantPass) {
-      setVerificationError('Incorrect verification PIN. Please verify the code matching what your admin has configured.');
+      setVerificationError('Incorrect passcode. Please enter the temporary code sent by your admin via WhatsApp.');
       return;
     }
 
     // Success! Code matches and is valid!
     setVerificationSuccess('Verification successful! Logging you in...');
 
-    // Clear the active reset request state
+    // Clear the active reset request state and activate temporary password requirement
     const updatedOrgs = organizations.map(o => {
       if (o.id === targetOrg.id) {
         return {
           ...o,
           attendantResetRequested: false,
-          isTempPassword: true
+          isTempPassword: true,
+          tempPasswordExpiresAt: undefined
         };
       }
       return o;
     });
     setOrganizations(updatedOrgs);
-    // Perform standard login as attendant
-    setTimeout(() => {
-      // Close verification modal
-      setShowCodeVerificationModal(false);
 
+    // Perform login as attendant
+    setTimeout(() => {
+      setShowCodeVerificationModal(false);
+      setShowAuthModal(false);
+      setCurrentOrgId(targetOrg.id);
+      setCurrentUserRole(5);
+      setIsLoggedIn(true);
       setLoginError('');
       setPasscode('');
       setVerificationCodeInput('');
       setVerificationSuccess('');
-    }, 1000);
+    }, 600);
   };
 
   const handleResendPINClick = () => {
@@ -1667,41 +1647,31 @@ export default function App() {
     }
 
     const elapsed = Date.now() - (targetOrg.attendantResetTimestamp || 0);
-    if (elapsed < 300 * 1000) {
-      const waitRemainingSec = Math.ceil((300 * 1000 - elapsed) / 1000);
-      const waitMinutes = Math.floor(waitRemainingSec / 60);
-      const waitSeconds = waitRemainingSec % 60;
-      const waitMsg = waitMinutes > 0
-        ? `${waitMinutes}m ${waitSeconds}s`
-        : `${waitSeconds}s`;
-      setVerificationError(`Please wait ${waitMsg} before requesting another PIN.`);
+    if (elapsed < 120 * 1000) {
+      const waitRemainingSec = Math.ceil((120 * 1000 - elapsed) / 1000);
+      setVerificationError(`Please wait ${waitRemainingSec}s before sending another alert.`);
       return;
     }
 
     const requestTimestamp = Date.now();
-    const capturedUserEmail = 'zarsamuel105@gmail.com';
-    const generatedPIN = Math.floor(100000 + Math.random() * 900000).toString();
 
     const updatedOrgs = organizations.map(org => {
       if (org.id === verificationOrgId) {
         return {
           ...org,
           attendantResetRequested: true,
-          attendantResetEmail: capturedUserEmail,
           attendantResetTimestamp: requestTimestamp,
-          previousAttendantPass: org.attendantPass,
-          attendantPass: generatedPIN
+          tempPasswordExpiresAt: undefined
         };
       }
       return org;
     });
 
     setOrganizations(updatedOrgs);
-
     setVerificationCodeInput('');
     setVerificationError('');
-    setVerificationSuccess('A new temporary PIN has been requested successfully.');
-    setResendCooldown(300);
+    setVerificationSuccess('Admin re-notified with your WhatsApp contact number.');
+    setResendCooldown(120);
   };
 
   // --- Handlers: Inventory ---
@@ -3229,7 +3199,7 @@ export default function App() {
                 {/* Bottom Copyright & Attribution Bar */}
                 <div className="pt-6 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 dark:text-slate-400 font-mono">
                   <p className="text-center sm:text-left">
-                    © 2026 <strong className="text-slate-800 dark:text-slate-200">ZAR LABS</strong>. All rights reserved. LERGON is a product of ZAR LABS.
+                    © 2026 <strong className="text-slate-800 dark:text-slate-200">ZAR LABS</strong>. All rights reserved.
                   </p>
                 </div>
               </div>
@@ -3820,6 +3790,20 @@ export default function App() {
                       <User className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
                     </div>
 
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        placeholder="WhatsApp Contact (e.g. +233 24 123 4567)"
+                        value={forgotPhone}
+                        onChange={(e) => {
+                          setForgotPhone(e.target.value);
+                          if (forgotError) setForgotError('');
+                        }}
+                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
+                      />
+                      <Smartphone className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                    </div>
+
                     <div className="flex gap-3 pt-2">
                       <button
                         type="button"
@@ -4233,31 +4217,33 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-3 mb-4 pr-24">
-              <div className="p-2.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/20">
-                <Shield size={20} />
+              <div className="p-2.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl border border-sky-500/20">
+                <Lock size={20} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Verification Code Required</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Please check your email for the temporary PIN.</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Temporary Passcode Required</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Enter the temporary code sent to your WhatsApp by your admin.</p>
               </div>
             </div>
-
-            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-              A temporary passcode reset is active for your account. Please enter the temporary PIN. <strong>This verification session will expire in 5 minutes.</strong>
-            </p>
 
             {(() => {
               const activeResetOrg = organizations.find(o => o.id === verificationOrgId);
               if (activeResetOrg) {
                 return (
-                  <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-lg p-3 text-xs mb-4 text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-400">Simulated Email to {activeResetOrg.attendantResetEmail || 'zarsamuel105@gmail.com'}:</span>
-                    <p className="mt-1 text-[11px]">Hello, a temporary passcode reset has been requested for your attendant account. Use the following temporary PIN to verify your identity:</p>
-                    <div className="mt-2 text-center">
-                      <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tracking-widest bg-white dark:bg-slate-950 px-3 py-1 rounded border border-slate-200 dark:border-slate-800 neumorphic-inset inline-block">
-                        {activeResetOrg.attendantPass}
-                      </span>
+                  <div className="bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 rounded-xl p-3 text-xs mb-4 text-slate-700 dark:text-slate-300 space-y-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-sky-800 dark:text-sky-300">
+                      <Smartphone size={15} />
+                      <span>Admin Notified via WhatsApp</span>
                     </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                      A reset notification has been sent to the administrator of <strong>{activeResetOrg.name}</strong>.
+                      {activeResetOrg.attendantResetPhone && (
+                        <span> Temporary code will be forwarded to your WhatsApp contact: <strong className="font-mono font-bold text-slate-900 dark:text-white">{activeResetOrg.attendantResetPhone}</strong>.</span>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                      ⏱ Once generated by your admin, the code is valid for <strong>2 minutes</strong>.
+                    </p>
                   </div>
                 );
               }

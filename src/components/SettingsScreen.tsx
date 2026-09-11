@@ -23,7 +23,9 @@ import {
   Clock,
   RefreshCw,
   CheckCircle,
-  Loader2
+  Loader2,
+  Smartphone,
+  Send
 } from 'lucide-react';
 import { BusinessConfig, Organization, OrganizationInvite } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -1803,31 +1805,42 @@ export default function SettingsScreen({
               </h3>
 
               {/* Attendant Forgot Password Reset Prompt */}
-              {userRole === 2 && currentOrg?.attendantResetRequested && currentOrg?.attendantPass?.startsWith('__RESETTING_') && (
+              {userRole === 2 && currentOrg?.attendantResetRequested && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="p-4 neumorphic-card bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/60 rounded-2xl text-xs space-y-3 mb-4 text-slate-800 dark:text-amber-100"
                 >
-                  <div className="flex items-start gap-2 text-amber-950 font-semibold">
-                    <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-amber-950 font-bold">Attendant Passcode Reset Request</p>
-                      <p className="text-[11px] text-amber-800 font-normal mt-0.5">
-                        Your attendant <strong className="font-semibold text-amber-950">"{currentOrg.attendantResetUsername || 'Attendant'}"</strong> has requested a password reset. They submitted the following email address to receive their temporary PIN:
+                  <div className="flex items-start gap-2.5 text-amber-950 dark:text-amber-100 font-semibold">
+                    <AlertCircle size={18} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-amber-950 dark:text-amber-100 font-bold text-sm">Password Reset Request</p>
+                      <p className="text-xs text-amber-800 dark:text-amber-200 font-normal leading-relaxed">
+                        User <strong className="font-bold text-amber-950 dark:text-white">"{currentOrg.attendantResetUsername || 'Staff Member'}"</strong> has requested a temporary password to regain access.
                       </p>
-                      <p className="text-[11px] font-mono text-amber-950 bg-amber-100/60 px-2 py-1 rounded mt-1.5 inline-block border border-amber-200">
-                        {currentOrg.attendantResetEmail}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                        {currentOrg.attendantResetPhone && (
+                          <span className="font-mono bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 font-bold flex items-center gap-1">
+                            <Smartphone size={12} /> WhatsApp: {currentOrg.attendantResetPhone}
+                          </span>
+                        )}
+                        {currentOrg.attendantResetEmail && (
+                          <span className="font-mono bg-amber-100/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
+                            Email: {currentOrg.attendantResetEmail}
+                          </span>
+                        )}
+                      </div>
 
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="text-[10px] text-amber-900 font-semibold">
+                        <span className="text-[11px] text-amber-900 dark:text-amber-200 font-semibold">
                           Status:{' '}
-                          {currentOrg.attendantPass.startsWith('__RESETTING_') ? (
-                            <span className="text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded text-[10px] font-semibold border border-amber-200">Awaiting PIN Configuration</span>
+                          {currentOrg.tempPasswordExpiresAt && Date.now() < currentOrg.tempPasswordExpiresAt ? (
+                            <span className="text-emerald-700 bg-emerald-500/15 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-500/30">
+                              Active Temporary Code: <code className="font-mono text-emerald-900 dark:text-emerald-300 font-black">{currentOrg.attendantPass}</code> (2-min window active)
+                            </span>
                           ) : (
-                            <span className="text-emerald-700 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px] font-semibold border border-emerald-500/20">
-                              Temporary PIN Set: <code className="font-mono font-bold text-emerald-800">{currentOrg.attendantPass}</code>
+                            <span className="text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-300 dark:border-amber-700">
+                              Awaiting Temporary Code Setup
                             </span>
                           )}
                         </span>
@@ -1835,10 +1848,16 @@ export default function SettingsScreen({
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-amber-200/50 flex flex-col gap-2">
-                    <label className="block font-semibold text-amber-900">
-                      Set Temporary Passcode PIN
-                    </label>
+                  <div className="pt-3 border-t border-amber-200/60 dark:border-amber-900/60 flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block font-bold text-xs text-amber-950 dark:text-amber-200">
+                        Set Temporary Password
+                      </label>
+                      <span className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
+                        ⏱ Expires in 2 minutes
+                      </span>
+                    </div>
+
                     <div className="flex gap-2 max-w-md">
                       <input
                         type="text"
@@ -1847,58 +1866,102 @@ export default function SettingsScreen({
                           setTempPasswordInput(e.target.value);
                           setTempPasswordFeedback(null);
                         }}
-                        placeholder="e.g. 5566 or temp99"
-                        className="flex-1 rounded-xl neumorphic-inset border border-amber-300/80 dark:border-amber-800 p-2 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-amber-500 text-xs"
+                        placeholder="Enter temporary code (e.g. 6 digits)"
+                        className="flex-1 rounded-xl neumorphic-inset border border-amber-300/80 dark:border-amber-800 p-2.5 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-amber-500 text-xs font-mono font-bold"
                       />
                       <button
                         type="button"
                         onClick={() => {
-                          // Generate a random 4-digit PIN
-                          const rand = Math.floor(1000 + Math.random() * 9000).toString();
+                          // Generate a 6-digit PIN
+                          const rand = Math.floor(100000 + Math.random() * 900000).toString();
                           setTempPasswordInput(rand);
                           setTempPasswordFeedback(null);
                         }}
-                        className="px-3 py-2 neumorphic-btn bg-amber-100/70 dark:bg-amber-950/30 hover:bg-amber-200/70 text-amber-900 dark:text-amber-100 font-semibold rounded-xl text-xs transition border border-amber-300/80 dark:border-amber-800 cursor-pointer"
+                        className="px-3.5 py-2 neumorphic-btn bg-amber-100/80 dark:bg-amber-950/50 hover:bg-amber-200 text-amber-950 dark:text-amber-100 font-bold rounded-xl text-xs transition border border-amber-300/80 dark:border-amber-800 cursor-pointer shrink-0"
                       >
-                        Generate PIN
+                        Generate 6-Digit PIN
                       </button>
                     </div>
 
                     {tempPasswordFeedback && (
-                      <p className="text-[11px] font-semibold text-emerald-700">
+                      <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
                         {tempPasswordFeedback}
                       </p>
                     )}
 
-                    <div className="flex justify-end mt-1">
+                    <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
                       <button
                         type="button"
                         onClick={() => {
                           if (!tempPasswordInput.trim()) {
-                            alert('Please specify a temporary passcode PIN.');
+                            alert('Please specify or generate a temporary password code.');
                             return;
                           }
 
                           if (organizations && currentOrgId && onUpdateOrganizations) {
+                            const expiresAt = Date.now() + 2 * 60 * 1000; // 2 minutes expiration
                             const updated = organizations.map(o => {
                               if (o.id === currentOrgId) {
                                 return {
                                   ...o,
                                   attendantPass: tempPasswordInput.trim(),
                                   isTempPassword: true,
-                                  attendantResetRequested: true // keep active so verification modal and timer remain active
+                                  tempPasswordExpiresAt: expiresAt,
+                                  attendantResetRequested: true
                                 };
                               }
                               return o;
                             });
                             onUpdateOrganizations(updated);
-                            setTempPasswordFeedback(`Passcode updated to "${tempPasswordInput.trim()}"! A secure simulated email with the temporary passcode PIN has been sent to ${currentOrg.attendantResetEmail}.`);
-                            setTempPasswordInput('');
+                            setTempPasswordFeedback(`Temporary passcode "${tempPasswordInput.trim()}" activated! (Expires in 2 minutes)`);
                           }
                         }}
-                        className="flex items-center gap-1 neumorphic-btn bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs cursor-pointer"
+                        className="flex items-center gap-1.5 neumorphic-btn border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold px-3.5 py-2 rounded-xl transition text-xs cursor-pointer"
                       >
-                        <Check size={13} /> Set & Send Temporary Passcode
+                        <Check size={14} /> Set Code Only
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!tempPasswordInput.trim()) {
+                            alert('Please enter or generate a temporary passcode first.');
+                            return;
+                          }
+
+                          if (organizations && currentOrgId && onUpdateOrganizations) {
+                            const expiresAt = Date.now() + 2 * 60 * 1000; // 2 minutes expiration
+                            const updated = organizations.map(o => {
+                              if (o.id === currentOrgId) {
+                                return {
+                                  ...o,
+                                  attendantPass: tempPasswordInput.trim(),
+                                  isTempPassword: true,
+                                  tempPasswordExpiresAt: expiresAt,
+                                  attendantResetRequested: true
+                                };
+                              }
+                              return o;
+                            });
+                            onUpdateOrganizations(updated);
+
+                            // Format WhatsApp link and dispatch
+                            const rawPhone = currentOrg.attendantResetPhone || config.phone || config.attendantPhone || '';
+                            const cleanPh = rawPhone.replace(/\D/g, '');
+                            const recipientName = currentOrg.attendantResetUsername || 'there';
+                            const bizName = currentOrg.name || 'LERGON';
+                            const msgText = `Hello ${recipientName}, your temporary login passcode for ${bizName} is: *${tempPasswordInput.trim()}*. This code expires in 2 minutes. Please use it to log in and set your new password immediately.`;
+                            const waUrl = cleanPh
+                              ? `https://wa.me/${cleanPh}?text=${encodeURIComponent(msgText)}`
+                              : `https://wa.me/?text=${encodeURIComponent(msgText)}`;
+
+                            window.open(waUrl, '_blank');
+                            setTempPasswordFeedback(`Code "${tempPasswordInput.trim()}" activated and WhatsApp opened! (Valid for 2 minutes)`);
+                          }
+                        }}
+                        className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold px-4 py-2 rounded-xl transition text-xs cursor-pointer shadow-md"
+                      >
+                        <Send size={14} /> Forward via WhatsApp
                       </button>
                     </div>
                   </div>

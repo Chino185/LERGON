@@ -214,21 +214,20 @@ export default function NotificationsScreen({
         });
       }
     });
+    }
 
-    // 5. Attendant passcode reset requested
-    if (userRole === 2 && currentOrg?.attendantResetRequested && currentOrg?.attendantPass?.startsWith('__RESETTING_')) {
+    // 5. Attendant / staff password reset requested
+    if (userRole === 2 && currentOrg?.attendantResetRequested) {
       list.push({
         id: `notif-pass-reset-${currentOrg.id}`,
-        title: 'Attendant PIN Reset Request',
-        description: `Your attendant "${currentOrg.attendantResetUsername || 'Attendant'}" requested a security PIN reset.`,
-        type: 'error',
+        title: '🔑 Password Reset Request',
+        description: `"${currentOrg.attendantResetUsername || 'Staff member'}" requested a password reset. Click to set temporary code & forward via WhatsApp.`,
+        type: 'warning',
         date: new Date(currentOrg.attendantResetTimestamp || Date.now()).toISOString(),
         category: 'System',
         targetScreen: 'settings',
         targetTab: 'security'
       });
-    }
-
     }
 
     // 6. Restock validation alerts for Admin. These are sourced from the
