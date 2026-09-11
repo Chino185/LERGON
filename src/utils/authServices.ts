@@ -35,7 +35,7 @@ export async function resetPasswordForEmail(email: string): Promise<{ success: b
 export async function registerUser(
   email: string,
   password: string,
-  metadata?: { name?: string; role?: 'admin' | 'attendant'; businessName?: string; inviteCode?: string }
+  metadata?: { name?: string; role?: 'admin' | 'attendant'; businessName?: string; inviteCode?: string; termsAccepted?: boolean; termsAcceptedAt?: string }
 ): Promise<{ success: boolean; user?: any; session?: any; error?: string }> {
   try {
     const cleanEmail = email.trim().toLowerCase();
@@ -44,6 +44,8 @@ export async function registerUser(
       ? (metadata.name || '')
       : cleanEmail.split('@')[0];
     const businessName = metadata?.businessName || `${displayUsername || cleanEmail.split('@')[0]}'s Shop`;
+    const termsAccepted = metadata?.termsAccepted !== false;
+    const termsAcceptedAt = metadata?.termsAcceptedAt || new Date().toISOString();
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: cleanEmail,
@@ -53,7 +55,9 @@ export async function registerUser(
           display_username: displayUsername,
           role: role,
           business_name: businessName,
-          invite_code: metadata?.inviteCode || ''
+          invite_code: metadata?.inviteCode || '',
+          terms_accepted: termsAccepted,
+          terms_accepted_at: termsAcceptedAt
         }
       }
     });
@@ -65,9 +69,18 @@ export async function registerUser(
       return { success: false, error: 'User registration failed.' };
     }
 
-    // Business + profile creation now happens atomically inside the
-    // handle_new_user() Postgres trigger — no separate client-side
-    // business insert or profile update needed here anymore.
+    // Safely register consent timestamp in profiles table
+    try {
+      await supabase
+        .from('profiles')
+        .update({
+          terms_accepted: termsAccepted,
+          terms_accepted_at: termsAcceptedAt
+        })
+        .eq('id', user.id);
+    } catch (profileErr) {
+      console.warn('Profile terms update note:', profileErr);
+    }
 
     return { success: true, user: authData.user, session: authData.session };
   } catch (err: any) {

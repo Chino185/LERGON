@@ -118,6 +118,7 @@ import {
 } from './utils/correctionServices';
 import { subscribeToBackendNotifications } from './utils/notificationServices';
 import { LandingPageBackground } from './components/LandingPageBackground';
+import TermsModal from './components/TermsModal';
 import Navigation from './components/Navigation';
 
 import DashboardScreen from './components/DashboardScreen';
@@ -340,6 +341,8 @@ export default function App() {
   const [attendantPasswordError, setAttendantPasswordError] = useState('');
 
   // --- Register/Validation states ---
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
+  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
   const [registerError, setRegisterError] = useState('');
   const [tempPasscodeError, setTempPasscodeError] = useState('');
   const [isLoginEmailFocused, setIsLoginEmailFocused] = useState(false);
@@ -839,7 +842,9 @@ export default function App() {
       const authRes = await registerUser(cleanEmail, cleanAdminPass, {
         name: 'Administrator',
         role: 'admin',
-        businessName: cleanName
+        businessName: cleanName,
+        termsAccepted: true,
+        termsAcceptedAt: new Date().toISOString()
       });
 
       if (!authRes.success) {
@@ -937,6 +942,11 @@ export default function App() {
     e.preventDefault();
     setAttendantPasswordError('');
 
+    if (!termsAccepted) {
+      setAttendantPasswordError('You must agree to the Terms of Service & Privacy Policy before creating an account.');
+      return;
+    }
+
     if (!validatedJoinOrg) {
       setJoinError('This code has expired. Ask your admin for a new one.');
       setActiveView('join');
@@ -976,7 +986,9 @@ export default function App() {
     const authRes = await registerUser(cleanEmail, cleanPass, {
       role: 'attendant',
       name: '',
-      inviteCode: inviteCodeInput.trim()
+      inviteCode: inviteCodeInput.trim(),
+      termsAccepted: true,
+      termsAcceptedAt: new Date().toISOString()
     });
 
     if (authRes.error || !authRes.user) {
@@ -3110,6 +3122,17 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Links */}
+                <div className="flex items-center gap-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 underline underline-offset-4 transition-colors cursor-pointer"
+                  >
+                    Terms of Service & Privacy Policy
+                  </button>
+                </div>
+
                 <p className="text-xs text-slate-700 dark:text-slate-300 font-mono text-center md:text-right font-semibold">
                   © 2026 LERGON Built for LERGON AI
                 </p>
@@ -3315,6 +3338,10 @@ export default function App() {
                     onSubmit={async (e) => {
                       e.preventDefault();
                       setRegisterError('');
+                      if (!termsAccepted) {
+                        setRegisterError('You must agree to the Terms of Service & Privacy Policy before creating an account.');
+                        return;
+                      }
                       if (organizations.length >= 1000) {
                         setRegisterError('Maximum registration limit of 1000 organizations has been reached.');
                         return;
@@ -3409,9 +3436,30 @@ export default function App() {
                     {/* Real-time Password Strength Checklist (Shown on focus / typing) */}
                     <PasswordValidationChecklist password={newOrgAdminPass} isFocused={isRegPassFocused} />
 
+                    {/* Terms and Conditions Consent Checkbox */}
+                    <div className="flex items-start gap-2.5 pt-1 px-1">
+                      <input
+                        type="checkbox"
+                        id="termsConsentCheckbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-sky-600 focus:ring-sky-500 cursor-pointer accent-sky-500"
+                      />
+                      <label htmlFor="termsConsentCheckbox" className="text-xs text-slate-700 dark:text-slate-300 select-none leading-tight">
+                        I agree to the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setShowTermsModal(true)}
+                          className="text-sky-600 dark:text-sky-400 font-bold underline hover:text-sky-700 dark:hover:text-sky-300 transition-colors inline cursor-pointer"
+                        >
+                          Terms of Service & Privacy Policy
+                        </button>
+                      </label>
+                    </div>
+
                     <button
                       type="submit"
-                      disabled={isRegLoading}
+                      disabled={isRegLoading || !termsAccepted}
                       className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-3 border border-white/30 dark:border-slate-700/60 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {isRegLoading ? (
@@ -3558,9 +3606,31 @@ export default function App() {
                       </button>
                     </div>
 
+                    {/* Terms and Conditions Consent Checkbox */}
+                    <div className="flex items-start gap-2.5 pt-1 px-1">
+                      <input
+                        type="checkbox"
+                        id="termsConsentAttendantCheckbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-sky-600 focus:ring-sky-500 cursor-pointer accent-sky-500"
+                      />
+                      <label htmlFor="termsConsentAttendantCheckbox" className="text-xs text-slate-700 dark:text-slate-300 select-none leading-tight">
+                        I agree to the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setShowTermsModal(true)}
+                          className="text-sky-600 dark:text-sky-400 font-bold underline hover:text-sky-700 dark:hover:text-sky-300 transition-colors inline cursor-pointer"
+                        >
+                          Terms of Service & Privacy Policy
+                        </button>
+                      </label>
+                    </div>
+
                     <button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-3 border border-white/30 dark:border-slate-700/60 shadow-md"
+                      disabled={!termsAccepted}
+                      className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-3 border border-white/30 dark:border-slate-700/60 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       Join {validatedJoinOrg?.name || 'Shop'}
                     </button>
@@ -3675,6 +3745,17 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* Terms and Conditions / Privacy Policy Modal */}
+          <TermsModal
+            isOpen={showTermsModal}
+            onClose={() => setShowTermsModal(false)}
+            onAccept={() => {
+              setTermsAccepted(true);
+              setShowTermsModal(false);
+            }}
+            showAcceptButton={!termsAccepted}
+          />
         </div>
       ) : (
         <CurrencyProvider currency={config.currency} currencySymbol={config.currencySymbol}>
