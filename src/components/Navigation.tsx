@@ -966,7 +966,7 @@ export default function Navigation({
           </div>
         )}
 
-        <main id="app-main-content" className="flex-1 p-3 sm:p-4 xl:p-4 pb-24 xl:pb-4">
+        <main id="app-main-content" className="flex-1 p-3 sm:p-4 xl:p-4 pb-48 sm:pb-48 xl:pb-36 min-h-0">
           <div className={`${(activeScreen === 'invoice' || activeScreen === 'transactions') ? 'max-w-none xl:max-w-[1550px]' : 'max-w-7xl'} mx-auto w-full`}>
             {children}
           </div>

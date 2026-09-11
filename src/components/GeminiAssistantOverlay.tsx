@@ -172,84 +172,81 @@ export default function GeminiAssistantOverlay({
     stopContinuousScroll();
     isContinuousScrollingRef.current = true;
 
-    // Gentle glide speed: 1.6px per animation frame (~95px/second)
-    const step = direction === 'down' ? 1.6 : -1.6;
+    // Gentle glide speed: 2.4px per animation frame (~145px/second)
+    const step = direction === 'down' ? 2.4 : -2.4;
 
     const tick = () => {
       if (!isContinuousScrollingRef.current) return;
 
-      const scrollTargets: (Element | Window)[] = [];
-      const activeModal = document.querySelector('.fixed.inset-0 .overflow-y-auto, [role="dialog"] .overflow-y-auto');
-      if (activeModal && activeModal.scrollHeight > activeModal.clientHeight) {
-        scrollTargets.push(activeModal);
-      } else {
-        const pageContainers = document.querySelectorAll('#app-main-content, main, .overflow-y-auto, .overflow-y-scroll');
-        pageContainers.forEach(el => {
-          if (el.scrollHeight > el.clientHeight + 20 && !scrollTargets.includes(el)) {
-            scrollTargets.push(el);
-          }
-        });
-        scrollTargets.push(window);
-      }
-
-      let canScrollFurther = false;
-
-      for (const target of scrollTargets) {
-        if (target === window) {
-          const maxScroll = Math.max(
-            document.documentElement.scrollHeight - window.innerHeight,
-            document.body.scrollHeight - window.innerHeight
-          );
-          const currentY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
-          if (direction === 'down' && currentY < maxScroll - 1) {
-            window.scrollBy(0, step);
-            canScrollFurther = true;
-          } else if (direction === 'up' && currentY > 1) {
-            window.scrollBy(0, step);
-            canScrollFurther = true;
-          }
+      // 1. If an active modal dialog is open, scroll that modal entirely
+      const activeModal = document.querySelector('.fixed.inset-0 .overflow-y-auto, [role="dialog"] .overflow-y-auto') as HTMLElement | null;
+      if (activeModal && activeModal.scrollHeight > activeModal.clientHeight + 20) {
+        const maxModalScroll = activeModal.scrollHeight - activeModal.clientHeight;
+        const currentModalY = activeModal.scrollTop;
+        if (direction === 'down' && currentModalY < maxModalScroll - 2) {
+          activeModal.scrollTop += step;
+          continuousScrollRafRef.current = requestAnimationFrame(tick);
+          return;
+        } else if (direction === 'up' && currentModalY > 2) {
+          activeModal.scrollTop += step;
+          continuousScrollRafRef.current = requestAnimationFrame(tick);
+          return;
         } else {
-          const el = target as HTMLElement;
-          const maxScroll = el.scrollHeight - el.clientHeight;
-          if (direction === 'down' && el.scrollTop < maxScroll - 1) {
-            el.scrollTop += step;
-            canScrollFurther = true;
-          } else if (direction === 'up' && el.scrollTop > 1) {
-            el.scrollTop += step;
-            canScrollFurther = true;
-          }
+          stopContinuousScroll();
+          return;
         }
       }
 
-      if (canScrollFurther && isContinuousScrollingRef.current) {
-        continuousScrollRafRef.current = requestAnimationFrame(tick);
+      // 2. Otherwise, scroll the full page entirely from top to bottom
+      const scroller = document.scrollingElement || document.documentElement || document.body;
+      const currentY = window.scrollY || window.pageYOffset || scroller.scrollTop || 0;
+      const maxScroll = Math.max(
+        scroller.scrollHeight - window.innerHeight,
+        document.documentElement.scrollHeight - window.innerHeight,
+        document.body.scrollHeight - window.innerHeight,
+        0
+      );
+
+      if (direction === 'down') {
+        if (currentY < maxScroll - 2) {
+          scroller.scrollTop += step;
+          window.scrollBy({ top: step, behavior: 'auto' });
+          continuousScrollRafRef.current = requestAnimationFrame(tick);
+        } else {
+          stopContinuousScroll();
+        }
       } else {
-        stopContinuousScroll();
+        if (currentY > 2) {
+          scroller.scrollTop += step;
+          window.scrollBy({ top: step, behavior: 'auto' });
+          continuousScrollRafRef.current = requestAnimationFrame(tick);
+        } else {
+          stopContinuousScroll();
+        }
       }
     };
 
     continuousScrollRafRef.current = requestAnimationFrame(tick);
   }, [stopContinuousScroll]);
 
-  // Cancel continuous auto-scroll immediately if user touches screen, mouse wheels, or presses a key
+  // Cancel continuous auto-scroll when user performs an active manual scroll gesture (mouse wheel or finger touch drag)
   useEffect(() => {
-    const handleManualInterruption = () => {
-      if (isContinuousScrollingRef.current) {
-        stopContinuousScroll();
+    const handleManualScrollGesture = (e: Event) => {
+      if (!isContinuousScrollingRef.current) return;
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('#gemini-live-overlay, #gemini-assistant-launcher, .assistant-control-btn')) {
+        return;
       }
+      stopContinuousScroll();
     };
 
-    window.addEventListener('wheel', handleManualInterruption, { passive: true });
-    window.addEventListener('touchstart', handleManualInterruption, { passive: true });
-    window.addEventListener('pointerdown', handleManualInterruption, { passive: true });
-    window.addEventListener('keydown', handleManualInterruption, { passive: true });
+    window.addEventListener('wheel', handleManualScrollGesture, { passive: true });
+    window.addEventListener('touchmove', handleManualScrollGesture, { passive: true });
 
     return () => {
       stopContinuousScroll();
-      window.removeEventListener('wheel', handleManualInterruption);
-      window.removeEventListener('touchstart', handleManualInterruption);
-      window.removeEventListener('pointerdown', handleManualInterruption);
-      window.removeEventListener('keydown', handleManualInterruption);
+      window.removeEventListener('wheel', handleManualScrollGesture);
+      window.removeEventListener('touchmove', handleManualScrollGesture);
     };
   }, [stopContinuousScroll]);
 
@@ -1120,7 +1117,7 @@ export default function GeminiAssistantOverlay({
               if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
             } else if (direction === "bottom") {
               stopContinuousScroll();
-              window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+              window.scrollTo({ top: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, 0), behavior: 'smooth' });
               const modal = document.querySelector('.fixed.inset-0 .overflow-y-auto, [role="dialog"] .overflow-y-auto');
               if (modal) modal.scrollTo({ top: modal.scrollHeight, behavior: 'smooth' });
             } else if (amount === 'half_page' || amount === 'full_page') {
