@@ -595,6 +595,38 @@ function queryPageContextServer(applicationContext: any, page: string, searchQue
   };
 }
 
+// Temporary PIN store for organization password reset
+interface TempPinRecord {
+  businessId: string;
+  businessName: string;
+  pin: string;
+  expiresAt: number;
+}
+const activeTempPins = new Map<string, TempPinRecord>();
+
+app.post("/api/auth/temp-pin", (req, res) => {
+  const { businessId, businessName, pin, expiresInSec = 120 } = req.body || {};
+  if (!pin) return res.status(400).json({ error: "pin is required" });
+  const expiresAt = Date.now() + expiresInSec * 1000;
+  activeTempPins.set(String(pin).trim(), {
+    businessId: businessId || "",
+    businessName: businessName || "Business",
+    pin: String(pin).trim(),
+    expiresAt
+  });
+  return res.json({ success: true, pin: String(pin).trim(), expiresAt });
+});
+
+app.get("/api/auth/temp-pin/:pin", (req, res) => {
+  const pin = String(req.params.pin || "").trim();
+  const record = activeTempPins.get(pin);
+  if (!record || Date.now() > record.expiresAt) {
+    if (record) activeTempPins.delete(pin);
+    return res.status(404).json({ error: "Invalid or expired PIN" });
+  }
+  return res.json({ success: true, record });
+});
+
 // API Endpoints for Gemini Intelligence Center (Smart audits & calculations)
 app.post("/api/gemini/analyze-inventory", async (req, res) => {
   const { inventory = [], adjustments = [], config = {}, deepAnalysis } = req.body || {};

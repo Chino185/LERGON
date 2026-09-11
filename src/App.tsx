@@ -365,13 +365,61 @@ export default function App() {
   const [isAttendantPassFocused, setIsAttendantPassFocused] = useState(false);
 
   // --- Forgot Password states ---
+  const [forgotMode, setForgotMode] = useState<'pin' | 'email'>('pin');
+  const [forgotPinInput, setForgotPinInput] = useState('');
+  const [pinResolvedOrg, setPinResolvedOrg] = useState<Organization | null>(null);
   const [forgotOrgId, setForgotOrgId] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [isForgotLoading, setIsForgotLoading] = useState(false);
   const [isForgotEmailFocused, setIsForgotEmailFocused] = useState(false);
 
-  // Auto-resolve organization based on entered email
+  // Real-time lookup of organization when typing 6-digit PIN
+  useEffect(() => {
+    const cleanPin = forgotPinInput.trim();
+    if (cleanPin.length !== 6) {
+      setPinResolvedOrg(null);
+      return;
+    }
+
+    // 1. Check in-memory organizations
+    const found = organizations.find(o => o.attendantPass?.trim() === cleanPin);
+    if (found) {
+      setPinResolvedOrg(found);
+      return;
+    }
+
+    // 2. Check localStorage
+    try {
+      const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
+      const stored = storedOrgs.find(o => o.attendantPass?.trim() === cleanPin);
+      if (stored) {
+        setPinResolvedOrg(stored);
+        return;
+      }
+    } catch {}
+
+    // 3. Check server temp-pin store
+    fetch(`/api/auth/temp-pin/${encodeURIComponent(cleanPin)}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.record) {
+          setPinResolvedOrg({
+            id: data.record.businessId || 'org-temp',
+            name: data.record.businessName || 'Business',
+            attendantPass: cleanPin,
+            tempPasswordExpiresAt: data.record.expiresAt,
+            attendantResetRequested: true,
+            adminPass: '',
+            adminEmail: '',
+            attendantEmail: ''
+          });
+        }
+      })
+      .catch(() => {});
+  }, [forgotPinInput, organizations]);
+
+  // Auto-resolve organization based on entered email (NEVER fabricates fake names)
   const resolvedOrgForForgot = React.useMemo(() => {
     const e = forgotEmail.trim().toLowerCase();
     if (!e || !e.includes('@')) return null;
@@ -393,26 +441,24 @@ export default function App() {
       if (storedFound) return storedFound;
     } catch {}
 
-    // 3. Fallback: resolve from stored business configuration or construct from email prefix
-    let bizName = '';
+    // 3. Match from active stored config if email matches
     try {
       const storedConfig = JSON.parse(localStorage.getItem('velo_ic_config') || '{}');
-      if (storedConfig?.businessName) bizName = storedConfig.businessName;
+      if (storedConfig?.businessName && storedConfig.businessName !== 'My Business' && storedConfig?.email === e) {
+        return {
+          id: 'org-local',
+          name: storedConfig.businessName,
+          adminPass: '',
+          attendantPass: '',
+          attendantEmail: e,
+          adminEmail: e,
+          attendantName: e.split('@')[0],
+          attendantResetPhone: ''
+        };
+      }
     } catch {}
 
-    const namePrefix = e.split('@')[0];
-    const cleanBizName = bizName || (namePrefix.charAt(0).toUpperCase() + namePrefix.slice(1) + ' Business');
-
-    return {
-      id: `org-${e.replace(/[^a-z0-9]/gi, '')}`,
-      name: cleanBizName,
-      adminPass: '',
-      attendantPass: '',
-      attendantEmail: e,
-      adminEmail: e,
-      attendantName: namePrefix,
-      attendantResetPhone: ''
-    };
+    return null;
   }, [forgotEmail, organizations]);
 
   // --- Code Verification Modal states ---
@@ -430,6 +476,91 @@ export default function App() {
     e.preventDefault();
     setForgotError('');
 
+    if (forgotMode === 'pin') {
+      const cleanPin = forgotPinInput.trim();
+      if (!cleanPin) {
+        setForgotError('Please enter the 6-digit temporary PIN provided by your administrator.');
+        return;
+      }
+      setIsForgotLoading(true);
+
+      try {
+        let targetOrg = pinResolvedOrg || organizations.find(o => o.attendantPass?.trim() === cleanPin);
+
+        if (!targetOrg) {
+          try {
+            const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
+            targetOrg = storedOrgs.find(o => o.attendantPass?.trim() === cleanPin);
+          } catch {}
+        }
+
+        if (!targetOrg) {
+          try {
+            const res = await fetch(`/api/auth/temp-pin/${encodeURIComponent(cleanPin)}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data?.record) {
+                targetOrg = {
+                  id: data.record.businessId || `org-${Date.now()}`,
+                  name: data.record.businessName || 'Business',
+                  attendantPass: cleanPin,
+                  tempPasswordExpiresAt: data.record.expiresAt,
+                  attendantResetRequested: true,
+                  adminPass: '',
+                  adminEmail: '',
+                  attendantEmail: ''
+                };
+              }
+            }
+          } catch {}
+        }
+
+        if (!targetOrg) {
+          setForgotError('Invalid or expired passcode PIN. Please ask your administrator to generate a fresh 2-minute PIN in Settings.');
+          return;
+        }
+
+        if (targetOrg.tempPasswordExpiresAt && Date.now() > targetOrg.tempPasswordExpiresAt) {
+          setForgotError('This temporary passcode has expired (2-minute limit). Please ask your admin to issue a new code.');
+          return;
+        }
+
+        // Success: activate temporary passcode requirement & log attendant into this organization
+        const updatedOrg: Organization = {
+          ...targetOrg,
+          attendantResetRequested: false,
+          isTempPassword: true,
+          tempPasswordExpiresAt: undefined
+        };
+
+        setOrganizations(prev => {
+          const exists = prev.some(o => o.id === updatedOrg.id);
+          const nextList = exists
+            ? prev.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
+            : [updatedOrg, ...prev];
+          try {
+            saveLocalState('velo_ic_organizations', nextList);
+          } catch {}
+          return nextList;
+        });
+
+        // Close auth modal and log in directly as attendant
+        setShowAuthModal(false);
+        setCurrentOrgId(updatedOrg.id);
+        setCurrentUserRole(5);
+        setIsLoggedIn(true);
+        setForgotPinInput('');
+        setForgotEmail('');
+        setForgotError('');
+        setSuccess('Passcode verified! Please establish your new unique password.');
+        setTimeout(() => setSuccess(null), 4000);
+      } finally {
+        setIsForgotLoading(false);
+      }
+      return;
+    }
+
+    // --- Mode: Request via Email ---
     const emailCheck = validateEmail(forgotEmail);
     if (!emailCheck.isValid) {
       setForgotError(emailCheck.error || 'Please enter a valid email address.');
@@ -440,30 +571,24 @@ export default function App() {
     setIsForgotLoading(true);
 
     try {
-      const baseOrg = resolvedOrgForForgot || {
-        id: `org-${cleanEmail.replace(/[^a-z0-9]/gi, '')}`,
-        name: cleanEmail.split('@')[0].toUpperCase() + ' Business',
-        adminPass: '',
-        attendantPass: '',
-        attendantEmail: cleanEmail,
-        adminEmail: cleanEmail,
-        attendantName: cleanEmail.split('@')[0],
-        attendantResetPhone: ''
-      };
+      const targetOrg = resolvedOrgForForgot;
+      if (!targetOrg) {
+        setForgotError('No registered organization found for this email. If your admin gave you a temporary PIN, use the "I have a Temporary PIN" option above.');
+        return;
+      }
 
       const requestTimestamp = Date.now();
       const updatedOrg: Organization = {
-        ...baseOrg,
+        ...targetOrg,
         attendantResetRequested: true,
         attendantResetEmail: cleanEmail,
-        attendantResetUsername: baseOrg.attendantName || cleanEmail.split('@')[0],
-        attendantResetPhone: baseOrg.attendantResetPhone || '',
+        attendantResetUsername: targetOrg.attendantName || cleanEmail.split('@')[0],
+        attendantResetPhone: targetOrg.attendantResetPhone || '',
         attendantResetTimestamp: requestTimestamp,
-        previousAttendantPass: baseOrg.attendantPass,
+        previousAttendantPass: targetOrg.attendantPass,
         tempPasswordExpiresAt: undefined
       };
 
-      // Always ensure targetOrg is in organizations state & persisted to localStorage
       setOrganizations(prev => {
         const exists = prev.some(o => o.id === updatedOrg.id);
         const nextList = exists
@@ -475,7 +600,7 @@ export default function App() {
         return nextList;
       });
 
-      // Audit activity log and admin notification (safe background try/catch)
+      // Audit activity log and admin notification
       try {
         await logActivity(
           `Password reset requested for ${updatedOrg.attendantName || cleanEmail}`,
@@ -497,14 +622,12 @@ export default function App() {
         console.warn('[Forgot Password] Notification log note:', logErr);
       }
 
-      // Open temporary passcode modal so user can enter the PIN forwarded by admin via WhatsApp
       setVerificationOrgId(updatedOrg.id);
       setVerificationCodeInput('');
       setVerificationError('');
       setVerificationSuccess('');
       setShowCodeVerificationModal(true);
     } catch (err: any) {
-      console.error('[Forgot Password Error]', err);
       setForgotError(err?.message || 'An error occurred. Please try again.');
     } finally {
       setIsForgotLoading(false);
@@ -3930,38 +4053,116 @@ export default function App() {
                 {/* --- 3. RECOVERY --- */}
                 {activeView === 'forgot' && (
                   <form onSubmit={handleForgotSubmit} className="relative z-10 space-y-4">
-                    <div className="relative">
-                      <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        placeholder="you@example.com"
-                        value={forgotEmail}
-                        onFocus={() => setIsForgotEmailFocused(true)}
-                        onBlur={() => setIsForgotEmailFocused(false)}
-                        onChange={(e) => {
-                          setForgotEmail(e.target.value);
-                          if (forgotError) setForgotError('');
-                        }}
-                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
-                      />
-                      <Mail className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                    {/* Mode Selector */}
+                    <div className="flex rounded-xl p-1 bg-slate-200/80 dark:bg-slate-800/80 neumorphic-inset text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => { setForgotMode('pin'); setForgotError(''); }}
+                        className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          forgotMode === 'pin'
+                            ? 'bg-sky-600 text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <KeyRound size={14} />
+                        <span>I have a Temporary PIN</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setForgotMode('email'); setForgotError(''); }}
+                        className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          forgotMode === 'email'
+                            ? 'bg-sky-600 text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <Mail size={14} />
+                        <span>Request via Email</span>
+                      </button>
                     </div>
 
-                    {/* Real-time Email Validation Checklist */}
-                    <EmailValidationChecklist email={forgotEmail} isFocused={isForgotEmailFocused} />
+                    {forgotMode === 'pin' && (
+                      <div className="space-y-3">
+                        <div className="relative">
+                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                            6-Digit Temporary PIN
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={6}
+                            inputMode="numeric"
+                            placeholder="Enter 6-digit PIN from admin"
+                            value={forgotPinInput}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/\D/g, '');
+                              setForgotPinInput(v);
+                              if (forgotError) setForgotError('');
+                            }}
+                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-base font-mono font-black text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 tracking-widest text-center"
+                          />
+                          <KeyRound className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                        </div>
 
-                    {resolvedOrgForForgot && (
-                      <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 flex items-center gap-3 animate-fade-in">
-                        <div className="w-8 h-8 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                          <Building2 size={16} />
+                        {pinResolvedOrg && (
+                          <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-3 animate-fade-in">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                              <Building2 size={16} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Organization Identified</p>
+                              <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 truncate">{pinResolvedOrg.name}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+                          Enter the 6-digit temporary passcode generated by your admin. It expires in 2 minutes.
+                        </p>
+                      </div>
+                    )}
+
+                    {forgotMode === 'email' && (
+                      <div className="space-y-3">
+                        <div className="relative">
+                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                            Email Address
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            placeholder="you@example.com"
+                            value={forgotEmail}
+                            onFocus={() => setIsForgotEmailFocused(true)}
+                            onBlur={() => setIsForgotEmailFocused(false)}
+                            onChange={(e) => {
+                              setForgotEmail(e.target.value);
+                              if (forgotError) setForgotError('');
+                            }}
+                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
+                          />
+                          <Mail className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Organization Identified</p>
-                          <p className="text-sm font-extrabold text-sky-700 dark:text-sky-300 truncate">{resolvedOrgForForgot.name}</p>
-                        </div>
+
+                        {/* Real-time Email Validation Checklist */}
+                        <EmailValidationChecklist email={forgotEmail} isFocused={isForgotEmailFocused} />
+
+                        {resolvedOrgForForgot ? (
+                          <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 flex items-center gap-3 animate-fade-in">
+                            <div className="w-8 h-8 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                              <Building2 size={16} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Organization Identified</p>
+                              <p className="text-sm font-extrabold text-sky-700 dark:text-sky-300 truncate">{resolvedOrgForForgot.name}</p>
+                            </div>
+                          </div>
+                        ) : forgotEmail.includes('@') ? (
+                          <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-[11px] text-amber-800 dark:text-amber-300 space-y-1">
+                            <p className="font-semibold">💡 Contact Your Administrator</p>
+                            <p>Ask your business admin to open <span className="font-bold">Settings &rarr; Security</span> and click <span className="font-bold">Generate 6-Digit PIN</span>, then use the "I have a Temporary PIN" tab.</p>
+                          </div>
+                        ) : null}
                       </div>
                     )}
 
@@ -3981,7 +4182,12 @@ export default function App() {
                         {isForgotLoading ? (
                           <>
                             <RefreshCw size={16} className="animate-spin" />
-                            <span>Sending Request...</span>
+                            <span>Verifying...</span>
+                          </>
+                        ) : forgotMode === 'pin' ? (
+                          <>
+                            <KeyRound size={16} />
+                            <span>Verify PIN & Sign In</span>
                           </>
                         ) : (
                           <span>Request Temporary Passcode</span>

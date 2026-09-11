@@ -1804,8 +1804,8 @@ export default function SettingsScreen({
                 <span>Security Settings</span>
               </h3>
 
-              {/* Attendant Forgot Password Reset Prompt */}
-              {userRole === 2 && currentOrg?.attendantResetRequested && (
+              {/* Attendant Forgot Password Reset / PIN Generator */}
+              {userRole === 2 && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1814,17 +1814,23 @@ export default function SettingsScreen({
                   <div className="flex items-start gap-2.5 text-amber-950 dark:text-amber-100 font-semibold">
                     <AlertCircle size={18} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                     <div className="space-y-1">
-                      <p className="text-amber-950 dark:text-amber-100 font-bold text-sm">Password Reset Request</p>
+                      <p className="text-amber-950 dark:text-amber-100 font-bold text-sm">
+                        {currentOrg?.attendantResetRequested ? 'Password Reset Request' : 'Generate Temporary Staff Passcode PIN'}
+                      </p>
                       <p className="text-xs text-amber-800 dark:text-amber-200 font-normal leading-relaxed">
-                        User <strong className="font-bold text-amber-950 dark:text-white">"{currentOrg.attendantResetUsername || 'Staff Member'}"</strong> has requested a temporary password to regain access.
+                        {currentOrg?.attendantResetRequested ? (
+                          <>User <strong className="font-bold text-amber-950 dark:text-white">"{currentOrg.attendantResetUsername || 'Staff Member'}"</strong> has requested a temporary password to regain access to <strong className="font-bold text-amber-950 dark:text-white">{currentOrg.name}</strong>.</>
+                        ) : (
+                          <>Issue a 2-minute temporary passcode PIN for staff to log in and reset their password for <strong className="font-bold text-amber-950 dark:text-white">{currentOrg?.name || 'this business'}</strong>.</>
+                        )}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
-                        {currentOrg.attendantResetPhone && (
+                        {currentOrg?.attendantResetPhone && (
                           <span className="font-mono bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 font-bold flex items-center gap-1">
                             <Smartphone size={12} /> WhatsApp: {currentOrg.attendantResetPhone}
                           </span>
                         )}
-                        {currentOrg.attendantResetEmail && (
+                        {currentOrg?.attendantResetEmail && (
                           <span className="font-mono bg-amber-100/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
                             Email: {currentOrg.attendantResetEmail}
                           </span>
@@ -1834,7 +1840,7 @@ export default function SettingsScreen({
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-[11px] text-amber-900 dark:text-amber-200 font-semibold">
                           Status:{' '}
-                          {currentOrg.tempPasswordExpiresAt && Date.now() < currentOrg.tempPasswordExpiresAt ? (
+                          {currentOrg?.tempPasswordExpiresAt && Date.now() < currentOrg.tempPasswordExpiresAt ? (
                             <span className="text-emerald-700 bg-emerald-500/15 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-500/30">
                               Active Temporary Code: <code className="font-mono text-emerald-900 dark:text-emerald-300 font-black">{currentOrg.attendantPass}</code> (2-min window active)
                             </span>
@@ -1851,7 +1857,7 @@ export default function SettingsScreen({
                   <div className="pt-3 border-t border-amber-200/60 dark:border-amber-900/60 flex flex-col gap-2.5">
                     <div className="flex items-center justify-between">
                       <label className="block font-bold text-xs text-amber-950 dark:text-amber-200">
-                        Set Temporary Password
+                        Set Temporary Passcode
                       </label>
                       <span className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
                         ⏱ Expires in 2 minutes
@@ -1913,7 +1919,20 @@ export default function SettingsScreen({
                               return o;
                             });
                             onUpdateOrganizations(updated);
-                            setTempPasswordFeedback(`Temporary passcode "${tempPasswordInput.trim()}" activated! (Expires in 2 minutes)`);
+
+                            // Sync to server temp-pin store
+                            fetch('/api/auth/temp-pin', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                businessId: currentOrg?.id || currentOrgId,
+                                businessName: currentOrg?.name || 'Business',
+                                pin: tempPasswordInput.trim(),
+                                expiresInSec: 120
+                              })
+                            }).catch(() => {});
+
+                            setTempPasswordFeedback(`Temporary passcode "${tempPasswordInput.trim()}" activated for ${currentOrg?.name || 'organization'}! (Expires in 2 minutes)`);
                           }
                         }}
                         className="flex items-center gap-1.5 neumorphic-btn border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold px-3.5 py-2 rounded-xl transition text-xs cursor-pointer"
@@ -1945,11 +1964,23 @@ export default function SettingsScreen({
                             });
                             onUpdateOrganizations(updated);
 
+                            // Sync to server temp-pin store
+                            fetch('/api/auth/temp-pin', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                businessId: currentOrg?.id || currentOrgId,
+                                businessName: currentOrg?.name || 'Business',
+                                pin: tempPasswordInput.trim(),
+                                expiresInSec: 120
+                              })
+                            }).catch(() => {});
+
                             // Format WhatsApp link and dispatch
-                            const rawPhone = currentOrg.attendantResetPhone || config.phone || config.attendantPhone || '';
+                            const rawPhone = currentOrg?.attendantResetPhone || config.phone || config.attendantPhone || '';
                             const cleanPh = rawPhone.replace(/\D/g, '');
-                            const recipientName = currentOrg.attendantResetUsername || 'there';
-                            const bizName = currentOrg.name || 'LERGON';
+                            const recipientName = currentOrg?.attendantResetUsername || 'there';
+                            const bizName = currentOrg?.name || 'LERGON';
                             const msgText = `Hello ${recipientName}, your temporary login passcode for ${bizName} is: *${tempPasswordInput.trim()}*. This code expires in 2 minutes. Please use it to log in and set your new password immediately.`;
                             const waUrl = cleanPh
                               ? `https://wa.me/${cleanPh}?text=${encodeURIComponent(msgText)}`
