@@ -355,22 +355,22 @@ export default function App() {
   const [isRegPassFocused, setIsRegPassFocused] = useState(false);
   const [isAttendantPassFocused, setIsAttendantPassFocused] = useState(false);
 
-  // --- Forgot Passcode states ---
+  // --- Forgot Password states ---
   const [forgotOrgId, setForgotOrgId] = useState('');
-  const [forgotUsername, setForgotUsername] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
   const [forgotError, setForgotError] = useState('');
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
+  const [isForgotEmailFocused, setIsForgotEmailFocused] = useState(false);
 
-  // Auto-resolve organization based on entered username or full name
+  // Auto-resolve organization based on entered email
   const resolvedOrgForForgot = React.useMemo(() => {
-    const u = forgotUsername.trim().toLowerCase();
-    if (!u) return null;
+    const e = forgotEmail.trim().toLowerCase();
+    if (!e) return null;
     return organizations.find(org => (
-      (org.attendantName && org.attendantName.trim().toLowerCase() === u) ||
-      (org.adminName && org.adminName.trim().toLowerCase() === u) ||
-      (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === u) ||
-      (org.adminEmail && org.adminEmail.trim().toLowerCase() === u)
+      (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === e) ||
+      (org.adminEmail && org.adminEmail.trim().toLowerCase() === e)
     )) || null;
-  }, [forgotUsername, organizations]);
+  }, [forgotEmail, organizations]);
 
   // --- Code Verification Modal states ---
   const [showCodeVerificationModal, setShowCodeVerificationModal] = useState(false);
@@ -387,74 +387,101 @@ export default function App() {
     e.preventDefault();
     setForgotError('');
 
-    const cleanInput = forgotUsername.trim();
-    if (!cleanInput) {
-      setForgotError('Please enter your username.');
+    const emailCheck = validateEmail(forgotEmail);
+    if (!emailCheck.isValid) {
+      setForgotError(emailCheck.error || 'Please enter a valid email address.');
       return;
     }
+    const cleanEmail = emailCheck.cleanEmail;
 
-    let targetOrg = resolvedOrgForForgot;
+    setIsForgotLoading(true);
 
-    // If not found in local state, look up username in backend profiles
-    if (!targetOrg) {
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id, business_id, display_username, role, phone, businesses(id, trade_name)')
-          .ilike('display_username', cleanInput)
-          .maybeSingle();
+    try {
+      let targetOrg = resolvedOrgForForgot;
 
-        if (profile && profile.business_id) {
-          const bizName = (profile.businesses as any)?.trade_name || 'Business';
-          targetOrg = {
-            id: profile.business_id,
-            name: bizName,
-            adminPass: '',
-            attendantPass: '',
-            attendantName: profile.display_username || cleanInput,
-            attendantResetPhone: profile.phone || ''
-          };
-          setOrganizations(prev => {
-            const exists = prev.some(o => o.id === targetOrg!.id);
-            return exists ? prev : [targetOrg!, ...prev];
-          });
+      // If not found in local state, look up by email in backend profiles
+      if (!targetOrg) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, business_id, display_username, role, phone, businesses(id, trade_name)')
+            .ilike('email', cleanEmail)
+            .maybeSingle();
+
+          if (profile && profile.business_id) {
+            const bizName = (profile.businesses as any)?.trade_name || 'Business';
+            targetOrg = {
+              id: profile.business_id,
+              name: bizName,
+              adminPass: '',
+              attendantPass: '',
+              attendantEmail: profile.role === 'attendant' ? cleanEmail : undefined,
+              adminEmail: profile.role === 'admin' ? cleanEmail : undefined,
+              attendantName: profile.display_username || cleanEmail.split('@')[0],
+              attendantResetPhone: profile.phone || ''
+            };
+            setOrganizations(prev => {
+              const exists = prev.some(o => o.id === targetOrg!.id);
+              return exists ? prev : [targetOrg!, ...prev];
+            });
+          }
+        } catch (lookupErr) {
+          console.warn('[Forgot Password] Profile lookup note:', lookupErr);
         }
-      } catch (lookupErr) {
-        console.warn('[Forgot Password] Profile lookup note:', lookupErr);
       }
-    }
 
-    if (!targetOrg) {
-      setForgotError('No registered organization found for this username. Please verify your username.');
-      return;
-    }
+      const requestTimestamp = Date.now();
 
-    const requestTimestamp = Date.now();
+      // 1. Notify administrator by updating organization reset request flag
+      if (targetOrg) {
+        const updatedOrgs = organizations.map(org => {
+          if (org.id === targetOrg!.id) {
+            return {
+              ...org,
+              attendantResetRequested: true,
+              attendantResetEmail: cleanEmail,
+              attendantResetUsername: targetOrg!.attendantName || cleanEmail.split('@')[0],
+              attendantResetPhone: targetOrg!.attendantResetPhone || org.attendantResetPhone || '',
+              attendantResetTimestamp: requestTimestamp,
+              previousAttendantPass: org.attendantPass,
+              tempPasswordExpiresAt: undefined
+            };
+          }
+          return org;
+        });
+        setOrganizations(updatedOrgs);
 
-    // Update organization with reset request
-    const updatedOrgs = organizations.map(org => {
-      if (org.id === targetOrg!.id) {
-        return {
-          ...org,
-          attendantResetRequested: true,
-          attendantResetEmail: org.attendantEmail || targetOrg!.attendantResetEmail || 'staff@business.local',
-          attendantResetUsername: cleanInput,
-          attendantResetPhone: targetOrg!.attendantResetPhone || org.attendantResetPhone || '',
-          attendantResetTimestamp: requestTimestamp,
-          previousAttendantPass: org.attendantPass,
-          tempPasswordExpiresAt: undefined
-        };
+        // Also record an audit activity log entry for admin visibility
+        try {
+          await logActivity(
+            `Password reset requested for ${cleanEmail}`,
+            'AUTH_RESET',
+            undefined,
+            targetOrg.id
+          );
+        } catch (logErr) {
+          console.warn('[Forgot Password] Activity log note:', logErr);
+        }
       }
-      return org;
-    });
 
-    setOrganizations(updatedOrgs);
+      // 2. Auto-generate token & send password reset email to user
+      const resetRes = await resetPasswordForEmail(cleanEmail);
+      if (!resetRes.success) {
+        setForgotError(resetRes.error || 'Failed to send password reset email. Please try again.');
+        return;
+      }
 
-    setVerificationOrgId(targetOrg.id);
-    setVerificationCodeInput('');
-    setVerificationError('');
-    setVerificationSuccess('');
-    setShowCodeVerificationModal(true);
+      // 3. User feedback and return to sign in
+      setSuccess(`A password reset link & token have been sent to ${cleanEmail}. Your administrator has also been notified.`);
+      setForgotEmail('');
+      setActiveView('signin');
+      setTimeout(() => setSuccess(null), 8000);
+    } catch (err: any) {
+      console.error('[Forgot Password Error]', err);
+      setForgotError(err?.message || 'An error occurred. Please try again.');
+    } finally {
+      setIsForgotLoading(false);
+    }
   };
 
   const getOrgStorageKey = (baseKey: string, orgId: string) => {
@@ -3303,14 +3330,14 @@ export default function App() {
                 {activeView !== 'verify_email' && (
                   <div className="text-left mb-6 relative z-10 pr-8">
                     <h2 className="text-3xl font-quantum font-black text-slate-900 dark:text-white mb-1 tracking-tight">
-                      {activeView === 'forgot' ? 'Reset Passcode' :
+                      {activeView === 'forgot' ? 'Reset Password' :
                         activeView === 'register' ? 'Register Account' :
                           activeView === 'join' ? 'Join a Business' :
                             activeView === 'attendant_set_password' ? 'Set Your Password' :
                               'Login'}
                     </h2>
                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans font-medium">
-                      {activeView === 'forgot' ? 'Enter details to recover operator passcode' :
+                      {activeView === 'forgot' ? 'Enter your email to receive a reset token and alert your admin' :
                         activeView === 'register' ? 'Set up your business profile in under a minute' :
                           activeView === 'join' ? 'Enter the code your admin shared with you' :
                             activeView === 'attendant_set_password' ? `You're joining ${validatedJoinOrg?.name || 'the shop'}` :
@@ -3411,10 +3438,7 @@ export default function App() {
                           setActiveView('forgot');
                           setLoginError('');
                           setForgotError('');
-                          setForgotUsername('');
-                          if (organizations.length > 0) {
-                            setForgotOrgId(organizations[0].id);
-                          }
+                          setForgotEmail('');
                         }}
                         className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 transition-colors cursor-pointer font-semibold"
                       >
@@ -3853,21 +3877,26 @@ export default function App() {
                   <form onSubmit={handleForgotSubmit} className="relative z-10 space-y-4">
                     <div className="relative">
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                        Username (Full Name or Email)
+                        Email Address
                       </label>
                       <input
-                        type="text"
+                        type="email"
                         required
-                        placeholder="Enter your username or email"
-                        value={forgotUsername}
+                        placeholder="you@example.com"
+                        value={forgotEmail}
+                        onFocus={() => setIsForgotEmailFocused(true)}
+                        onBlur={() => setIsForgotEmailFocused(false)}
                         onChange={(e) => {
-                          setForgotUsername(e.target.value);
+                          setForgotEmail(e.target.value);
                           if (forgotError) setForgotError('');
                         }}
-                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
+                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                       />
-                      <User className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                      <Mail className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
                     </div>
+
+                    {/* Real-time Email Validation Checklist */}
+                    <EmailValidationChecklist email={forgotEmail} isFocused={isForgotEmailFocused} />
 
                     {resolvedOrgForForgot && (
                       <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 flex items-center gap-3 animate-fade-in">
@@ -3891,9 +3920,17 @@ export default function App() {
                       </button>
                       <button
                         type="submit"
-                        className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md"
+                        disabled={isForgotLoading}
+                        className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        Send Request to Admin
+                        {isForgotLoading ? (
+                          <>
+                            <RefreshCw size={16} className="animate-spin" />
+                            <span>Sending Token...</span>
+                          </>
+                        ) : (
+                          <span>Send Reset Token</span>
+                        )}
                       </button>
                     </div>
                   </form>
