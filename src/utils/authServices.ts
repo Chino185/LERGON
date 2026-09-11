@@ -32,6 +32,44 @@ export async function resetPasswordForEmail(email: string): Promise<{ success: b
   }
 }
 
+export async function updatePasswordAfterReset(
+  newPassword: string,
+  userEmail?: string,
+  tempPassword?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // 1. If active user session exists in Supabase Auth, update directly
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData?.user) {
+      const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword });
+      if (!updateErr) return { success: true };
+    }
+
+    // 2. If no active session or re-auth needed, and email + temp password are provided
+    if (userEmail && tempPassword) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: userEmail.trim().toLowerCase(),
+        password: tempPassword
+      });
+      if (!signInError) {
+        const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword });
+        if (!updateErr) return { success: true };
+      }
+    }
+
+    // 3. Fallback: try direct updateUser
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      console.warn('Backend password update note:', error.message);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.error('updatePasswordAfterReset error:', err);
+    return { success: false, error: err?.message || 'Failed to update password in backend.' };
+  }
+}
+
 export async function registerUser(
   email: string,
   password: string,

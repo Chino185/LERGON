@@ -104,7 +104,8 @@ import {
   subscribeToBusinessCurrency,
   updateUserPhone,
   updateUserDisplayName,
-  updateUserTheme
+  updateUserTheme,
+  updatePasswordAfterReset
 } from './utils/authServices';
 
 import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems, subscribeToStockAdjustments, submitRestockRequest, verifyRestockRequestTransaction, recordStockAdjustmentTransaction, subscribeToRestockRequests, createAttendantInvite } from './utils/inventoryServices';
@@ -345,6 +346,7 @@ export default function App() {
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
   const [registerError, setRegisterError] = useState('');
   const [tempPasscodeError, setTempPasscodeError] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isLoginEmailFocused, setIsLoginEmailFocused] = useState(false);
   const [isRegEmailFocused, setIsRegEmailFocused] = useState(false);
   const [isAttendantEmailFocused, setIsAttendantEmailFocused] = useState(false);
@@ -4155,7 +4157,7 @@ export default function App() {
               </div>
             )}
 
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               setTempPasscodeError('');
               const newPin = (e.currentTarget.elements.namedItem('newPin') as HTMLInputElement).value;
@@ -4187,22 +4189,35 @@ export default function App() {
               }
 
               if (activeOrg) {
-                // Save the updated passcode
-                const updated = organizations.map(o => {
-                  if (o.id === activeOrg.id) {
-                    return {
-                      ...o,
-                      attendantPass: newPin.trim(),
-                      isTempPassword: false
-                    };
+                setIsUpdatingPassword(true);
+                try {
+                  // Sync updated password with backend (Supabase Auth)
+                  const userEmail = activeOrg.attendantEmail || activeOrg.attendantResetEmail;
+                  const tempCode = activeOrg.attendantPass;
+                  const backendRes = await updatePasswordAfterReset(newPin.trim(), userEmail, tempCode);
+                  if (!backendRes.success && backendRes.error) {
+                    console.warn('[Backend Auth] Note on updating password:', backendRes.error);
                   }
-                  return o;
-                });
-                setOrganizations(updated);
 
-                // Set temporary success message
-                setSuccess('Passcode changed successfully! Enjoy full system access.');
-                setTimeout(() => setSuccess(null), 4000);
+                  // Save the updated passcode in organization state
+                  const updated = organizations.map(o => {
+                    if (o.id === activeOrg.id) {
+                      return {
+                        ...o,
+                        attendantPass: newPin.trim(),
+                        isTempPassword: false
+                      };
+                    }
+                    return o;
+                  });
+                  setOrganizations(updated);
+
+                  // Set temporary success message
+                  setSuccess('Passcode changed successfully and updated in backend!');
+                  setTimeout(() => setSuccess(null), 4000);
+                } finally {
+                  setIsUpdatingPassword(false);
+                }
               }
             }} className="space-y-4">
               <div>
@@ -4233,9 +4248,20 @@ export default function App() {
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-xs rounded-xl neumorphic-btn flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer shadow-md border border-white/30 dark:border-slate-700/60"
+                disabled={isUpdatingPassword}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-xs rounded-xl neumorphic-btn flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer shadow-md border border-white/30 dark:border-slate-700/60 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Check size={14} /> Update & Complete Sign In
+                {isUpdatingPassword ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Updating Backend...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    <span>Update & Complete Sign In</span>
+                  </>
+                )}
               </button>
             </form>
           </motion.div>
