@@ -3108,34 +3108,133 @@ export default function App() {
             </section>
 
             {/* --- SECTION 6: FOOTER --- */}
-            <footer id="footer" className="neu-flat py-8 px-6 lg:px-12 text-slate-800 dark:text-slate-200 font-sans text-xs sm:text-sm rounded-t-3xl border-t border-white/90 dark:border-slate-800/80">
-              <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+            <footer id="footer" className="neu-flat py-12 px-6 lg:px-12 text-slate-800 dark:text-slate-200 font-sans text-xs sm:text-sm rounded-t-3xl border-t border-white/90 dark:border-slate-800/80 mt-12">
+              <div className="max-w-7xl mx-auto space-y-8">
+                {/* Main Footer Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                  {/* Brand & Parent Studio */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-gradient-to-tr from-[#0052D4] to-[#9CECFB] dark:from-[#9CECFB] dark:to-[#0052D4] rounded-xl flex items-center justify-center text-white dark:text-[#0A0E1A] font-black text-base shadow-md">
+                        L
+                      </div>
+                      <div>
+                        <span className="font-quantum font-bold text-slate-900 dark:text-white tracking-wider block text-base">LERGON</span>
+                        <span className="text-[11px] font-mono text-slate-600 dark:text-slate-400 font-medium">Business Operating System</span>
+                      </div>
+                    </div>
 
-                {/* Logo & Tagline */}
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-tr from-[#0052D4] to-[#9CECFB] dark:from-[#9CECFB] dark:to-[#0052D4] rounded-lg flex items-center justify-center text-white dark:text-[#0A0E1A] font-black text-sm shadow-md">
-                    L
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-sans">
+                      Autonomous inventory control, multi-role operations, and AI intelligence for modern retail and enterprises.
+                    </p>
+
+                    <div className="pt-1">
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-200/60 dark:bg-slate-900/80 border border-slate-300/60 dark:border-slate-800 text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+                        <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
+                        <span>A product of <strong className="text-sky-600 dark:text-sky-400 font-black tracking-wide">ZAR LABS</strong></span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-500 mt-1 pl-1 font-mono">
+                        Accra, Ghana
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-quantum font-bold text-slate-900 dark:text-white tracking-wider block text-sm">LERGON</span>
-                    <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300 font-semibold">LERGON AI Business Infrastructure</span>
+
+                  {/* Navigation Links */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white font-mono">Platform</h4>
+                    <ul className="space-y-2 text-xs">
+                      <li>
+                        <a href="#hero" className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+                          Overview
+                        </a>
+                      </li>
+                      <li>
+                        <a href="#feature-showcase" className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+                          Features & Modules
+                        </a>
+                      </li>
+                      <li>
+                        <a href="#solutions" className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+                          Solutions & Roles
+                        </a>
+                      </li>
+                      <li>
+                        <a href="#faq" className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+                          Frequently Asked Questions
+                        </a>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => { setActiveView('signin'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
+                          className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                        >
+                          Sign In to Workspace
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Legal & Trust */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white font-mono">Compliance & Legal</h4>
+                    <ul className="space-y-2 text-xs">
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => setShowTermsModal(true)}
+                          className="text-sky-600 dark:text-sky-400 font-semibold underline underline-offset-4 hover:text-sky-700 dark:hover:text-sky-300 transition-colors cursor-pointer text-left"
+                        >
+                          Terms of Service & Privacy Policy
+                        </button>
+                      </li>
+                      <li className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                        <ShieldCheck size={14} className="text-emerald-500 shrink-0" />
+                        <span>Ghana DPA (Act 843) Compliant</span>
+                      </li>
+                      <li className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                        <CheckCircle2 size={14} className="text-sky-500 shrink-0" />
+                        <span>Isolated Multi-Tenant Security</span>
+                      </li>
+                      <li className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                        <Bot size={14} className="text-indigo-400 shrink-0" />
+                        <span>Responsible AI Transparency</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Support & System Status */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white font-mono">Contact & Support</h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Need assistance, custom enterprise deployment, or support?
+                    </p>
+                    <a
+                      href="mailto:support@zarlabs.com"
+                      className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                    >
+                      <Mail size={14} className="text-sky-500" />
+                      <span>support@zarlabs.com</span>
+                    </a>
+
+                    <div className="pt-2">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Systems Operational</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Links */}
-                <div className="flex items-center gap-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowTermsModal(true)}
-                    className="text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 underline underline-offset-4 transition-colors cursor-pointer"
-                  >
-                    Terms of Service & Privacy Policy
-                  </button>
+                {/* Bottom Copyright & Attribution Bar */}
+                <div className="pt-6 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 dark:text-slate-400 font-mono">
+                  <p className="text-center sm:text-left">
+                    © 2026 <strong className="text-slate-800 dark:text-slate-200">ZAR LABS</strong>. All rights reserved. LERGON is a product of ZAR LABS.
+                  </p>
+                  <p className="text-center sm:text-right text-[11px] text-slate-500 dark:text-slate-500">
+                    Crafted with care in Ghana
+                  </p>
                 </div>
-
-                <p className="text-xs text-slate-700 dark:text-slate-300 font-mono text-center md:text-right font-semibold">
-                  © 2026 LERGON Built for LERGON AI
-                </p>
               </div>
             </footer>
           </main>

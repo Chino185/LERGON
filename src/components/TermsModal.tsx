@@ -66,8 +66,8 @@ export const TermsModal: React.FC<TermsModalProps> = ({
             </p>
             <div className="text-xs bg-slate-100 dark:bg-slate-900/70 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
               <p><strong>Data Controller:</strong> ZAR LABS / LERGON</p>
-              <p><strong>Contact:</strong> support@zarlabs.io</p>
-              <p><strong>Location:</strong> Ghana</p>
+              <p><strong>Contact:</strong> support@zarlabs.com</p>
+              <p><strong>Location:</strong> Accra, Ghana</p>
             </div>
           </section>
 
@@ -213,7 +213,7 @@ export const TermsModal: React.FC<TermsModalProps> = ({
           <section className="space-y-2">
             <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">15. Governing Law & Contact</h3>
             <p>
-              These Terms are governed by the laws of the Republic of Ghana. For queries, contact us at <strong>support@zarlabs.io</strong>.
+              These Terms are governed by the laws of the Republic of Ghana. For queries, contact us at <strong>support@zarlabs.com</strong>.
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Data Protection Commission (Ghana): <a href="https://www.dataprotection.org.gh" target="_blank" rel="noreferrer" className="text-sky-600 dark:text-sky-400 underline">www.dataprotection.org.gh</a>
