@@ -365,7 +365,7 @@ export default function App() {
   const [isAttendantPassFocused, setIsAttendantPassFocused] = useState(false);
 
   // --- Forgot Password states ---
-  const [forgotMode, setForgotMode] = useState<'request' | 'pin'>('request');
+  const [forgotStep, setForgotStep] = useState<'username' | 'pin'>('username');
   const [forgotPinInput, setForgotPinInput] = useState('');
   const [pinResolvedOrg, setPinResolvedOrg] = useState<Organization | null>(null);
   const [forgotOrgId, setForgotOrgId] = useState('');
@@ -472,7 +472,7 @@ export default function App() {
     e.preventDefault();
     setForgotError('');
 
-    if (forgotMode === 'pin') {
+    if (forgotStep === 'pin') {
       const cleanPin = forgotPinInput.trim();
       if (!cleanPin) {
         setForgotError('Please enter the 6-digit temporary PIN provided by your administrator.');
@@ -512,12 +512,12 @@ export default function App() {
         }
 
         if (!targetOrg) {
-          setForgotError('Invalid or expired passcode PIN. Please ask your administrator to generate a fresh 2-minute PIN in Settings.');
+          setForgotError('Invalid or expired passcode PIN. Please ask your administrator to generate a fresh PIN in Settings.');
           return;
         }
 
         if (targetOrg.tempPasswordExpiresAt && Date.now() > targetOrg.tempPasswordExpiresAt) {
-          setForgotError('This temporary passcode has expired (2-minute limit). Please ask your admin to issue a new code.');
+          setForgotError('This temporary passcode has expired. Please ask your admin to issue a new code.');
           return;
         }
 
@@ -540,13 +540,18 @@ export default function App() {
           return nextList;
         });
 
-        // Close auth modal and log in directly as attendant
+        // Close auth modal and redirect to app dashboard with prompt interface
         setShowAuthModal(false);
         setCurrentOrgId(updatedOrg.id);
         setCurrentUserRole(5);
         setIsLoggedIn(true);
+        setActiveScreen('dashboard');
+        try {
+          localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
+        } catch {}
         setForgotPinInput('');
         setForgotUsername('');
+        setForgotStep('username');
         setForgotError('');
         setSuccess('Passcode verified! Please establish your new unique password.');
         setTimeout(() => setSuccess(null), 4000);
@@ -556,7 +561,7 @@ export default function App() {
       return;
     }
 
-    // --- Mode: Request via Username ---
+    // --- Step: Request via Username ---
     const cleanUsername = forgotUsername.trim();
     if (!cleanUsername) {
       setForgotError('Please enter your username.');
@@ -655,9 +660,8 @@ export default function App() {
         })
       }).catch(() => {});
 
-      setForgotSuccess(
-        `Request has been sent! Your business administrator has been notified to generate your 6-digit temporary PIN.`
-      );
+      // Advance directly to Step 2: Enter 6-digit PIN provided by admin
+      setForgotStep('pin');
       setForgotError('');
     } catch (err: any) {
       setForgotError(err?.message || 'An error occurred. Please try again.');
@@ -738,13 +742,18 @@ export default function App() {
       return;
     }
 
-    const emailCheck = validateEmail(enteredEmail);
-    if (!emailCheck.isValid) {
-      recordFailedAttempt('signin_attempts', 5, 60000);
-      setLoginError(emailCheck.error || 'Please supply a valid Email Address.');
-      return;
+    let cleanEmail = enteredEmail.trim().toLowerCase();
+    const isEmailFormat = cleanEmail.includes('@');
+
+    if (isEmailFormat) {
+      const emailCheck = validateEmail(cleanEmail);
+      if (!emailCheck.isValid) {
+        recordFailedAttempt('signin_attempts', 5, 60000);
+        setLoginError(emailCheck.error || 'Please supply a valid Email Address.');
+        return;
+      }
+      cleanEmail = emailCheck.cleanEmail;
     }
-    const cleanEmail = emailCheck.cleanEmail;
 
     const passCheck = validatePassword(enteredPass, { minLength: 1 });
     if (!passCheck.isValid) {
@@ -754,9 +763,54 @@ export default function App() {
     }
     const cleanPass = passCheck.cleanPassword;
 
+    // Direct username/password match in organizations
+    const matchedOrgByUsername = organizations.find(o =>
+      (o.attendantName && o.attendantName.trim().toLowerCase() === cleanEmail) ||
+      (o.adminName && o.adminName.trim().toLowerCase() === cleanEmail)
+    );
+    if (matchedOrgByUsername) {
+      const isAttendant = matchedOrgByUsername.attendantName?.trim().toLowerCase() === cleanEmail;
+      const expectedPass = isAttendant ? matchedOrgByUsername.attendantPass : matchedOrgByUsername.adminPass;
+      if (expectedPass && expectedPass.trim() === cleanPass) {
+        resetRateLimit('signin_attempts');
+        setShowAuthModal(false);
+        setCurrentOrgId(matchedOrgByUsername.id);
+        setCurrentUserRole(isAttendant ? 5 : 2);
+        setIsLoggedIn(true);
+        setActiveScreen('dashboard');
+        try {
+          localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
+        } catch {}
+        setLoginError('');
+        setPasscode('');
+        return;
+      }
+    }
+
     // 2. Execute Supabase Authentication login
     const loginRes = await loginUser(cleanEmail, cleanPass);
     if (!loginRes.success) {
+      // Check if attendant email matches in organization with local password
+      const localMatchedOrg = organizations.find(o =>
+        (o.adminEmail && o.adminEmail.toLowerCase() === cleanEmail && o.adminPass === cleanPass) ||
+        (o.attendantEmail && o.attendantEmail.toLowerCase() === cleanEmail && o.attendantPass === cleanPass)
+      );
+      if (localMatchedOrg) {
+        const isAttendant = localMatchedOrg.attendantEmail?.toLowerCase() === cleanEmail;
+        resetRateLimit('signin_attempts');
+        setShowAuthModal(false);
+        setCurrentOrgId(localMatchedOrg.id);
+        setCurrentUserRole(isAttendant ? 5 : 2);
+        setIsLoggedIn(true);
+        setActiveScreen('dashboard');
+        try {
+          localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
+        } catch {}
+        setLoginError('');
+        setPasscode('');
+        return;
+      }
+
       setLoginError(loginRes.error || 'Incorrect email or password.');
       return;
     }
@@ -3553,7 +3607,7 @@ export default function App() {
                               'Login'}
                     </h2>
                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans font-medium">
-                      {activeView === 'forgot' ? 'Enter your username to request a reset code from your admin' :
+                      {activeView === 'forgot' ? (forgotStep === 'pin' ? 'Enter the 6-digit PIN provided by your admin' : 'Enter your username') :
                         activeView === 'register' ? 'Set up your business profile in under a minute' :
                           activeView === 'join' ? 'Enter the code your admin shared with you' :
                             activeView === 'attendant_set_password' ? `You're joining ${validatedJoinOrg?.name || 'the shop'}` :
@@ -3587,12 +3641,12 @@ export default function App() {
                   >
                     <div className="relative">
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                        Email Address
+                        Email or Username
                       </label>
                       <input
-                        type="email"
+                        type="text"
                         required
-                        placeholder="you@example.com"
+                        placeholder="you@example.com or username"
                         value={loginEmail}
                         onFocus={() => setIsLoginEmailFocused(true)}
                         onBlur={() => setIsLoginEmailFocused(false)}
@@ -4091,93 +4145,8 @@ export default function App() {
                 {/* --- 3. RECOVERY --- */}
                 {activeView === 'forgot' && (
                   <form onSubmit={handleForgotSubmit} className="relative z-10 space-y-4">
-                    {/* Mode Selector */}
-                    <div className="flex rounded-xl p-1 bg-slate-200/80 dark:bg-slate-800/80 neumorphic-inset text-xs font-bold">
-                      <button
-                        type="button"
-                        onClick={() => { setForgotMode('request'); setForgotError(''); }}
-                        className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                          forgotMode === 'request'
-                            ? 'bg-sky-600 text-white shadow-sm'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <User size={14} />
-                        <span>Request Reset</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setForgotMode('pin'); setForgotError(''); }}
-                        className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                          forgotMode === 'pin'
-                            ? 'bg-sky-600 text-white shadow-sm'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <KeyRound size={14} />
-                        <span>I have a Temporary PIN</span>
-                      </button>
-                    </div>
-
-                    {forgotSuccess && (
-                      <div className="p-3.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 space-y-2 animate-fade-in">
-                        <div className="flex items-center gap-2 font-bold text-xs">
-                          <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
-                          <span>Request Sent!</span>
-                        </div>
-                        <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300">
-                          {forgotSuccess}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => { setForgotMode('pin'); setForgotSuccess(''); }}
-                          className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                          <KeyRound size={14} />
-                          <span>Enter 6-Digit PIN from Admin</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {forgotMode === 'pin' && (
-                      <div className="space-y-3">
-                        <div className="relative">
-                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                            6-Digit Temporary PIN
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            maxLength={6}
-                            inputMode="numeric"
-                            placeholder="Enter 6-digit PIN from admin"
-                            value={forgotPinInput}
-                            onChange={(e) => {
-                              const v = e.target.value.replace(/\D/g, '');
-                              setForgotPinInput(v);
-                              if (forgotError) setForgotError('');
-                            }}
-                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-base font-mono font-black text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 tracking-widest text-center"
-                          />
-                          <KeyRound className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
-                        </div>
-
-                        {pinResolvedOrg && (
-                          <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-3 animate-fade-in">
-                            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                              <Building2 size={16} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Organization Identified</p>
-                              <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 truncate">{pinResolvedOrg.name}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {forgotMode === 'request' && (
-                      <div className="space-y-3">
+                    {forgotStep === 'username' ? (
+                      <div className="space-y-4">
                         <div className="relative">
                           <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                             Username
@@ -4203,42 +4172,106 @@ export default function App() {
                               <Building2 size={16} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Organization Identified</p>
+                              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Business</p>
                               <p className="text-sm font-extrabold text-sky-700 dark:text-sky-300 truncate">{resolvedOrgForForgot.name}</p>
                             </div>
                           </div>
                         )}
+
+                        <div className="flex gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => { setActiveView('signin'); setLoginError(''); setForgotError(''); setForgotSuccess(''); setSuccess(null); }}
+                            className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
+                          >
+                            Back
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isForgotLoading}
+                            className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isForgotLoading ? (
+                              <>
+                                <RefreshCw size={16} className="animate-spin" />
+                                <span>Sending...</span>
+                              </>
+                            ) : (
+                              <span>Send Request</span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 flex items-center gap-2.5 text-xs text-sky-800 dark:text-sky-300 animate-fade-in">
+                          <CheckCircle2 size={18} className="text-sky-600 dark:text-sky-400 shrink-0" />
+                          <span className="leading-relaxed">
+                            Request sent for <strong>"{forgotUsername}"</strong>. Please ask your administrator for your 6-digit PIN.
+                          </span>
+                        </div>
+
+                        <div className="relative">
+                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                            6-Digit PIN
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={6}
+                            inputMode="numeric"
+                            placeholder="000000"
+                            value={forgotPinInput}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/\D/g, '');
+                              setForgotPinInput(v);
+                              if (forgotError) setForgotError('');
+                            }}
+                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-base font-mono font-black text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 tracking-widest text-center"
+                          />
+                          <KeyRound className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                        </div>
+
+                        {pinResolvedOrg && (
+                          <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-3 animate-fade-in">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                              <Building2 size={16} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Business</p>
+                              <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 truncate">{pinResolvedOrg.name}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => { setForgotStep('username'); setForgotError(''); }}
+                            className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
+                          >
+                            Back
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isForgotLoading}
+                            className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isForgotLoading ? (
+                              <>
+                                <RefreshCw size={16} className="animate-spin" />
+                                <span>Verifying...</span>
+                              </>
+                            ) : (
+                              <>
+                                <KeyRound size={16} />
+                                <span>Verify PIN & Log In</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     )}
-
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => { setActiveView('signin'); setLoginError(''); setForgotError(''); setForgotSuccess(''); setSuccess(null); }}
-                        className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
-                      >
-                        Back
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isForgotLoading}
-                        className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {isForgotLoading ? (
-                          <>
-                            <RefreshCw size={16} className="animate-spin" />
-                            <span>Sending...</span>
-                          </>
-                        ) : forgotMode === 'pin' ? (
-                          <>
-                            <KeyRound size={16} />
-                            <span>Verify PIN & Sign In</span>
-                          </>
-                        ) : (
-                          <span>Send Request</span>
-                        )}
-                      </button>
-                    </div>
                   </form>
                 )}
 
@@ -4514,17 +4547,17 @@ export default function App() {
             className="w-full max-w-md neumorphic-card rounded-2xl p-6 text-left border border-slate-200/80 dark:border-slate-800/80 bg-slate-100/90 dark:bg-slate-900/90 text-slate-900 dark:text-white shadow-2xl"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/20">
+              <div className="p-2.5 bg-sky-500/10 text-sky-500 rounded-xl border border-sky-500/20">
                 <Lock size={20} className="animate-pulse" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Temporary Passcode Detected</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Please update your passcode to secure your account.</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Create New Password</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Please create your new password to secure your account.</p>
               </div>
             </div>
 
             <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-              You logged in using a temporary passcode PIN. For security purposes, you are required to establish a new, unique passcode before proceeding.
+              You logged in using a temporary PIN from your administrator. Establish your new password below to use for all future logins.
             </p>
 
             {tempPasscodeError && (
@@ -4599,26 +4632,26 @@ export default function App() {
             }} className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  New Passcode PIN
+                  New Password
                 </label>
                 <input
                   name="newPin"
                   type="password"
                   required
-                  placeholder="Enter your new PIN..."
+                  placeholder="Enter your new password..."
                   className="w-full neumorphic-inset rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                 />
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  Confirm New Passcode PIN
+                  Confirm New Password
                 </label>
                 <input
                   name="confirmPin"
                   type="password"
                   required
-                  placeholder="Retype your new PIN..."
+                  placeholder="Retype your new password..."
                   className="w-full neumorphic-inset rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                 />
               </div>
@@ -4631,12 +4664,12 @@ export default function App() {
                 {isUpdatingPassword ? (
                   <>
                     <RefreshCw size={14} className="animate-spin" />
-                    <span>Updating Backend...</span>
+                    <span>Saving New Password...</span>
                   </>
                 ) : (
                   <>
                     <Check size={14} />
-                    <span>Update & Complete Sign In</span>
+                    <span>Save New Password & Continue</span>
                   </>
                 )}
               </button>

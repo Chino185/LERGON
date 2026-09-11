@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Sparkles,
   Bell,
@@ -67,6 +67,21 @@ export default function NotificationsScreen({
   onMarkAsRead
 }: NotificationsScreenProps) {
   const [activeFilter, setActiveFilter] = useState<'all' | 'inventory' | 'credit' | 'system'>('all');
+  const [serverResetRequest, setServerResetRequest] = useState<{ username: string; requestedAt: number } | null>(null);
+
+  useEffect(() => {
+    if (userRole !== 2) return;
+    const orgId = currentOrg?.id;
+    const url = orgId ? `/api/auth/reset-request/${encodeURIComponent(orgId)}` : '/api/auth/reset-request';
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.record?.username) {
+          setServerResetRequest(data.record);
+        }
+      })
+      .catch(() => {});
+  }, [userRole, currentOrg?.id]);
 
   const formatTimeAgo = (dateStr: string) => {
     try {
@@ -217,13 +232,15 @@ export default function NotificationsScreen({
     }
 
     // 5. Attendant / staff password reset requested
-    if (userRole === 2 && currentOrg?.attendantResetRequested) {
+    const hasResetReq = Boolean((userRole === 2 && currentOrg?.attendantResetRequested) || serverResetRequest);
+    if (userRole === 2 && hasResetReq) {
+      const reqName = serverResetRequest?.username || currentOrg?.attendantResetUsername || 'Staff member';
       list.push({
-        id: `notif-pass-reset-${currentOrg.id}`,
+        id: `notif-pass-reset-${currentOrg?.id || 'pending'}`,
         title: '🔑 Password Reset Request',
-        description: `"${currentOrg.attendantResetUsername || 'Staff member'}" requested a password reset. Click to set temporary code & forward via WhatsApp.`,
+        description: `"${reqName}" requested a password reset PIN. Go to Settings → Security to generate it.`,
         type: 'warning',
-        date: new Date(currentOrg.attendantResetTimestamp || Date.now()).toISOString(),
+        date: new Date(serverResetRequest?.requestedAt || currentOrg?.attendantResetTimestamp || Date.now()).toISOString(),
         category: 'System',
         targetScreen: 'settings',
         targetTab: 'security'

@@ -1843,7 +1843,7 @@ export default function SettingsScreen({
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-4 neumorphic-card bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/60 rounded-2xl text-xs space-y-3 mb-4 text-slate-800 dark:text-amber-100"
+                  className="p-5 neumorphic-card bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl text-xs space-y-4 mb-4 text-slate-800 dark:text-slate-200 shadow-sm"
                 >
                   {(() => {
                     const requestingUser = pendingResetUser || activeResetRecord?.username || currentOrg?.attendantResetUsername || activeResetRecord?.requestedByEmail || currentOrg?.attendantResetEmail;
@@ -1852,42 +1852,44 @@ export default function SettingsScreen({
 
                     return (
                       <>
-                        <div className="flex items-start gap-2.5 text-amber-950 dark:text-amber-100 font-semibold">
-                          <AlertCircle size={18} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        <div className="flex items-start gap-3 font-semibold">
+                          <div className="w-8 h-8 rounded-xl neumorphic-inset bg-slate-200/60 dark:bg-slate-950/80 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0 mt-0.5">
+                            <KeyRound size={16} />
+                          </div>
                           <div className="space-y-1">
-                            <p className="text-amber-950 dark:text-amber-100 font-bold text-sm">
-                              {hasResetRequest ? 'Password Reset Request' : 'Generate Temporary Staff Passcode PIN'}
+                            <p className="text-slate-900 dark:text-white font-bold text-sm">
+                              {hasResetRequest ? 'Staff Password Reset Request' : 'Generate Staff Temporary Passcode PIN'}
                             </p>
-                            <p className="text-xs text-amber-800 dark:text-amber-200 font-normal leading-relaxed">
+                            <p className="text-xs text-slate-600 dark:text-slate-400 font-normal leading-relaxed">
                               {hasResetRequest ? (
-                                <>Staff member <strong className="font-bold text-amber-950 dark:text-white">"{requestingUser || 'Staff Member'}"</strong> requested a temporary passcode to regain access to <strong className="font-bold text-amber-950 dark:text-white">{currentOrg?.name || 'this business'}</strong>.</>
+                                <>Staff member <strong className="font-bold text-slate-900 dark:text-white">"{requestingUser || 'Staff Member'}"</strong> requested a temporary passcode to regain access to <strong className="font-bold text-slate-900 dark:text-white">{currentOrg?.name || 'this business'}</strong>.</>
                               ) : (
-                                <>Issue a temporary passcode PIN for staff to log in and reset their password for <strong className="font-bold text-amber-950 dark:text-white">{currentOrg?.name || 'this business'}</strong>.</>
+                                <>Issue a temporary passcode PIN for staff to log in and reset their password for <strong className="font-bold text-slate-900 dark:text-white">{currentOrg?.name || 'this business'}</strong>.</>
                               )}
                             </p>
                             <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
                               {currentOrg?.attendantResetPhone && (
-                                <span className="font-mono bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 font-bold flex items-center gap-1">
+                                <span className="font-mono neumorphic-inset bg-slate-200/50 dark:bg-slate-950/60 text-slate-700 dark:text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-200/70 dark:border-slate-800 font-bold flex items-center gap-1">
                                   <Smartphone size={12} /> WhatsApp: {currentOrg.attendantResetPhone}
                                 </span>
                               )}
                               {requestingUser && (
-                                <span className="font-mono bg-amber-100/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
+                                <span className="font-mono neumorphic-inset bg-slate-200/60 dark:bg-slate-950/70 text-sky-700 dark:text-sky-300 px-3 py-0.5 rounded-full border border-slate-200/70 dark:border-slate-800 font-semibold">
                                   User: {requestingUser}
                                 </span>
                               )}
                             </div>
 
                             <div className="mt-2 flex items-center gap-2">
-                              <span className="text-[11px] text-amber-900 dark:text-amber-200 font-semibold">
+                              <span className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold">
                                 Status:{' '}
                                 {displayedCode ? (
-                                  <span className="text-emerald-700 bg-emerald-500/15 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-500/30">
-                                    Active Temporary Code: <code className="font-mono text-emerald-900 dark:text-emerald-300 font-black">{displayedCode}</code>
+                                  <span className="text-sky-700 dark:text-sky-300 bg-sky-500/15 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-sky-500/30">
+                                    Active Code: <code className="font-mono font-black">{displayedCode}</code>
                                   </span>
                                 ) : (
-                                  <span className="text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-300 dark:border-amber-700">
-                                    Awaiting Temporary Code Setup
+                                  <span className="text-slate-500 dark:text-slate-400 neumorphic-inset bg-slate-200/40 dark:bg-slate-950/40 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-slate-300/50 dark:border-slate-800">
+                                    Awaiting Code Generation
                                   </span>
                                 )}
                               </span>
@@ -1895,19 +1897,19 @@ export default function SettingsScreen({
                           </div>
                         </div>
 
-                        {/* Prominent Forgot Password Code Display Box */}
+                        {/* Neumorphic Forgot Password Code Display Box */}
                         {displayedCode && (
-                          <div className="p-3 bg-amber-100/90 dark:bg-amber-950/40 border border-amber-300/90 dark:border-amber-800/80 rounded-xl flex items-center justify-between gap-3">
+                          <div className="p-3.5 bg-slate-200/50 dark:bg-slate-950/60 border border-slate-200/90 dark:border-slate-800/80 rounded-xl neumorphic-inset flex items-center justify-between gap-3">
                             <div>
-                              <p className="font-extrabold text-xs text-amber-950 dark:text-amber-200">
-                                Forgot Password Code
+                              <p className="font-extrabold text-xs text-slate-900 dark:text-white">
+                                6-Digit Temporary PIN
                               </p>
-                              <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                 {requestingUser ? `Unique code generated for "${requestingUser}"` : 'Give this 6-digit code to your staff member to log in'}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-base font-black px-3 py-1 bg-white dark:bg-slate-900 border border-amber-400 dark:border-amber-700 text-amber-950 dark:text-amber-100 rounded-xl tracking-widest shadow-xs">
+                              <span className="font-mono text-base font-black px-3.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sky-600 dark:text-sky-400 rounded-xl tracking-widest shadow-xs">
                                 {displayedCode}
                               </span>
                               <button
@@ -1916,7 +1918,7 @@ export default function SettingsScreen({
                                   navigator.clipboard.writeText(displayedCode);
                                   setTempPasswordFeedback('Passcode copied to clipboard!');
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 dark:bg-amber-900/60 dark:hover:bg-amber-800 text-amber-950 dark:text-amber-100 text-xs font-bold transition cursor-pointer"
+                                className="px-3 py-1.5 rounded-lg neumorphic-btn border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer hover:text-sky-600 dark:hover:text-sky-400"
                               >
                                 Copy
                               </button>
@@ -1924,13 +1926,13 @@ export default function SettingsScreen({
                           </div>
                         )}
 
-                        <div className="pt-3 border-t border-amber-200/60 dark:border-amber-900/60 flex flex-col gap-2.5">
+                        <div className="pt-3 border-t border-slate-200/70 dark:border-slate-800/70 flex flex-col gap-2.5">
                           <div className="flex items-center justify-between">
-                            <label className="block font-bold text-xs text-amber-950 dark:text-amber-200">
+                            <label className="block font-bold text-xs text-slate-700 dark:text-slate-300">
                               Temporary Passcode (PIN)
                             </label>
-                            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
-                              ⏱ Expires in 2 minutes once shared
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                              ⏱ Expires in 5 minutes once shared
                             </span>
                           </div>
 
@@ -1943,7 +1945,7 @@ export default function SettingsScreen({
                                 setTempPasswordFeedback(null);
                               }}
                               placeholder="Enter temporary code (e.g. 6 digits)"
-                              className="flex-1 rounded-xl neumorphic-inset border border-amber-300/80 dark:border-amber-800 p-2.5 bg-[#ebf0f7] dark:bg-[#202225] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-amber-500 text-xs font-mono font-bold"
+                              className="flex-1 rounded-xl neumorphic-inset border border-slate-200/80 dark:border-slate-800 p-2.5 bg-slate-100/70 dark:bg-slate-950/80 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-sky-500 text-xs font-mono font-bold tracking-widest text-center"
                             />
                             <button
                               type="button"
@@ -1953,14 +1955,14 @@ export default function SettingsScreen({
                                 setTempPasswordInput(rand);
                                 setTempPasswordFeedback(null);
                               }}
-                              className="px-3.5 py-2 neumorphic-btn bg-amber-100/80 dark:bg-amber-950/50 hover:bg-amber-200 text-amber-950 dark:text-amber-100 font-bold rounded-xl text-xs transition border border-amber-300/80 dark:border-amber-800 cursor-pointer shrink-0"
+                              className="px-4 py-2 neumorphic-btn bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs transition cursor-pointer shrink-0 active:scale-95 shadow-sm"
                             >
                               Generate 6-Digit PIN
                             </button>
                           </div>
 
                           {tempPasswordFeedback && (
-                            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                               {tempPasswordFeedback}
                             </p>
                           )}
@@ -2010,7 +2012,7 @@ export default function SettingsScreen({
                             setTempPasswordFeedback(`Temporary passcode "${tempPasswordInput.trim()}" activated for ${pendingResetUser || currentOrg?.attendantResetUsername || currentOrg?.name || 'user'}! (Expires in 5 minutes)`);
                           }
                         }}
-                        className="flex items-center gap-1.5 neumorphic-btn border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold px-3.5 py-2 rounded-xl transition text-xs cursor-pointer"
+                        className="flex items-center gap-1.5 neumorphic-btn border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold px-4 py-2 rounded-xl transition text-xs cursor-pointer active:scale-95"
                       >
                         <Check size={14} /> Set Code Only
                       </button>
@@ -2057,16 +2059,16 @@ export default function SettingsScreen({
                             const cleanPh = rawPhone.replace(/\D/g, '');
                             const recipientName = currentOrg?.attendantResetUsername || 'there';
                             const bizName = currentOrg?.name || 'LERGON';
-                            const msgText = `Hello ${recipientName}, your temporary login passcode for ${bizName} is: *${tempPasswordInput.trim()}*. This code expires in 2 minutes. Please use it to log in and set your new password immediately.`;
+                            const msgText = `Hello ${recipientName}, your temporary login passcode for ${bizName} is: *${tempPasswordInput.trim()}*. This code expires in 5 minutes. Please use it to log in and set your new password immediately.`;
                             const waUrl = cleanPh
                               ? `https://wa.me/${cleanPh}?text=${encodeURIComponent(msgText)}`
                               : `https://wa.me/?text=${encodeURIComponent(msgText)}`;
 
                             window.open(waUrl, '_blank');
-                            setTempPasswordFeedback(`Code "${tempPasswordInput.trim()}" activated and WhatsApp opened! (Valid for 2 minutes)`);
+                            setTempPasswordFeedback(`Code "${tempPasswordInput.trim()}" activated and WhatsApp opened! (Valid for 5 minutes)`);
                           }
                         }}
-                        className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold px-4 py-2 rounded-xl transition text-xs cursor-pointer shadow-md"
+                        className="flex items-center gap-1.5 neumorphic-btn bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl transition text-xs cursor-pointer shadow-sm active:scale-95"
                       >
                         <Send size={14} /> Forward via WhatsApp
                       </button>
