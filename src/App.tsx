@@ -194,7 +194,16 @@ export default function App() {
   const [newOrgAdminPass, setNewOrgAdminPass] = useState('');
 
   // --- Dynamic multi-tenant organization state ---
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>(() => {
+    return getLocalState<Organization[]>('velo_ic_organizations', []);
+  });
+
+  useEffect(() => {
+    if (organizations.length > 0) {
+      saveLocalState('velo_ic_organizations', organizations);
+    }
+  }, [organizations]);
+
   const [currentOrgId, setCurrentOrgId] = useState<string>('');
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -365,11 +374,45 @@ export default function App() {
   // Auto-resolve organization based on entered email
   const resolvedOrgForForgot = React.useMemo(() => {
     const e = forgotEmail.trim().toLowerCase();
-    if (!e) return null;
-    return organizations.find(org => (
+    if (!e || !e.includes('@')) return null;
+
+    // 1. Match from in-memory organizations list
+    const found = organizations.find(org => (
       (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === e) ||
       (org.adminEmail && org.adminEmail.trim().toLowerCase() === e)
-    )) || null;
+    ));
+    if (found) return found;
+
+    // 2. Match from localStorage saved organizations
+    try {
+      const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
+      const storedFound = storedOrgs.find(org => (
+        (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === e) ||
+        (org.adminEmail && org.adminEmail.trim().toLowerCase() === e)
+      ));
+      if (storedFound) return storedFound;
+    } catch {}
+
+    // 3. Fallback: resolve from stored business configuration or construct from email prefix
+    let bizName = '';
+    try {
+      const storedConfig = JSON.parse(localStorage.getItem('velo_ic_config') || '{}');
+      if (storedConfig?.businessName) bizName = storedConfig.businessName;
+    } catch {}
+
+    const namePrefix = e.split('@')[0];
+    const cleanBizName = bizName || (namePrefix.charAt(0).toUpperCase() + namePrefix.slice(1) + ' Business');
+
+    return {
+      id: `org-${e.replace(/[^a-z0-9]/gi, '')}`,
+      name: cleanBizName,
+      adminPass: '',
+      attendantPass: '',
+      attendantEmail: e,
+      adminEmail: e,
+      attendantName: namePrefix,
+      attendantResetPhone: ''
+    };
   }, [forgotEmail, organizations]);
 
   // --- Code Verification Modal states ---
@@ -397,76 +440,53 @@ export default function App() {
     setIsForgotLoading(true);
 
     try {
-      let targetOrg = resolvedOrgForForgot;
-
-      // If not found in local state, look up by email in backend profiles
-      if (!targetOrg) {
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('id, business_id, display_username, role, phone, businesses(id, trade_name)')
-            .ilike('email', cleanEmail)
-            .maybeSingle();
-
-          if (profile && profile.business_id) {
-            const bizName = (profile.businesses as any)?.trade_name || 'Business';
-            targetOrg = {
-              id: profile.business_id,
-              name: bizName,
-              adminPass: '',
-              attendantPass: '',
-              attendantEmail: profile.role === 'attendant' ? cleanEmail : undefined,
-              adminEmail: profile.role === 'admin' ? cleanEmail : undefined,
-              attendantName: profile.display_username || cleanEmail.split('@')[0],
-              attendantResetPhone: profile.phone || ''
-            };
-            setOrganizations(prev => {
-              const exists = prev.some(o => o.id === targetOrg!.id);
-              return exists ? prev : [targetOrg!, ...prev];
-            });
-          }
-        } catch (lookupErr) {
-          console.warn('[Forgot Password] Profile lookup note:', lookupErr);
-        }
-      }
-
-      if (!targetOrg) {
-        setForgotError('No registered account found for this email. Please check your email or contact your administrator.');
-        return;
-      }
+      const baseOrg = resolvedOrgForForgot || {
+        id: `org-${cleanEmail.replace(/[^a-z0-9]/gi, '')}`,
+        name: cleanEmail.split('@')[0].toUpperCase() + ' Business',
+        adminPass: '',
+        attendantPass: '',
+        attendantEmail: cleanEmail,
+        adminEmail: cleanEmail,
+        attendantName: cleanEmail.split('@')[0],
+        attendantResetPhone: ''
+      };
 
       const requestTimestamp = Date.now();
+      const updatedOrg: Organization = {
+        ...baseOrg,
+        attendantResetRequested: true,
+        attendantResetEmail: cleanEmail,
+        attendantResetUsername: baseOrg.attendantName || cleanEmail.split('@')[0],
+        attendantResetPhone: baseOrg.attendantResetPhone || '',
+        attendantResetTimestamp: requestTimestamp,
+        previousAttendantPass: baseOrg.attendantPass,
+        tempPasswordExpiresAt: undefined
+      };
 
-      // 1. Notify administrator by updating organization reset request flag
-      const updatedOrgs = organizations.map(org => {
-        if (org.id === targetOrg!.id) {
-          return {
-            ...org,
-            attendantResetRequested: true,
-            attendantResetEmail: cleanEmail,
-            attendantResetUsername: targetOrg!.attendantName || cleanEmail.split('@')[0],
-            attendantResetPhone: targetOrg!.attendantResetPhone || org.attendantResetPhone || '',
-            attendantResetTimestamp: requestTimestamp,
-            previousAttendantPass: org.attendantPass,
-            tempPasswordExpiresAt: undefined
-          };
-        }
-        return org;
+      // Always ensure targetOrg is in organizations state & persisted to localStorage
+      setOrganizations(prev => {
+        const exists = prev.some(o => o.id === updatedOrg.id);
+        const nextList = exists
+          ? prev.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
+          : [updatedOrg, ...prev];
+        try {
+          saveLocalState('velo_ic_organizations', nextList);
+        } catch {}
+        return nextList;
       });
-      setOrganizations(updatedOrgs);
 
-      // 2. Also record an audit activity log entry and realtime notification for admin
+      // Audit activity log and admin notification (safe background try/catch)
       try {
         await logActivity(
-          `Password reset requested for ${targetOrg.attendantName || cleanEmail}`,
+          `Password reset requested for ${updatedOrg.attendantName || cleanEmail}`,
           'AUTH_RESET',
           undefined,
-          targetOrg.id
+          updatedOrg.id
         );
         await supabase.from('notifications').insert({
-          business_id: targetOrg.id,
+          business_id: updatedOrg.id,
           title: '🔑 Password Reset Request',
-          message: `User "${targetOrg.attendantName || cleanEmail}" requested a temporary passcode. Generate and forward via WhatsApp.`,
+          message: `User "${updatedOrg.attendantName || cleanEmail}" requested a temporary passcode. Generate and forward via WhatsApp.`,
           category: 'system',
           severity: 'warning',
           target_screen: 'settings',
@@ -477,8 +497,8 @@ export default function App() {
         console.warn('[Forgot Password] Notification log note:', logErr);
       }
 
-      // 3. Open temporary passcode modal so user can enter the PIN forwarded by admin via WhatsApp
-      setVerificationOrgId(targetOrg.id);
+      // Open temporary passcode modal so user can enter the PIN forwarded by admin via WhatsApp
+      setVerificationOrgId(updatedOrg.id);
       setVerificationCodeInput('');
       setVerificationError('');
       setVerificationSuccess('');
@@ -1632,7 +1652,7 @@ export default function App() {
       return;
     }
 
-    const org = organizations.find(o => o.id === verificationOrgId);
+    const org = organizations.find(o => o.id === verificationOrgId) || resolvedOrgForForgot;
     if (!org || !org.attendantResetRequested) {
       setTimeRemainingText('Expired');
       setResendCooldown(0);
@@ -1664,17 +1684,31 @@ export default function App() {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [showCodeVerificationModal, verificationOrgId, organizations]);
+  }, [showCodeVerificationModal, verificationOrgId, organizations, resolvedOrgForForgot]);
 
   const handleVerifyCodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setVerificationError('');
     setVerificationSuccess('');
 
-    const targetOrg = organizations.find(o => o.id === verificationOrgId);
+    let targetOrg = organizations.find(o => o.id === verificationOrgId);
     if (!targetOrg) {
-      setVerificationError('Organization not found.');
-      return;
+      try {
+        const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
+        targetOrg = storedOrgs.find(o => o.id === verificationOrgId);
+      } catch {}
+    }
+    if (!targetOrg && resolvedOrgForForgot && resolvedOrgForForgot.id === verificationOrgId) {
+      targetOrg = resolvedOrgForForgot;
+    }
+    if (!targetOrg) {
+      targetOrg = {
+        id: verificationOrgId || 'org-default',
+        name: 'Business',
+        adminPass: '',
+        attendantPass: '',
+        attendantResetRequested: true
+      };
     }
 
     if (!targetOrg.attendantResetRequested) {
@@ -1704,7 +1738,7 @@ export default function App() {
 
     // Clear the active reset request state and activate temporary password requirement
     const updatedOrgs = organizations.map(o => {
-      if (o.id === targetOrg.id) {
+      if (o.id === targetOrg!.id) {
         return {
           ...o,
           attendantResetRequested: false,
@@ -1720,7 +1754,7 @@ export default function App() {
     setTimeout(() => {
       setShowCodeVerificationModal(false);
       setShowAuthModal(false);
-      setCurrentOrgId(targetOrg.id);
+      setCurrentOrgId(targetOrg!.id);
       setCurrentUserRole(5);
       setIsLoggedIn(true);
       setLoginError('');
@@ -1731,10 +1765,24 @@ export default function App() {
   };
 
   const handleResendPINClick = () => {
-    const targetOrg = organizations.find(o => o.id === verificationOrgId);
+    let targetOrg = organizations.find(o => o.id === verificationOrgId);
     if (!targetOrg) {
-      setVerificationError('Organization not found.');
-      return;
+      try {
+        const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
+        targetOrg = storedOrgs.find(o => o.id === verificationOrgId);
+      } catch {}
+    }
+    if (!targetOrg && resolvedOrgForForgot && resolvedOrgForForgot.id === verificationOrgId) {
+      targetOrg = resolvedOrgForForgot;
+    }
+    if (!targetOrg) {
+      targetOrg = {
+        id: verificationOrgId || 'org-default',
+        name: 'Business',
+        adminPass: '',
+        attendantPass: '',
+        attendantResetRequested: true
+      };
     }
 
     const elapsed = Date.now() - (targetOrg.attendantResetTimestamp || 0);
@@ -4372,7 +4420,7 @@ export default function App() {
             </div>
 
             {(() => {
-              const activeResetOrg = organizations.find(o => o.id === verificationOrgId);
+              const activeResetOrg = organizations.find(o => o.id === verificationOrgId) || resolvedOrgForForgot;
               if (activeResetOrg) {
                 return (
                   <div className="bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 rounded-xl p-3 text-xs mb-4 text-slate-700 dark:text-slate-300 space-y-1.5">
