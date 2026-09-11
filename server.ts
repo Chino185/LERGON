@@ -682,6 +682,24 @@ app.get("/api/auth/temp-pin/:pin", (req, res) => {
   return res.json({ success: true, record });
 });
 
+app.delete("/api/auth/temp-pin/:pin", (req, res) => {
+  const pin = String(req.params.pin || "").trim();
+  const rec = activeTempPins.get(pin);
+  if (rec && rec.businessId) {
+    businessTempPins.delete(rec.businessId);
+  }
+  activeTempPins.delete(pin);
+  return res.json({ success: true });
+});
+
+app.delete("/api/auth/reset-request/:businessId", (req, res) => {
+  const businessId = String(req.params.businessId || "").trim();
+  pendingResetRequests.delete(businessId);
+  pendingResetRequests.delete("latest");
+  return res.json({ success: true });
+});
+
+
 // API Endpoints for Gemini Intelligence Center (Smart audits & calculations)
 app.post("/api/gemini/analyze-inventory", async (req, res) => {
   const { inventory = [], adjustments = [], config = {}, deepAnalysis } = req.body || {};

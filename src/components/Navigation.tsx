@@ -88,6 +88,29 @@ export default function Navigation({
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const notificationRef = React.useRef<HTMLDivElement>(null);
   const mobileMenuRef = React.useRef<HTMLDivElement>(null);
+  const [serverResetRequest, setServerResetRequest] = useState<{ username: string; requestedAt: number; businessId?: string } | null>(null);
+
+  React.useEffect(() => {
+    if (userRole !== 2) return;
+    const checkResetReq = () => {
+      const orgId = currentOrg?.id;
+      const url = orgId ? `/api/auth/reset-request/${encodeURIComponent(orgId)}` : '/api/auth/reset-request';
+      fetch(url)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.record?.username) {
+            setServerResetRequest(data.record);
+          } else {
+            setServerResetRequest(null);
+          }
+        })
+        .catch(() => {});
+    };
+
+    checkResetReq();
+    const interval = setInterval(checkResetReq, 3500);
+    return () => clearInterval(interval);
+  }, [userRole, currentOrg?.id]);
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -338,13 +361,15 @@ export default function Navigation({
     }
 
     // 5. Attendant / staff password reset requested
-    if (userRole === 2 && currentOrg?.attendantResetRequested) {
+    const hasResetReq = Boolean((userRole === 2 && currentOrg?.attendantResetRequested) || serverResetRequest);
+    if (userRole === 2 && hasResetReq) {
+      const reqName = serverResetRequest?.username || currentOrg?.attendantResetUsername || 'Staff member';
       list.push({
-        id: `notif-pass-reset-${currentOrg.id}`,
+        id: `notif-pass-reset-${currentOrg?.id || serverResetRequest?.businessId || 'pending'}`,
         title: '🔑 Password Reset Request',
-        description: `"${currentOrg.attendantResetUsername || 'Staff member'}" requested a password reset. Click to set temporary code & forward via WhatsApp.`,
+        description: `"${reqName}" requested a password reset. Go to Settings → Security to generate it.`,
         type: 'warning',
-        date: new Date(currentOrg.attendantResetTimestamp || Date.now()).toISOString(),
+        date: new Date(serverResetRequest?.requestedAt || currentOrg?.attendantResetTimestamp || Date.now()).toISOString(),
         category: 'Security',
         targetScreen: 'settings',
         targetTab: 'security'
@@ -386,7 +411,7 @@ export default function Navigation({
       if (a.type !== 'error' && b.type === 'error') return 1;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [backendNotifications, inventory, creditAccounts, adjustments, transactions, config.currencySymbol, userRole, currentOrg, pendingRestocks]);
+  }, [backendNotifications, inventory, creditAccounts, adjustments, transactions, config.currencySymbol, userRole, currentOrg, pendingRestocks, serverResetRequest]);
 
   // Combined Operations Feed (Latest 8 stock movements or credit movements)
   const activityEvents = React.useMemo(() => {
@@ -588,7 +613,7 @@ export default function Navigation({
             >
               <Bell size={16} />
               {unreadNotificationCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-white dark:bg-slate-950 text-red-600 dark:text-red-400 font-extrabold text-[8px] px-1 rounded-full flex items-center justify-center border border-red-500 dark:border-red-400 animate-pulse">
+                <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] bg-red-600 dark:bg-red-500 text-white font-black text-[9px] px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 shadow-md animate-pulse pointer-events-none">
                   {unreadNotificationCount}
                 </span>
               )}

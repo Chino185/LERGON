@@ -71,16 +71,24 @@ export default function NotificationsScreen({
 
   useEffect(() => {
     if (userRole !== 2) return;
-    const orgId = currentOrg?.id;
-    const url = orgId ? `/api/auth/reset-request/${encodeURIComponent(orgId)}` : '/api/auth/reset-request';
-    fetch(url)
-      .then(res => res.json())
-      .then(data => {
-        if (data?.record?.username) {
-          setServerResetRequest(data.record);
-        }
-      })
-      .catch(() => {});
+    const fetchResetReq = () => {
+      const orgId = currentOrg?.id;
+      const url = orgId ? `/api/auth/reset-request/${encodeURIComponent(orgId)}` : '/api/auth/reset-request';
+      fetch(url)
+        .then(res => res.json())
+        .then(data => {
+          if (data?.record?.username) {
+            setServerResetRequest(data.record);
+          } else {
+            setServerResetRequest(null);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchResetReq();
+    const interval = setInterval(fetchResetReq, 3500);
+    return () => clearInterval(interval);
   }, [userRole, currentOrg?.id]);
 
   const formatTimeAgo = (dateStr: string) => {
@@ -284,7 +292,7 @@ export default function NotificationsScreen({
       if (a.type !== 'error' && b.type === 'error') return 1;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [backendNotifications, inventory, creditAccounts, adjustments, transactions, config?.currencySymbol, userRole, currentOrg, pendingRestocks]);
+  }, [backendNotifications, inventory, creditAccounts, adjustments, transactions, config?.currencySymbol, userRole, currentOrg, pendingRestocks, serverResetRequest]);
 
   const markAsRead = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -322,8 +330,8 @@ export default function NotificationsScreen({
             <Bell size={12} className="animate-pulse" />
             <span>System Notifications Hub</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">Notifications & System Alerts</h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-0.5">Notifications & System Alerts</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
             Real-time automated supply chain alerts, inventory triggers, and data integrity flags.
           </p>
         </div>
@@ -336,7 +344,7 @@ export default function NotificationsScreen({
           <button
             onClick={markAllAsRead}
             disabled={unreadCount === 0}
-            className="px-4 py-2 neumorphic-btn text-slate-800 disabled:opacity-40 text-xs font-extrabold rounded-full transition cursor-pointer"
+            className="px-4 py-2 neumorphic-btn text-slate-800 dark:text-white disabled:opacity-40 text-xs font-extrabold rounded-full transition cursor-pointer"
           >
             Mark all read
           </button>
@@ -350,15 +358,15 @@ export default function NotificationsScreen({
         <div className="finnova-card p-5 sm:p-6 flex flex-col">
 
           {/* Header & Filter Controls */}
-          <div className="border-b border-slate-200/50 pb-3 shrink-0">
+          <div className="border-b border-slate-200/50 dark:border-slate-800 pb-3 shrink-0">
             <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 neumorphic-circle text-slate-800 dark:text-white flex items-center justify-center font-bold">
-                  <Bell size={16} className="text-slate-800" />
+                  <Bell size={16} className="text-slate-800 dark:text-white" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-black text-slate-900 leading-tight">Live Alerts & Notifications</h2>
-                  <p className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider">Real-time system-generated triggers</p>
+                  <h2 className="text-sm font-black text-slate-900 dark:text-white leading-tight">Live Alerts & Notifications</h2>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">Real-time system-generated triggers</p>
                 </div>
               </div>
               <div className="text-[10px] font-extrabold text-slate-900 dark:text-white neumorphic-btn px-3 py-1 rounded-full font-sans">
@@ -374,7 +382,7 @@ export default function NotificationsScreen({
                   onClick={() => setActiveFilter(f)}
                   className={`px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider rounded-xl transition cursor-pointer neumorphic-btn ${activeFilter === f
                     ? 'bg-gradient-to-r from-sky-400 via-blue-500 to-blue-600 text-white shadow-sm'
-                    : 'text-slate-800 dark:text-white hover:text-black dark:hover:text-white'
+                    : 'text-slate-800 dark:text-slate-200 hover:text-black dark:hover:text-white'
                     }`}
                 >
                   {f === 'all' ? 'All Logs' : f}
@@ -391,6 +399,7 @@ export default function NotificationsScreen({
                   const isError = notif.type === 'error';
                   const isSuccess = notif.type === 'success';
                   const isRead = readNotifs.includes(notif.id);
+                  const isResetReq = notif.id.startsWith('notif-pass-reset');
                   return (
                     <motion.div
                       key={notif.id}
@@ -404,7 +413,9 @@ export default function NotificationsScreen({
                           ? 'border-red-300 dark:border-red-900/60 shadow-md'
                           : isSuccess
                             ? 'border-emerald-300 dark:border-emerald-900/60 shadow-md'
-                            : 'border-red-300 dark:border-red-900/60 shadow-md'
+                            : isResetReq
+                              ? 'border-amber-400 dark:border-amber-500 bg-amber-50/70 dark:bg-amber-950/40 shadow-lg ring-1 ring-amber-400/40'
+                              : 'border-amber-300 dark:border-amber-900/60 shadow-md'
                         }`}
                     >
                       <div className="flex items-start gap-3.5">

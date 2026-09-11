@@ -365,11 +365,17 @@ export default function App() {
   const [isAttendantPassFocused, setIsAttendantPassFocused] = useState(false);
 
   // --- Forgot Password states ---
-  const [forgotStep, setForgotStep] = useState<'username' | 'pin'>('username');
+  const [forgotStep, setForgotStep] = useState<'username' | 'pin' | 'new_password'>('username');
   const [forgotPinInput, setForgotPinInput] = useState('');
   const [pinResolvedOrg, setPinResolvedOrg] = useState<Organization | null>(null);
   const [forgotOrgId, setForgotOrgId] = useState('');
   const [forgotUsername, setForgotUsername] = useState('');
+  const [detectedRole, setDetectedRole] = useState<UserRole>(5);
+  const [detectedUserLabel, setDetectedUserLabel] = useState<string>('Attendant');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [showForgotNewPass, setShowForgotNewPass] = useState(false);
+  const [showForgotConfirmPass, setShowForgotConfirmPass] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [isForgotLoading, setIsForgotLoading] = useState(false);
@@ -472,6 +478,109 @@ export default function App() {
     e.preventDefault();
     setForgotError('');
 
+    // --- Step 3: Create New Password ---
+    if (forgotStep === 'new_password') {
+      const cleanNewPass = forgotNewPassword.trim();
+      const cleanConfirmPass = forgotConfirmPassword.trim();
+
+      if (!cleanNewPass) {
+        setForgotError('Please enter a new password.');
+        return;
+      }
+
+      if (cleanNewPass.length < 6) {
+        setForgotError('Password must be at least 6 characters long.');
+        return;
+      }
+
+      if (cleanNewPass !== cleanConfirmPass) {
+        setForgotError('Passwords do not match. Please ensure both fields are identical.');
+        return;
+      }
+
+      const targetOrg = pinResolvedOrg || organizations[0];
+      if (!targetOrg) {
+        setForgotError('Organization details could not be found. Please restart the reset process.');
+        return;
+      }
+
+      setIsForgotLoading(true);
+
+      try {
+        const isRoleAdmin = detectedRole === 2;
+        const userEmail = isRoleAdmin
+          ? (targetOrg.adminEmail || targetOrg.attendantResetEmail)
+          : (targetOrg.attendantEmail || targetOrg.attendantResetEmail);
+
+        // 1. Sync updated password to Supabase Auth backend if user exists
+        try {
+          const tempCode = forgotPinInput.trim() || targetOrg.attendantPass;
+          await updatePasswordAfterReset(cleanNewPass, userEmail, tempCode);
+        } catch (authErr) {
+          console.warn('[Backend Auth] Note on updating password:', authErr);
+        }
+
+        // 2. Save the updated password in organization state
+        const updatedOrg: Organization = {
+          ...targetOrg,
+          adminPass: isRoleAdmin ? cleanNewPass : targetOrg.adminPass,
+          attendantPass: !isRoleAdmin ? cleanNewPass : targetOrg.attendantPass,
+          attendantResetRequested: false,
+          isTempPassword: false,
+          tempPasswordExpiresAt: undefined
+        };
+
+        setOrganizations(prev => {
+          const exists = prev.some(o => o.id === updatedOrg.id);
+          const nextList = exists
+            ? prev.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
+            : [updatedOrg, ...prev];
+          try {
+            saveLocalState('velo_ic_organizations', nextList);
+          } catch {}
+          return nextList;
+        });
+
+        // 3. Clear temporary PIN & reset request from server
+        try {
+          const cleanPin = forgotPinInput.trim();
+          if (cleanPin) {
+            fetch(`/api/auth/temp-pin/${encodeURIComponent(cleanPin)}`, { method: 'DELETE' }).catch(() => {});
+          }
+          fetch(`/api/auth/reset-request/${encodeURIComponent(updatedOrg.id)}`, { method: 'DELETE' }).catch(() => {});
+        } catch {}
+
+        // 4. Log in the user into the system according to their detected role
+        setShowAuthModal(false);
+        setCurrentOrgId(updatedOrg.id);
+        setCurrentUserRole(detectedRole);
+        setIsLoggedIn(true);
+
+        // Open to the specified page for the user
+        const targetScreen = 'dashboard';
+        setActiveScreen(targetScreen);
+        try {
+          localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, targetScreen);
+        } catch {}
+
+        // Reset forgot password state
+        setForgotPinInput('');
+        setForgotUsername('');
+        setForgotNewPassword('');
+        setForgotConfirmPassword('');
+        setForgotStep('username');
+        setForgotError('');
+        setSuccess(`Password saved successfully! Welcome back to ${updatedOrg.name}.`);
+        setTimeout(() => setSuccess(null), 4000);
+      } catch (err: any) {
+        setForgotError(err?.message || 'Failed to save new password. Please try again.');
+      } finally {
+        setIsForgotLoading(false);
+      }
+      return;
+    }
+
+    // --- Step 2: Verify 6-digit Temporary PIN ---
     if (forgotStep === 'pin') {
       const cleanPin = forgotPinInput.trim();
       if (!cleanPin) {
@@ -490,12 +599,14 @@ export default function App() {
           } catch {}
         }
 
+        let recordUsername = '';
         if (!targetOrg) {
           try {
             const res = await fetch(`/api/auth/temp-pin/${encodeURIComponent(cleanPin)}`);
             if (res.ok) {
               const data = await res.json();
               if (data?.record) {
+                recordUsername = data.record.username || '';
                 targetOrg = {
                   id: data.record.businessId || `org-${Date.now()}`,
                   name: data.record.businessName || 'Business',
@@ -521,47 +632,39 @@ export default function App() {
           return;
         }
 
-        // Success: activate temporary passcode requirement & log attendant into this organization
-        const updatedOrg: Organization = {
-          ...targetOrg,
-          attendantResetRequested: false,
-          isTempPassword: true,
-          tempPasswordExpiresAt: undefined
-        };
+        // Re-confirm or refine role from targetOrg or username
+        const u = (recordUsername || forgotUsername).trim().toLowerCase();
+        let roleDetected: UserRole = detectedRole;
+        let roleLabel = detectedUserLabel;
+        if (targetOrg) {
+          if (
+            (targetOrg.adminName && targetOrg.adminName.trim().toLowerCase() === u) ||
+            (targetOrg.adminEmail && targetOrg.adminEmail.trim().toLowerCase() === u)
+          ) {
+            roleDetected = 2;
+            roleLabel = 'Administrator';
+          } else if (
+            (targetOrg.attendantName && targetOrg.attendantName.trim().toLowerCase() === u) ||
+            (targetOrg.attendantEmail && targetOrg.attendantEmail.trim().toLowerCase() === u)
+          ) {
+            roleDetected = 5;
+            roleLabel = 'Attendant';
+          }
+        }
+        setDetectedRole(roleDetected);
+        setDetectedUserLabel(roleLabel);
+        setPinResolvedOrg(targetOrg);
 
-        setOrganizations(prev => {
-          const exists = prev.some(o => o.id === updatedOrg.id);
-          const nextList = exists
-            ? prev.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
-            : [updatedOrg, ...prev];
-          try {
-            saveLocalState('velo_ic_organizations', nextList);
-          } catch {}
-          return nextList;
-        });
-
-        // Close auth modal and redirect to app dashboard with prompt interface
-        setShowAuthModal(false);
-        setCurrentOrgId(updatedOrg.id);
-        setCurrentUserRole(5);
-        setIsLoggedIn(true);
-        setActiveScreen('dashboard');
-        try {
-          localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
-        } catch {}
-        setForgotPinInput('');
-        setForgotUsername('');
-        setForgotStep('username');
+        // Advance to Step 3: Create New Password
+        setForgotStep('new_password');
         setForgotError('');
-        setSuccess('Passcode verified! Please establish your new unique password.');
-        setTimeout(() => setSuccess(null), 4000);
       } finally {
         setIsForgotLoading(false);
       }
       return;
     }
 
-    // --- Step: Request via Username ---
+    // --- Step 1: Request via Username ---
     const cleanUsername = forgotUsername.trim();
     if (!cleanUsername) {
       setForgotError('Please enter your username.');
@@ -572,18 +675,41 @@ export default function App() {
 
     try {
       let targetOrg = resolvedOrgForForgot;
+      let userRoleDetected: UserRole = 5;
+      let userLabel = 'Attendant';
+
+      if (targetOrg) {
+        const u = cleanUsername.toLowerCase();
+        if (
+          (targetOrg.adminName && targetOrg.adminName.trim().toLowerCase() === u) ||
+          (targetOrg.adminEmail && targetOrg.adminEmail.trim().toLowerCase() === u)
+        ) {
+          userRoleDetected = 2;
+          userLabel = 'Administrator';
+        } else {
+          userRoleDetected = 5;
+          userLabel = 'Attendant';
+        }
+      }
 
       // Query Supabase profiles if not matched in memory
-      if (!targetOrg) {
-        try {
-          const { data } = await supabase
-            .from('profiles')
-            .select('business_id, display_username, email')
-            .or(`display_username.ilike.${cleanUsername},email.ilike.${cleanUsername}`)
-            .limit(1)
-            .maybeSingle();
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('business_id, display_username, email, role')
+          .or(`display_username.ilike.${cleanUsername},email.ilike.${cleanUsername}`)
+          .limit(1)
+          .maybeSingle();
 
-          if (data?.business_id) {
+        if (data) {
+          if (data.role === 'admin') {
+            userRoleDetected = 2;
+            userLabel = 'Administrator';
+          } else {
+            userRoleDetected = 5;
+            userLabel = 'Attendant';
+          }
+          if (data.business_id && !targetOrg) {
             targetOrg = organizations.find(o => o.id === data.business_id);
             if (!targetOrg) {
               const { data: bData } = await supabase
@@ -602,12 +728,16 @@ export default function App() {
               }
             }
           }
-        } catch {}
-      }
+        }
+      } catch {}
 
       if (!targetOrg && organizations.length > 0) {
         targetOrg = organizations[0];
       }
+
+      setDetectedRole(userRoleDetected);
+      setDetectedUserLabel(userLabel);
+      if (targetOrg) setPinResolvedOrg(targetOrg);
 
       const businessId = targetOrg?.id || '';
       const businessName = targetOrg?.name || 'Business';
@@ -637,7 +767,7 @@ export default function App() {
           await supabase.from('notifications').insert({
             business_id: updatedOrg.id,
             title: '🔑 Password Reset Request',
-            message: `User "${cleanUsername}" is requesting a password reset. Check Settings → Security to generate their code.`,
+            message: `User "${cleanUsername}" (${userLabel}) is requesting a password reset. Check Settings → Security to generate their code.`,
             category: 'system',
             severity: 'warning',
             target_screen: 'settings',
@@ -1829,6 +1959,7 @@ export default function App() {
   useEffect(() => {
     if (isLoggedIn && currentOrgId) {
       async function verifyActiveOrgSession() {
+        if (!currentUserUid) return; // Passcode / attendant sessions are scoped to organization credentials
         const { data: { session } } = await supabase.auth.getSession();
         if (!session && isLoggedIn) {
           handleLogout();
@@ -1841,7 +1972,7 @@ export default function App() {
         window.removeEventListener('focus', verifyActiveOrgSession);
       };
     }
-  }, [isLoggedIn, currentOrgId]);
+  }, [isLoggedIn, currentOrgId, currentUserUid]);
 
   // Business data state is populated exclusively from live Supabase Realtime listeners
 
@@ -3600,14 +3731,18 @@ export default function App() {
                 {activeView !== 'verify_email' && (
                   <div className="text-left mb-6 relative z-10 pr-8">
                     <h2 className="text-3xl font-quantum font-black text-slate-900 dark:text-white mb-1 tracking-tight">
-                      {activeView === 'forgot' ? 'Reset Password' :
+                      {activeView === 'forgot' ? (forgotStep === 'new_password' ? 'Create New Password' : 'Reset Password') :
                         activeView === 'register' ? 'Register Account' :
                           activeView === 'join' ? 'Join a Business' :
                             activeView === 'attendant_set_password' ? 'Set Your Password' :
                               'Login'}
                     </h2>
                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans font-medium">
-                      {activeView === 'forgot' ? (forgotStep === 'pin' ? 'Enter the 6-digit PIN provided by your admin' : 'Enter your username') :
+                      {activeView === 'forgot' ? (
+                        forgotStep === 'new_password' ? 'Set your permanent password to access your account' :
+                        forgotStep === 'pin' ? 'Enter the 6-digit PIN provided by your admin' :
+                        'Enter your username'
+                      ) :
                         activeView === 'register' ? 'Set up your business profile in under a minute' :
                           activeView === 'join' ? 'Enter the code your admin shared with you' :
                             activeView === 'attendant_set_password' ? `You're joining ${validatedJoinOrg?.name || 'the shop'}` :
@@ -3709,6 +3844,10 @@ export default function App() {
                           setLoginError('');
                           setForgotError('');
                           setForgotUsername('');
+                          setForgotStep('username');
+                          setForgotPinInput('');
+                          setForgotNewPassword('');
+                          setForgotConfirmPassword('');
                         }}
                         className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 transition-colors cursor-pointer font-semibold"
                       >
@@ -4202,12 +4341,12 @@ export default function App() {
                           </button>
                         </div>
                       </div>
-                    ) : (
+                    ) : forgotStep === 'pin' ? (
                       <div className="space-y-4">
                         <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 flex items-center gap-2.5 text-xs text-sky-800 dark:text-sky-300 animate-fade-in">
                           <CheckCircle2 size={18} className="text-sky-600 dark:text-sky-400 shrink-0" />
                           <span className="leading-relaxed">
-                            Request sent for <strong>"{forgotUsername}"</strong>. Please ask your administrator for your 6-digit PIN.
+                            Request sent for <strong>"{forgotUsername}"</strong>. Please enter the 6-digit temporary PIN generated by the administrator.
                           </span>
                         </div>
 
@@ -4265,7 +4404,97 @@ export default function App() {
                             ) : (
                               <>
                                 <KeyRound size={16} />
-                                <span>Verify PIN & Log In</span>
+                                <span>Verify PIN</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* --- Step 3: Create New Password --- */
+                      <div className="space-y-4">
+                        <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300 animate-fade-in">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span className="truncate">
+                              PIN verified for <strong>{forgotUsername}</strong>
+                            </span>
+                          </div>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 shrink-0">
+                            {detectedUserLabel}
+                          </span>
+                        </div>
+
+                        <div className="relative">
+                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                            New Password
+                          </label>
+                          <input
+                            type={showForgotNewPass ? 'text' : 'password'}
+                            required
+                            placeholder="At least 6 characters..."
+                            value={forgotNewPassword}
+                            onChange={(e) => {
+                              setForgotNewPassword(e.target.value);
+                              if (forgotError) setForgotError('');
+                            }}
+                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowForgotNewPass(!showForgotNewPass)}
+                            className="absolute right-4 top-[36px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                          >
+                            {showForgotNewPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        </div>
+
+                        <div className="relative">
+                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                            Confirm New Password
+                          </label>
+                          <input
+                            type={showForgotConfirmPass ? 'text' : 'password'}
+                            required
+                            placeholder="Re-enter your new password..."
+                            value={forgotConfirmPassword}
+                            onChange={(e) => {
+                              setForgotConfirmPassword(e.target.value);
+                              if (forgotError) setForgotError('');
+                            }}
+                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowForgotConfirmPass(!showForgotConfirmPass)}
+                            className="absolute right-4 top-[36px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                          >
+                            {showForgotConfirmPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => { setForgotStep('pin'); setForgotError(''); }}
+                            className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
+                          >
+                            Back
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isForgotLoading}
+                            className="flex-[1.5] bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-600 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isForgotLoading ? (
+                              <>
+                                <RefreshCw size={16} className="animate-spin" />
+                                <span>Saving Password...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Check size={16} />
+                                <span>Save Password & Log In</span>
                               </>
                             )}
                           </button>
