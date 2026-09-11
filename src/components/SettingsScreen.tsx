@@ -893,9 +893,10 @@ export default function SettingsScreen({
   // Temporary Password States for resetting attendant passcode
   const [tempPasswordInput, setTempPasswordInput] = useState('');
   const [tempPasswordFeedback, setTempPasswordFeedback] = useState<string | null>(null);
-  const [activeResetRecord, setActiveResetRecord] = useState<{ pin: string; requestedByEmail?: string; expiresAt?: number } | null>(null);
+  const [activeResetRecord, setActiveResetRecord] = useState<{ pin: string; username?: string; requestedByEmail?: string; expiresAt?: number } | null>(null);
+  const [pendingResetUser, setPendingResetUser] = useState<string | null>(null);
 
-  // Sync active reset PIN from server and current organization
+  // Sync active reset PIN and pending requests from server and current organization
   React.useEffect(() => {
     const orgId = currentOrg?.id || currentOrgId;
     if (!orgId) return;
@@ -910,6 +911,18 @@ export default function SettingsScreen({
         if (data?.active && data?.record?.pin) {
           setActiveResetRecord(data.record);
           setTempPasswordInput(data.record.pin);
+          if (data.record.username) {
+            setPendingResetUser(data.record.username);
+          }
+        }
+      })
+      .catch(() => {});
+
+    fetch(`/api/auth/reset-request/${encodeURIComponent(orgId)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.record?.username) {
+          setPendingResetUser(data.record.username);
         }
       })
       .catch(() => {});
@@ -1833,8 +1846,8 @@ export default function SettingsScreen({
                   className="p-4 neumorphic-card bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/60 rounded-2xl text-xs space-y-3 mb-4 text-slate-800 dark:text-amber-100"
                 >
                   {(() => {
-                    const hasResetRequest = Boolean(currentOrg?.attendantResetRequested || activeResetRecord);
-                    const resetEmail = activeResetRecord?.requestedByEmail || currentOrg?.attendantResetEmail;
+                    const requestingUser = pendingResetUser || activeResetRecord?.username || currentOrg?.attendantResetUsername || activeResetRecord?.requestedByEmail || currentOrg?.attendantResetEmail;
+                    const hasResetRequest = Boolean(currentOrg?.attendantResetRequested || activeResetRecord || pendingResetUser);
                     const displayedCode = tempPasswordInput || activeResetRecord?.pin || currentOrg?.attendantPass || '';
 
                     return (
@@ -1847,7 +1860,7 @@ export default function SettingsScreen({
                             </p>
                             <p className="text-xs text-amber-800 dark:text-amber-200 font-normal leading-relaxed">
                               {hasResetRequest ? (
-                                <>Staff member <strong className="font-bold text-amber-950 dark:text-white">"{resetEmail || currentOrg?.attendantResetUsername || 'Staff Member'}"</strong> requested a temporary passcode to regain access to <strong className="font-bold text-amber-950 dark:text-white">{currentOrg?.name || 'this business'}</strong>.</>
+                                <>Staff member <strong className="font-bold text-amber-950 dark:text-white">"{requestingUser || 'Staff Member'}"</strong> requested a temporary passcode to regain access to <strong className="font-bold text-amber-950 dark:text-white">{currentOrg?.name || 'this business'}</strong>.</>
                               ) : (
                                 <>Issue a temporary passcode PIN for staff to log in and reset their password for <strong className="font-bold text-amber-950 dark:text-white">{currentOrg?.name || 'this business'}</strong>.</>
                               )}
@@ -1858,9 +1871,9 @@ export default function SettingsScreen({
                                   <Smartphone size={12} /> WhatsApp: {currentOrg.attendantResetPhone}
                                 </span>
                               )}
-                              {resetEmail && (
+                              {requestingUser && (
                                 <span className="font-mono bg-amber-100/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
-                                  Email: {resetEmail}
+                                  User: {requestingUser}
                                 </span>
                               )}
                             </div>
@@ -1890,7 +1903,7 @@ export default function SettingsScreen({
                                 Forgot Password Code
                               </p>
                               <p className="text-[11px] text-amber-800 dark:text-amber-300">
-                                {resetEmail ? `Generated for ${resetEmail}` : 'Give this 6-digit code to your staff member to log in'}
+                                {requestingUser ? `Unique code generated for "${requestingUser}"` : 'Give this 6-digit code to your staff member to log in'}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1966,7 +1979,7 @@ export default function SettingsScreen({
                           }
 
                           if (organizations && currentOrgId && onUpdateOrganizations) {
-                            const expiresAt = Date.now() + 2 * 60 * 1000; // 2 minutes expiration
+                            const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiration
                             const updated = organizations.map(o => {
                               if (o.id === currentOrgId) {
                                 return {
@@ -1989,11 +2002,12 @@ export default function SettingsScreen({
                                 businessId: currentOrg?.id || currentOrgId,
                                 businessName: currentOrg?.name || 'Business',
                                 pin: tempPasswordInput.trim(),
-                                expiresInSec: 120
+                                username: pendingResetUser || currentOrg?.attendantResetUsername || undefined,
+                                expiresInSec: 300
                               })
                             }).catch(() => {});
 
-                            setTempPasswordFeedback(`Temporary passcode "${tempPasswordInput.trim()}" activated for ${currentOrg?.name || 'organization'}! (Expires in 2 minutes)`);
+                            setTempPasswordFeedback(`Temporary passcode "${tempPasswordInput.trim()}" activated for ${pendingResetUser || currentOrg?.attendantResetUsername || currentOrg?.name || 'user'}! (Expires in 5 minutes)`);
                           }
                         }}
                         className="flex items-center gap-1.5 neumorphic-btn border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold px-3.5 py-2 rounded-xl transition text-xs cursor-pointer"
@@ -2010,7 +2024,7 @@ export default function SettingsScreen({
                           }
 
                           if (organizations && currentOrgId && onUpdateOrganizations) {
-                            const expiresAt = Date.now() + 2 * 60 * 1000; // 2 minutes expiration
+                            const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiration
                             const updated = organizations.map(o => {
                               if (o.id === currentOrgId) {
                                 return {
@@ -2033,7 +2047,8 @@ export default function SettingsScreen({
                                 businessId: currentOrg?.id || currentOrgId,
                                 businessName: currentOrg?.name || 'Business',
                                 pin: tempPasswordInput.trim(),
-                                expiresInSec: 120
+                                username: pendingResetUser || currentOrg?.attendantResetUsername || undefined,
+                                expiresInSec: 300
                               })
                             }).catch(() => {});
 

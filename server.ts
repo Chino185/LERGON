@@ -601,14 +601,38 @@ interface TempPinRecord {
   businessName: string;
   pin: string;
   expiresAt: number;
+  username?: string;
   requestedByEmail?: string;
   requestedAt?: number;
 }
 const activeTempPins = new Map<string, TempPinRecord>();
 const businessTempPins = new Map<string, TempPinRecord>();
+const pendingResetRequests = new Map<string, { businessId: string; businessName: string; username: string; requestedAt: number }>();
+
+app.post("/api/auth/reset-request", (req, res) => {
+  const { businessId, businessName, username } = req.body || {};
+  if (!username) return res.status(400).json({ error: "username is required" });
+  const bId = String(businessId || "").trim();
+  const record = {
+    businessId: bId,
+    businessName: businessName || "Business",
+    username: String(username).trim(),
+    requestedAt: Date.now()
+  };
+  if (bId) {
+    pendingResetRequests.set(bId, record);
+  }
+  return res.json({ success: true, record });
+});
+
+app.get("/api/auth/reset-request/:businessId", (req, res) => {
+  const businessId = String(req.params.businessId || "").trim();
+  const record = pendingResetRequests.get(businessId);
+  return res.json({ success: true, record: record || null });
+});
 
 app.post("/api/auth/temp-pin", (req, res) => {
-  const { businessId, businessName, pin, requestedByEmail, expiresInSec = 120 } = req.body || {};
+  const { businessId, businessName, pin, username, requestedByEmail, expiresInSec = 120 } = req.body || {};
   if (!pin) return res.status(400).json({ error: "pin is required" });
   const expiresAt = Date.now() + expiresInSec * 1000;
   const record: TempPinRecord = {
@@ -616,6 +640,7 @@ app.post("/api/auth/temp-pin", (req, res) => {
     businessName: businessName || "Business",
     pin: String(pin).trim(),
     expiresAt,
+    username: username ? String(username).trim() : undefined,
     requestedByEmail,
     requestedAt: Date.now()
   };

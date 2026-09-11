@@ -365,14 +365,14 @@ export default function App() {
   const [isAttendantPassFocused, setIsAttendantPassFocused] = useState(false);
 
   // --- Forgot Password states ---
-  const [forgotMode, setForgotMode] = useState<'pin' | 'email'>('pin');
+  const [forgotMode, setForgotMode] = useState<'request' | 'pin'>('request');
   const [forgotPinInput, setForgotPinInput] = useState('');
   const [pinResolvedOrg, setPinResolvedOrg] = useState<Organization | null>(null);
   const [forgotOrgId, setForgotOrgId] = useState('');
-  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotUsername, setForgotUsername] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [isForgotLoading, setIsForgotLoading] = useState(false);
-  const [isForgotEmailFocused, setIsForgotEmailFocused] = useState(false);
 
   // Real-time lookup of organization when typing 6-digit PIN
   useEffect(() => {
@@ -419,15 +419,19 @@ export default function App() {
       .catch(() => {});
   }, [forgotPinInput, organizations]);
 
-  // Auto-resolve organization based on entered email (NEVER fabricates fake names)
+  // Auto-resolve organization based on entered username
   const resolvedOrgForForgot = React.useMemo(() => {
-    const e = forgotEmail.trim().toLowerCase();
-    if (!e || !e.includes('@')) return null;
+    const u = forgotUsername.trim().toLowerCase();
+    if (!u) return null;
 
     // 1. Match from in-memory organizations list
     const found = organizations.find(org => (
-      (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === e) ||
-      (org.adminEmail && org.adminEmail.trim().toLowerCase() === e)
+      (org.attendantName && org.attendantName.trim().toLowerCase() === u) ||
+      (org.adminName && org.adminName.trim().toLowerCase() === u) ||
+      (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === u) ||
+      (org.adminEmail && org.adminEmail.trim().toLowerCase() === u) ||
+      (org.attendantEmail && org.attendantEmail.split('@')[0].trim().toLowerCase() === u) ||
+      (org.name && org.name.trim().toLowerCase() === u)
     ));
     if (found) return found;
 
@@ -435,31 +439,23 @@ export default function App() {
     try {
       const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
       const storedFound = storedOrgs.find(org => (
-        (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === e) ||
-        (org.adminEmail && org.adminEmail.trim().toLowerCase() === e)
+        (org.attendantName && org.attendantName.trim().toLowerCase() === u) ||
+        (org.adminName && org.adminName.trim().toLowerCase() === u) ||
+        (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === u) ||
+        (org.adminEmail && org.adminEmail.trim().toLowerCase() === u) ||
+        (org.attendantEmail && org.attendantEmail.split('@')[0].trim().toLowerCase() === u) ||
+        (org.name && org.name.trim().toLowerCase() === u)
       ));
       if (storedFound) return storedFound;
     } catch {}
 
-    // 3. Match from active stored config if email matches
-    try {
-      const storedConfig = JSON.parse(localStorage.getItem('velo_ic_config') || '{}');
-      if (storedConfig?.businessName && storedConfig.businessName !== 'My Business' && storedConfig?.email === e) {
-        return {
-          id: 'org-local',
-          name: storedConfig.businessName,
-          adminPass: '',
-          attendantPass: '',
-          attendantEmail: e,
-          adminEmail: e,
-          attendantName: e.split('@')[0],
-          attendantResetPhone: ''
-        };
-      }
-    } catch {}
+    // 3. Fallback: single registered organization
+    if (organizations.length === 1) {
+      return organizations[0];
+    }
 
     return null;
-  }, [forgotEmail, organizations]);
+  }, [forgotUsername, organizations]);
 
   // --- Code Verification Modal states ---
   const [showCodeVerificationModal, setShowCodeVerificationModal] = useState(false);
@@ -550,7 +546,7 @@ export default function App() {
         setCurrentUserRole(5);
         setIsLoggedIn(true);
         setForgotPinInput('');
-        setForgotEmail('');
+        setForgotUsername('');
         setForgotError('');
         setSuccess('Passcode verified! Please establish your new unique password.');
         setTimeout(() => setSuccess(null), 4000);
@@ -560,51 +556,93 @@ export default function App() {
       return;
     }
 
-    // --- Mode: Request via Email ---
-    const emailCheck = validateEmail(forgotEmail);
-    if (!emailCheck.isValid) {
-      setForgotError(emailCheck.error || 'Please enter a valid email address.');
+    // --- Mode: Request via Username ---
+    const cleanUsername = forgotUsername.trim();
+    if (!cleanUsername) {
+      setForgotError('Please enter your username.');
       return;
     }
-    const cleanEmail = emailCheck.cleanEmail;
 
     setIsForgotLoading(true);
 
     try {
-      const targetOrg = resolvedOrgForForgot;
+      let targetOrg = resolvedOrgForForgot;
+
+      // Query Supabase profiles if not matched in memory
       if (!targetOrg) {
-        setForgotError('No registered organization found for this email. If your admin gave you a temporary PIN, use the "I have a Temporary PIN" option above.');
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('business_id, display_username, email')
+            .or(`display_username.ilike.${cleanUsername},email.ilike.${cleanUsername}`)
+            .limit(1)
+            .maybeSingle();
+
+          if (data?.business_id) {
+            targetOrg = organizations.find(o => o.id === data.business_id);
+            if (!targetOrg) {
+              const { data: bData } = await supabase
+                .from('businesses')
+                .select('*')
+                .eq('id', data.business_id)
+                .maybeSingle();
+              if (bData) {
+                targetOrg = {
+                  id: bData.id,
+                  name: bData.trade_name || bData.legal_name || 'Business',
+                  adminPass: '',
+                  attendantPass: '',
+                  attendantName: data.display_username || cleanUsername
+                };
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (!targetOrg && organizations.length > 0) {
+        targetOrg = organizations[0];
+      }
+
+      if (!targetOrg) {
+        setForgotError(`No registered organization found for username "${cleanUsername}".`);
         return;
       }
 
       const requestTimestamp = Date.now();
-      const generatedPin = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = requestTimestamp + 15 * 60 * 1000;
-
       const updatedOrg: Organization = {
         ...targetOrg,
-        attendantPass: generatedPin,
-        tempPasswordExpiresAt: expiresAt,
         attendantResetRequested: true,
-        attendantResetEmail: cleanEmail,
-        attendantResetUsername: targetOrg.attendantName || cleanEmail.split('@')[0],
-        attendantResetPhone: targetOrg.attendantResetPhone || '',
-        attendantResetTimestamp: requestTimestamp,
-        previousAttendantPass: targetOrg.attendantPass,
+        attendantResetUsername: cleanUsername,
+        attendantResetTimestamp: requestTimestamp
       };
 
-      // Sync to server so admin workspace immediately receives and displays the code
-      fetch('/api/auth/temp-pin', {
+      // Notify server so admin workspace immediately displays the request
+      fetch('/api/auth/reset-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           businessId: updatedOrg.id,
           businessName: updatedOrg.name,
-          pin: generatedPin,
-          requestedByEmail: cleanEmail,
-          expiresInSec: 900
+          username: cleanUsername
         })
       }).catch(() => {});
+
+      // Insert notification for admin notification area
+      try {
+        await supabase.from('notifications').insert({
+          business_id: updatedOrg.id,
+          title: '🔑 Password Reset Request',
+          message: `User "${cleanUsername}" is requesting a password reset. Check Settings → Security to generate their code.`,
+          category: 'system',
+          severity: 'warning',
+          target_screen: 'settings',
+          target_tab: 'security',
+          is_active: true
+        });
+      } catch (logErr) {
+        console.warn('[Forgot Password] Notification log note:', logErr);
+      }
 
       setOrganizations(prev => {
         const exists = prev.some(o => o.id === updatedOrg.id);
@@ -617,33 +655,8 @@ export default function App() {
         return nextList;
       });
 
-      // Audit activity log and admin notification
-      try {
-        await logActivity(
-          `Password reset requested for ${updatedOrg.attendantName || cleanEmail}`,
-          'AUTH_RESET',
-          undefined,
-          updatedOrg.id
-        );
-        await supabase.from('notifications').insert({
-          business_id: updatedOrg.id,
-          title: '🔑 Password Reset Request',
-          message: `User "${updatedOrg.attendantName || cleanEmail}" requested a temporary passcode. Generate and forward via WhatsApp.`,
-          category: 'system',
-          severity: 'warning',
-          target_screen: 'settings',
-          target_tab: 'security',
-          is_active: true
-        });
-      } catch (logErr) {
-        console.warn('[Forgot Password] Notification log note:', logErr);
-      }
-
-      setVerificationOrgId(updatedOrg.id);
-      setVerificationCodeInput('');
-      setVerificationError('');
-      setVerificationSuccess('');
-      setShowCodeVerificationModal(true);
+      setForgotError('');
+      setForgotSuccess(`Request has been sent! Your business administrator has been notified.`);
     } catch (err: any) {
       setForgotError(err?.message || 'An error occurred. Please try again.');
     } finally {
@@ -3538,7 +3551,7 @@ export default function App() {
                               'Login'}
                     </h2>
                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans font-medium">
-                      {activeView === 'forgot' ? 'Enter your email to receive a reset token and alert your admin' :
+                      {activeView === 'forgot' ? 'Enter your username to request a reset code from your admin' :
                         activeView === 'register' ? 'Set up your business profile in under a minute' :
                           activeView === 'join' ? 'Enter the code your admin shared with you' :
                             activeView === 'attendant_set_password' ? `You're joining ${validatedJoinOrg?.name || 'the shop'}` :
@@ -3639,7 +3652,7 @@ export default function App() {
                           setActiveView('forgot');
                           setLoginError('');
                           setForgotError('');
-                          setForgotEmail('');
+                          setForgotUsername('');
                         }}
                         className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 transition-colors cursor-pointer font-semibold"
                       >
@@ -4080,6 +4093,18 @@ export default function App() {
                     <div className="flex rounded-xl p-1 bg-slate-200/80 dark:bg-slate-800/80 neumorphic-inset text-xs font-bold">
                       <button
                         type="button"
+                        onClick={() => { setForgotMode('request'); setForgotError(''); }}
+                        className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          forgotMode === 'request'
+                            ? 'bg-sky-600 text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <User size={14} />
+                        <span>Request Reset</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => { setForgotMode('pin'); setForgotError(''); }}
                         className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                           forgotMode === 'pin'
@@ -4090,19 +4115,27 @@ export default function App() {
                         <KeyRound size={14} />
                         <span>I have a Temporary PIN</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => { setForgotMode('email'); setForgotError(''); }}
-                        className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                          forgotMode === 'email'
-                            ? 'bg-sky-600 text-white shadow-sm'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <Mail size={14} />
-                        <span>Request via Email</span>
-                      </button>
                     </div>
+
+                    {forgotSuccess && (
+                      <div className="p-3.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 space-y-2 animate-fade-in">
+                        <div className="flex items-center gap-2 font-bold text-xs">
+                          <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
+                          <span>Request Sent!</span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300">
+                          {forgotSuccess}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => { setForgotMode('pin'); setForgotSuccess(''); }}
+                          className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                        >
+                          <KeyRound size={14} />
+                          <span>Enter 6-Digit PIN from Admin</span>
+                        </button>
+                      </div>
+                    )}
 
                     {forgotMode === 'pin' && (
                       <div className="space-y-3">
@@ -4141,30 +4174,26 @@ export default function App() {
                       </div>
                     )}
 
-                    {forgotMode === 'email' && (
+                    {forgotMode === 'request' && (
                       <div className="space-y-3">
                         <div className="relative">
                           <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                            Email Address
+                            Username
                           </label>
                           <input
-                            type="email"
+                            type="text"
                             required
-                            placeholder="you@example.com"
-                            value={forgotEmail}
-                            onFocus={() => setIsForgotEmailFocused(true)}
-                            onBlur={() => setIsForgotEmailFocused(false)}
+                            placeholder="Enter your username"
+                            value={forgotUsername}
                             onChange={(e) => {
-                              setForgotEmail(e.target.value);
+                              setForgotUsername(e.target.value);
                               if (forgotError) setForgotError('');
+                              if (forgotSuccess) setForgotSuccess('');
                             }}
                             className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                           />
-                          <Mail className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                          <User className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
                         </div>
-
-                        {/* Real-time Email Validation Checklist */}
-                        <EmailValidationChecklist email={forgotEmail} isFocused={isForgotEmailFocused} />
 
                         {resolvedOrgForForgot && (
                           <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 flex items-center gap-3 animate-fade-in">
@@ -4183,7 +4212,7 @@ export default function App() {
                     <div className="flex gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={() => { setActiveView('signin'); setLoginError(''); setForgotError(''); setSuccess(null); }}
+                        onClick={() => { setActiveView('signin'); setLoginError(''); setForgotError(''); setForgotSuccess(''); setSuccess(null); }}
                         className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
                       >
                         Back
@@ -4196,7 +4225,7 @@ export default function App() {
                         {isForgotLoading ? (
                           <>
                             <RefreshCw size={16} className="animate-spin" />
-                            <span>Verifying...</span>
+                            <span>Sending...</span>
                           </>
                         ) : forgotMode === 'pin' ? (
                           <>
@@ -4204,7 +4233,7 @@ export default function App() {
                             <span>Verify PIN & Sign In</span>
                           </>
                         ) : (
-                          <span>Request Temporary Passcode</span>
+                          <span>Send Request</span>
                         )}
                       </button>
                     </div>
