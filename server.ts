@@ -2087,6 +2087,18 @@ async function startServer() {
 // imports this module.
 if (!IS_VERCEL_RUNTIME) {
   startServer();
+
+  const handleShutdown = () => {
+    try {
+      server.close(() => process.exit(0));
+    } catch {
+      process.exit(0);
+    }
+    setTimeout(() => process.exit(0), 1000).unref();
+  };
+
+  process.on("SIGINT", handleShutdown);
+  process.on("SIGTERM", handleShutdown);
 }
 
 export { app };
