@@ -189,6 +189,7 @@ export default function App() {
 
   // --- Login wizard states ---
   const [newOrgAdminEmail, setNewOrgAdminEmail] = useState('');
+  const [newOrgAdminFullName, setNewOrgAdminFullName] = useState('');
   const [newOrgName, setNewOrgName] = useState('');
   const [newOrgAdminPass, setNewOrgAdminPass] = useState('');
 
@@ -334,6 +335,7 @@ export default function App() {
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [joinError, setJoinError] = useState('');
   const [validatedJoinOrg, setValidatedJoinOrg] = useState<Organization | null>(null);
+  const [attendantFullName, setAttendantFullName] = useState('');
   const [attendantEmail, setAttendantEmail] = useState('');
   const [attendantPassword, setAttendantPassword] = useState('');
   const [attendantConfirmPassword, setAttendantConfirmPassword] = useState('');
@@ -356,8 +358,19 @@ export default function App() {
   // --- Forgot Passcode states ---
   const [forgotOrgId, setForgotOrgId] = useState('');
   const [forgotUsername, setForgotUsername] = useState('');
-  const [forgotPhone, setForgotPhone] = useState('');
   const [forgotError, setForgotError] = useState('');
+
+  // Auto-resolve organization based on entered username or full name
+  const resolvedOrgForForgot = React.useMemo(() => {
+    const u = forgotUsername.trim().toLowerCase();
+    if (!u) return null;
+    return organizations.find(org => (
+      (org.attendantName && org.attendantName.trim().toLowerCase() === u) ||
+      (org.adminName && org.adminName.trim().toLowerCase() === u) ||
+      (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === u) ||
+      (org.adminEmail && org.adminEmail.trim().toLowerCase() === u)
+    )) || null;
+  }, [forgotUsername, organizations]);
 
   // --- Code Verification Modal states ---
   const [showCodeVerificationModal, setShowCodeVerificationModal] = useState(false);
@@ -370,56 +383,63 @@ export default function App() {
   const [settingsTabOverride, setSettingsTabOverride] = useState<'profile' | 'system' | 'security' | null>(null);
   const [inventoryTabOverride, setInventoryTabOverride] = useState<'active_stock' | 'damaged_audit' | 'restock_validations' | null>(null);
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotError('');
 
-    if (!forgotOrgId) {
-      setForgotError('Please select your organization.');
+    const cleanInput = forgotUsername.trim();
+    if (!cleanInput) {
+      setForgotError('Please enter your username.');
       return;
     }
 
-    if (!forgotUsername.trim()) {
-      setForgotError('Please enter your attendant or staff username.');
-      return;
-    }
+    let targetOrg = resolvedOrgForForgot;
 
-    if (!forgotPhone.trim()) {
-      setForgotError('Please enter your WhatsApp contact number so the admin can forward your temporary code.');
-      return;
-    }
-
-    const targetOrg = organizations.find(o => o.id === forgotOrgId);
+    // If not found in local state, look up username in backend profiles
     if (!targetOrg) {
-      setForgotError('Selected organization not found.');
-      return;
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, business_id, display_username, role, phone, businesses(id, trade_name)')
+          .ilike('display_username', cleanInput)
+          .maybeSingle();
+
+        if (profile && profile.business_id) {
+          const bizName = (profile.businesses as any)?.trade_name || 'Business';
+          targetOrg = {
+            id: profile.business_id,
+            name: bizName,
+            adminPass: '',
+            attendantPass: '',
+            attendantName: profile.display_username || cleanInput,
+            attendantResetPhone: profile.phone || ''
+          };
+          setOrganizations(prev => {
+            const exists = prev.some(o => o.id === targetOrg!.id);
+            return exists ? prev : [targetOrg!, ...prev];
+          });
+        }
+      } catch (lookupErr) {
+        console.warn('[Forgot Password] Profile lookup note:', lookupErr);
+      }
     }
 
-    const trimmedInput = forgotUsername.trim().toLowerCase();
-    const expectedUsername = (targetOrg.attendantName || 'Attendant').trim().toLowerCase();
-    const matchesAttendant = expectedUsername === trimmedInput;
-    const matchesEmail = (targetOrg.attendantEmail || '').trim().toLowerCase() === trimmedInput;
-    const matchesAdmin = (targetOrg.adminName || 'Admin').trim().toLowerCase() === trimmedInput || (targetOrg.adminEmail || '').trim().toLowerCase() === trimmedInput;
-
-    if (!matchesAttendant && !matchesEmail && !matchesAdmin) {
-      const usernameCheck = validateUsername(forgotUsername);
-      if (!usernameCheck.isValid) {
-        setForgotError(`Invalid username for this organization. (Hint: Attendant username or email registered with this business)`);
-        return;
-      }
+    if (!targetOrg) {
+      setForgotError('No registered organization found for this username. Please verify your username.');
+      return;
     }
 
     const requestTimestamp = Date.now();
 
-    // Update organization with reset request and attendant WhatsApp phone
+    // Update organization with reset request
     const updatedOrgs = organizations.map(org => {
-      if (org.id === forgotOrgId) {
+      if (org.id === targetOrg!.id) {
         return {
           ...org,
           attendantResetRequested: true,
-          attendantResetEmail: org.attendantEmail || 'staff@business.local',
-          attendantResetUsername: forgotUsername.trim(),
-          attendantResetPhone: forgotPhone.trim(),
+          attendantResetEmail: org.attendantEmail || targetOrg!.attendantResetEmail || 'staff@business.local',
+          attendantResetUsername: cleanInput,
+          attendantResetPhone: targetOrg!.attendantResetPhone || org.attendantResetPhone || '',
           attendantResetTimestamp: requestTimestamp,
           previousAttendantPass: org.attendantPass,
           tempPasswordExpiresAt: undefined
@@ -430,7 +450,7 @@ export default function App() {
 
     setOrganizations(updatedOrgs);
 
-    setVerificationOrgId(forgotOrgId);
+    setVerificationOrgId(targetOrg.id);
     setVerificationCodeInput('');
     setVerificationError('');
     setVerificationSuccess('');
@@ -771,7 +791,7 @@ export default function App() {
     ? activeActorLabel
     : (actor || 'System');
 
-  const handleRegisterOrganization = async (email: string, name: string, adminPass: string) => {
+  const handleRegisterOrganization = async (email: string, name: string, adminPass: string, adminFullName?: string) => {
     setRegisterError('');
 
     const rateCheck = checkRateLimit('signup_attempts', 5, 60000);
@@ -800,19 +820,7 @@ export default function App() {
     }
     const cleanName = nameCheck.cleanName;
 
-    // Duplicate business name uniqueness check (DISABLED for testing phase - will be re-enabled for production deployment)
-    /*
-    const remoteOrgs = await fetchOrganizations();
-    const activeOrgsList = remoteOrgs || organizations;
-    const isBusinessNameTaken = activeOrgsList.some(o => 
-      o.name && o.name.trim().toLowerCase() === cleanName.toLowerCase()
-    );
-    if (isBusinessNameTaken) {
-      recordFailedAttempt('signup_attempts', 5, 60000);
-      setRegisterError("A business with this name already exists. Please choose a different business name.");
-      return null;
-    }
-    */
+    const cleanAdminName = (adminFullName || '').trim() || cleanEmail.split('@')[0];
 
     const passCheck = validatePassword(adminPass, { minLength: 8, requireComplexity: true });
     if (!passCheck.isValid) {
@@ -827,7 +835,7 @@ export default function App() {
       adminEmail: cleanEmail,
       adminPass: cleanAdminPass,
       attendantPass: '',
-      adminName: 'Administrator',
+      adminName: cleanAdminName,
       attendantName: 'Attendant'
     };
 
@@ -840,7 +848,7 @@ export default function App() {
     console.log('[Admin Signup] Step 1: Attempting Auth registration for:', cleanEmail);
     try {
       const authRes = await registerUser(cleanEmail, cleanAdminPass, {
-        name: 'Administrator',
+        name: cleanAdminName,
         role: 'admin',
         businessName: cleanName,
         termsAccepted: true,
@@ -993,11 +1001,17 @@ export default function App() {
       return;
     }
 
+    const cleanFullName = attendantFullName.trim();
+    if (!cleanFullName) {
+      setAttendantPasswordError('Please enter your full name (username).');
+      return;
+    }
+
     // Register attendant auth user in Supabase Auth
     console.log('[Attendant Signup] Attempting registration for:', cleanEmail, 'Business Name:', validatedJoinOrg.name);
     const authRes = await registerUser(cleanEmail, cleanPass, {
       role: 'attendant',
-      name: '',
+      name: cleanFullName,
       inviteCode: inviteCodeInput.trim(),
       termsAccepted: true,
       termsAcceptedAt: new Date().toISOString()
@@ -3463,10 +3477,11 @@ export default function App() {
 
                       console.log('[Admin Signup Form] Form submitted. Triggering handleRegisterOrganization...');
                       try {
-                        const registered = await handleRegisterOrganization(newOrgAdminEmail, newOrgName, newOrgAdminPass);
+                        const registered = await handleRegisterOrganization(newOrgAdminEmail, newOrgName, newOrgAdminPass, newOrgAdminFullName);
                         if (registered) {
                           console.log('[Admin Signup Form] Registration successful for org:', registered.id);
                           setNewOrgAdminEmail('');
+                          setNewOrgAdminFullName('');
                           setNewOrgName('');
                           setNewOrgAdminPass('');
                           setSuccess('Business registered! Setting up your dashboard...');
@@ -3486,6 +3501,21 @@ export default function App() {
                     }}
                     className="relative z-10 space-y-4"
                   >
+                    <div className="relative">
+                      <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Full Name (Username)
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. John Doe"
+                        value={newOrgAdminFullName}
+                        onChange={(e) => setNewOrgAdminFullName(e.target.value)}
+                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
+                      />
+                      <User className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                    </div>
+
                     <div className="relative">
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Email Address
@@ -3641,6 +3671,24 @@ export default function App() {
                 {/* --- 4. ATTENDANT SET PASSWORD --- */}
                 {activeView === 'attendant_set_password' && (
                   <form onSubmit={handleAttendantSetPasswordSubmit} className="relative z-10 space-y-4">
+                    <div className="relative">
+                      <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Full Name (Username)
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Jane Doe"
+                        value={attendantFullName}
+                        onChange={(e) => {
+                          setAttendantFullName(e.target.value);
+                          if (attendantPasswordError) setAttendantPasswordError('');
+                        }}
+                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
+                      />
+                      <User className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                    </div>
+
                     <div className="relative">
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Email Address
@@ -3804,25 +3852,13 @@ export default function App() {
                 {activeView === 'forgot' && (
                   <form onSubmit={handleForgotSubmit} className="relative z-10 space-y-4">
                     <div className="relative">
-                      <select
-                        value={forgotOrgId}
-                        onChange={(e) => {
-                          setForgotOrgId(e.target.value);
-                          if (forgotError) setForgotError('');
-                        }}
-                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-10 text-sm text-slate-900 dark:text-white focus:outline-none appearance-none cursor-pointer border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
-                      >
-                        <option value="" disabled className="bg-white dark:bg-[#0A0E1A] text-slate-900 dark:text-white">Select Registered Organization</option>
-                        {organizations.map((org) => (
-                          <option key={org.id} value={org.id} className="bg-white dark:bg-[#0A0E1A] text-slate-900 dark:text-white">{org.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="relative">
+                      <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Username (Full Name or Email)
+                      </label>
                       <input
                         type="text"
-                        placeholder="Attendant Username (e.g. Samuel Zar)"
+                        required
+                        placeholder="Enter your username or email"
                         value={forgotUsername}
                         onChange={(e) => {
                           setForgotUsername(e.target.value);
@@ -3830,22 +3866,20 @@ export default function App() {
                         }}
                         className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                       />
-                      <User className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                      <User className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
                     </div>
 
-                    <div className="relative">
-                      <input
-                        type="tel"
-                        placeholder="WhatsApp Contact (e.g. +233 24 123 4567)"
-                        value={forgotPhone}
-                        onChange={(e) => {
-                          setForgotPhone(e.target.value);
-                          if (forgotError) setForgotError('');
-                        }}
-                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
-                      />
-                      <Smartphone className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
-                    </div>
+                    {resolvedOrgForForgot && (
+                      <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 flex items-center gap-3 animate-fade-in">
+                        <div className="w-8 h-8 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                          <Building2 size={16} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Organization Identified</p>
+                          <p className="text-sm font-extrabold text-sky-700 dark:text-sky-300 truncate">{resolvedOrgForForgot.name}</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex gap-3 pt-2">
                       <button
@@ -3859,7 +3893,7 @@ export default function App() {
                         type="submit"
                         className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md"
                       >
-                        Reset Request
+                        Send Request to Admin
                       </button>
                     </div>
                   </form>
