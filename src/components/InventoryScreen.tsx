@@ -1059,7 +1059,7 @@ export default function InventoryScreen({
 
   return (
 
-    <div id="inventory-screen" className="space-y-6">
+    <div id="inventory-screen" className="space-y-6 pb-36 sm:pb-44">
       {/* Page Header (Crextio & Finnova Aesthetic) */}
       <div className="finnova-card p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -1377,7 +1377,7 @@ export default function InventoryScreen({
             </div>
 
             {/* Mobile View list Card style */}
-            <div className="block lg:hidden neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-3.5 space-y-4">
+            <div className="block lg:hidden neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-3.5 space-y-4 pb-36">
               {sortedItems.map(item => {
                 const isOver = item.quantity <= item.reorderPoint;
                 const isZero = item.quantity === 0;
@@ -1386,25 +1386,25 @@ export default function InventoryScreen({
                   <div key={item.id} className="neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 p-4 space-y-3.5 transition">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0">
-                        <span className="bg-indigo-50 text-indigo-700 text-[9px] px-2 py-0.5 rounded font-extrabold uppercase tracking-wide">
+                        <span className="inline-block neumorphic-inset px-2.5 py-0.5 rounded-md text-[9.5px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 border border-white/80 dark:border-slate-700/80 select-none">
                           {translate(item.category.toLowerCase(), config.languageCode)}
                         </span>
-                        <h4 className="text-sm font-bold text-gray-900 leading-tight mt-1.5 truncate">{item.name}</h4>
-                        <p className="text-[10px] text-gray-500 mt-1 flex flex-wrap gap-x-2">
-                          <span>{translate('sku', config.languageCode)}: <strong className="font-mono text-gray-700 font-semibold">{item.sku}</strong></span>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight mt-1.5 truncate">{item.name}</h4>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap gap-x-2">
+                          <span>{translate('sku', config.languageCode)}: <strong className="font-mono text-slate-800 dark:text-slate-200 font-bold">{item.sku}</strong></span>
                           {item.location && (
                             <>
-                              <span className="text-gray-300">•</span>
-                              <span>{translate('spot', config.languageCode) || 'Spot'}: <strong className="text-gray-700 font-semibold">{item.location}</strong></span>
+                              <span className="text-slate-300 dark:text-slate-600">•</span>
+                              <span>{translate('spot', config.languageCode) || 'Spot'}: <strong className="text-slate-800 dark:text-slate-200 font-bold">{item.location}</strong></span>
                             </>
                           )}
                         </p>
                       </div>
-                      <span className={`text-[9px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide shrink-0 border ${isZero
-                        ? 'bg-rose-50 text-rose-800 border-rose-200'
+                      <span className={`text-[9px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider shrink-0 border select-none ${isZero
+                        ? 'neumorphic-btn text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/60'
                         : isOver
-                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          ? 'neumorphic-btn text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/60'
+                          : 'neumorphic-btn text-slate-800 dark:text-slate-200 border-white/80 dark:border-slate-700'
                         }`}>
                         {isZero ? translate('out of stock', config.languageCode) : isOver ? translate('low stock', config.languageCode) : translate('in stock', config.languageCode)}
                       </span>
@@ -1412,26 +1412,26 @@ export default function InventoryScreen({
 
                     <div className="grid grid-cols-3 gap-2 neumorphic-inset bg-[#ebf0f7]/60 dark:bg-[#202225]/60 p-3 rounded-xl border border-white/70 dark:border-slate-700/70 text-[10px]">
                       <div>
-                        <span className="block text-gray-400 text-[8px] uppercase tracking-wider font-semibold">{translate('qty in hand', config.languageCode)}</span>
-                        <strong className={`block text-xs mt-0.5 ${isZero ? 'text-rose-600' : isOver ? 'text-amber-500' : 'text-gray-900'}`}>{item.quantity} pcs</strong>
+                        <span className="block text-slate-500 dark:text-slate-400 text-[8px] uppercase tracking-wider font-bold">{translate('qty in hand', config.languageCode)}</span>
+                        <strong className={`block text-xs mt-0.5 font-extrabold ${isZero ? 'text-rose-500' : isOver ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>{item.quantity} pcs</strong>
                       </div>
                       <div>
-                        <span className="block text-gray-400 text-[8px] uppercase tracking-wider font-semibold">{translate('selling price', config.languageCode)}</span>
-                        <strong className="block text-gray-900 text-xs mt-0.5 font-mono">{formatMoney(item.unitPrice)}</strong>
+                        <span className="block text-slate-500 dark:text-slate-400 text-[8px] uppercase tracking-wider font-bold">{translate('selling price', config.languageCode)}</span>
+                        <strong className="block text-slate-900 dark:text-white text-xs mt-0.5 font-mono font-extrabold">{formatMoney(item.unitPrice)}</strong>
                       </div>
                       <div>
-                        <span className="block text-gray-400 text-[8px] uppercase tracking-wider font-semibold">{translate('total value', config.languageCode)}</span>
-                        <strong className="block text-gray-950 text-xs mt-0.5 font-mono">{formatMoney(item.quantity * item.unitPrice)}</strong>
+                        <span className="block text-slate-500 dark:text-slate-400 text-[8px] uppercase tracking-wider font-bold">{translate('total value', config.languageCode)}</span>
+                        <strong className="block text-slate-900 dark:text-white text-xs mt-0.5 font-mono font-extrabold">{formatMoney(item.quantity * item.unitPrice)}</strong>
                       </div>
                     </div>
 
-                    <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-3 text-slate-600">
+                    <div className="flex justify-between items-center text-[10px] border-t border-slate-200/60 dark:border-slate-700/60 pt-3 text-slate-500 dark:text-slate-400">
                       {userRole === 2 ? (
-                        <span>{translate('profit per unit', config.languageCode)}: <strong className="text-emerald-700 font-extrabold font-mono">{formatMoney(item.unitPrice - item.unitCost)}</strong></span>
+                        <span>{translate('profit per unit', config.languageCode)}: <strong className="text-slate-900 dark:text-white font-extrabold font-mono">{formatMoney(item.unitPrice - item.unitCost)}</strong></span>
                       ) : (
                         <span></span>
                       )}
-                      <span className="truncate max-w-[150px]">{translate('supplier', config.languageCode)}: <strong className="text-gray-800 font-semibold">{item.supplier || translate('n/a', config.languageCode)}</strong></span>
+                      <span className="truncate max-w-[150px]">{translate('supplier', config.languageCode)}: <strong className="text-slate-800 dark:text-slate-200 font-bold">{item.supplier || translate('n/a', config.languageCode)}</strong></span>
                     </div>
 
                     {/* Mobile Touch Action Strip with 44px responsive target heights */}
@@ -1439,7 +1439,7 @@ export default function InventoryScreen({
                       <button
                         type="button"
                         onClick={() => handleOpenAdjust(item)}
-                        className="flex-1 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-indigo-700 dark:text-indigo-300 rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs transition cursor-pointer active:scale-95"
+                        className="flex-1 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white rounded-xl flex items-center justify-center gap-1.5 font-extrabold text-xs transition cursor-pointer active:scale-95"
                         title={translate('adjust stock units', config.languageCode)}
                       >
                         <ArrowUpDown size={14} /> {translate('adjust', config.languageCode)}
@@ -1449,7 +1449,7 @@ export default function InventoryScreen({
                         <button
                           type="button"
                           onClick={() => handleOpenDamageReport(item)}
-                          className="w-12 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center transition cursor-pointer active:scale-95"
+                          className="w-12 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white rounded-xl flex items-center justify-center transition cursor-pointer active:scale-95"
                           title={translate('report damage', config.languageCode)}
                         >
                           <AlertTriangle size={15} />
@@ -1460,7 +1460,7 @@ export default function InventoryScreen({
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(item)}
-                          className="flex-1 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-emerald-700 dark:text-emerald-300 rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs transition cursor-pointer active:scale-95"
+                          className="flex-1 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white rounded-xl flex items-center justify-center gap-1.5 font-extrabold text-xs transition cursor-pointer active:scale-95"
                           title={translate('edit details', config.languageCode)}
                         >
                           <Edit2 size={13} /> {translate('edit', config.languageCode)}
@@ -1471,7 +1471,7 @@ export default function InventoryScreen({
                         <button
                           type="button"
                           onClick={() => handleDeleteCheck(item.id, item.name)}
-                          className="w-12 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 rounded-xl flex items-center justify-center transition cursor-pointer active:scale-95"
+                          className="w-12 min-h-[44px] neumorphic-btn border border-white/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl flex items-center justify-center transition cursor-pointer active:scale-95"
                           title={translate('retire item', config.languageCode)}
                         >
                           <Trash2 size={14} />

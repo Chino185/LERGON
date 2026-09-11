@@ -362,7 +362,7 @@ export default function ActivityLogScreen({
   };
 
   return (
-    <div className="space-y-6 animate-fade-in activity-log-print-container">
+    <div className="space-y-6 animate-fade-in activity-log-print-container pb-36 sm:pb-44">
       <style>{`
         @media print {
           /* Force Light Mode Print Layout for Activity Log Page */
@@ -669,81 +669,83 @@ export default function ActivityLogScreen({
                   </div>
                 </div>
 
-                <table className="w-full text-left border-collapse table-fixed text-xs activity-log-print-table">
-                  <thead>
-                    <tr className="neumorphic-table-header text-[10px] select-none">
-                      <th className="py-3 px-3 w-[18%] text-center">Date & Time</th>
-                      <th className="py-3 px-3 w-[12%] text-center">Role Key</th>
-                      <th className="py-3 px-3 w-[20%] text-center">Transformation Type</th>
-                      <th className="py-3 px-3 w-[35%] text-center">Details Summary</th>
-                      <th className="py-3 px-3 w-[15%] text-center">Associated Value</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {groupItemsByMonth<any>(filteredActivities).map((group) => (
-                      <React.Fragment key={group.monthLabel}>
-                        <tr className="bg-slate-100/70 border-y border-slate-200/60 select-none">
-                          <td colSpan={5} className="px-4 py-2 font-black text-[10px] text-slate-600 uppercase tracking-wider">
-                            {group.monthLabel}
-                          </td>
-                        </tr>
-                        {group.items.map((act) => {
-                          const dateObj = new Date(act.date);
-                          const formattedDate = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-                          const formattedTime = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                <div className="overflow-x-auto scrollbar-thin rounded-2xl w-full">
+                  <table className="w-full min-w-[680px] text-left border-collapse text-xs activity-log-print-table">
+                    <thead>
+                      <tr className="neumorphic-table-header text-[10.5px] select-none text-slate-700 dark:text-slate-300">
+                        <th className="py-3 px-3 text-center whitespace-nowrap font-extrabold">Date & Time</th>
+                        <th className="py-3 px-3 text-center whitespace-nowrap font-extrabold">Role</th>
+                        <th className="py-3 px-3 text-center whitespace-nowrap font-extrabold">Transformation Type</th>
+                        <th className="py-3 px-3 text-left whitespace-nowrap font-extrabold">Details Summary</th>
+                        <th className="py-3 px-3 text-right whitespace-nowrap font-extrabold">Associated Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                      {groupItemsByMonth<any>(filteredActivities).map((group) => (
+                        <React.Fragment key={group.monthLabel}>
+                          <tr className="bg-slate-100/70 dark:bg-slate-800/60 border-y border-slate-200/60 dark:border-slate-700/60 select-none">
+                            <td colSpan={5} className="px-4 py-2 font-black text-[10px] text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                              {group.monthLabel}
+                            </td>
+                          </tr>
+                          {group.items.map((act) => {
+                            const dateObj = new Date(act.date);
+                            const formattedDate = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                            const formattedTime = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-                          return (
-                            <tr
-                              key={act.id}
-                              className="hover:bg-slate-50/80 transition duration-150 cursor-pointer"
-                              onClick={() => setSelectedActivity(act)}
-                            >
-                              <td className="py-3 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                <span className="font-extrabold text-slate-900 block">{formattedDate}</span>
-                                <span className="text-[10px] text-slate-500 font-mono font-semibold">{formattedTime}</span>
-                              </td>
-                              <td className="py-3 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                {(() => {
-                                  const isAttendantUser = act.performedBy.toLowerCase().includes('attendant') ||
-                                    act.performedBy.toLowerCase().includes('samuel') ||
-                                    act.performedBy.toLowerCase().includes('zar') ||
-                                    (!act.performedBy.toLowerCase().includes('admin') && !act.performedBy.toLowerCase().includes('system'));
-                                  return (
-                                    <span className="inline-block py-0.5 px-2.5 text-[9px] font-extrabold rounded-full neumorphic-btn text-slate-900 border border-white/80 select-none">
-                                      {isAttendantUser ? 'Attendant' : 'Admin'}
-                                    </span>
-                                  );
-                                })()}
-                              </td>
-                              <td className="py-3 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9.5px] font-extrabold neumorphic-btn text-slate-900 border border-white/80 select-none">
-                                  <span className="text-slate-800">{act.icon}</span>
-                                  <span className="uppercase tracking-wide">{act.type}</span>
-                                </span>
-                              </td>
-                              <td className="py-3 px-3 overflow-hidden text-ellipsis">
-                                <span className="font-extrabold text-slate-950 block truncate" title={act.title}>
-                                  {act.title}
-                                </span>
-                                <span className="text-[10px] text-slate-500 font-medium block truncate" title={act.notes}>
-                                  {act.notes}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3 text-right font-mono font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                {act.quantity && (
-                                  <span className="text-[10px] text-slate-500 font-medium mr-1.5 font-sans">({act.quantity}x)</span>
-                                )}
-                                <span className="text-slate-900 font-extrabold font-jakarta">
-                                  {formatMoney(act.amount)}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+                            return (
+                              <tr
+                                key={act.id}
+                                className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition duration-150 cursor-pointer"
+                                onClick={() => setSelectedActivity(act)}
+                              >
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  <span className="font-extrabold text-slate-900 dark:text-white block">{formattedDate}</span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-semibold">{formattedTime}</span>
+                                </td>
+                                <td className="py-3 px-3 whitespace-nowrap text-center">
+                                  {(() => {
+                                    const isAttendantUser = act.performedBy.toLowerCase().includes('attendant') ||
+                                      act.performedBy.toLowerCase().includes('samuel') ||
+                                      act.performedBy.toLowerCase().includes('zar') ||
+                                      (!act.performedBy.toLowerCase().includes('admin') && !act.performedBy.toLowerCase().includes('system'));
+                                    return (
+                                      <span className="inline-block py-0.5 px-2.5 text-[9px] font-extrabold rounded-full neumorphic-btn text-slate-900 dark:text-white border border-white/80 dark:border-slate-700 select-none">
+                                        {isAttendantUser ? 'Attendant' : 'Admin'}
+                                      </span>
+                                    );
+                                  })()}
+                                </td>
+                                <td className="py-3 px-3 whitespace-nowrap text-center">
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9.5px] font-extrabold neumorphic-btn text-slate-900 dark:text-white border border-white/80 dark:border-slate-700 select-none">
+                                    <span className="text-slate-800 dark:text-slate-200">{act.icon}</span>
+                                    <span className="uppercase tracking-wide">{act.type}</span>
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 max-w-xs">
+                                  <span className="font-extrabold text-slate-900 dark:text-white block truncate" title={act.title}>
+                                    {act.title}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium block truncate" title={act.notes}>
+                                    {act.notes}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-right font-mono font-bold whitespace-nowrap">
+                                  {act.quantity && (
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mr-1.5 font-sans">({act.quantity}x)</span>
+                                  )}
+                                  <span className="text-slate-900 dark:text-white font-extrabold font-jakarta">
+                                    {formatMoney(act.amount)}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
