@@ -191,6 +191,7 @@ export default function Navigation({
   const displayName = currentUserName || config.ownerName || 'Operator';
   const displayPhoto = currentUserPhoto || config.profilePhoto;
   const menuLetter = displayName ? displayName.trim().slice(0, 2).toUpperCase() : 'OP';
+  const userEmail = (userRole === 5 ? currentOrg?.attendantEmail : currentOrg?.adminEmail) || config.email || '';
 
   // --- Dynamic Time difference formatter ---
   const formatTimeAgo = (dateStr: string) => {
@@ -626,43 +627,41 @@ export default function Navigation({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -8 }}
                     transition={{ duration: 0.12, ease: 'easeOut' }}
-                    className="z-50 absolute right-0 top-full mt-2 w-[min(15rem,calc(100vw-1.5rem))] neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in"
+                    className="z-50 absolute right-0 top-full mt-2 w-60 neumorphic-card rounded-2xl border border-white/90 dark:border-slate-700/80 shadow-2xl overflow-hidden text-slate-900 dark:text-white animate-fade-in p-4 bg-[#ebf0f7]/95 dark:bg-[#202225]/95 backdrop-blur-md"
                   >
-                    {/* Dropdown Header Info block - Compact & Sleek */}
-                    <div className="p-3 border-b border-slate-200/50 dark:border-slate-700/60 flex items-center gap-2.5 bg-[#ebf0f7]/60 dark:bg-[#202225]/60">
-                      <div className="w-9 h-9 neumorphic-circle text-slate-900 dark:text-white font-extrabold text-xs flex items-center justify-center shrink-0 select-none overflow-hidden border border-white/90 dark:border-slate-700/80">
+                    {/* Centered Profile: Round Photo with Name & Email below it */}
+                    <div className="flex flex-col items-center text-center pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
+                      <div className="w-14 h-14 rounded-full neumorphic-circle text-slate-900 dark:text-white font-black text-sm flex items-center justify-center shrink-0 select-none overflow-hidden border border-white/90 dark:border-slate-700/80 shadow-md">
                         {displayPhoto ? (
                           <img
                             src={displayPhoto}
                             alt="Profile"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover rounded-full"
                             referrerPolicy="no-referrer"
                           />
                         ) : (
                           menuLetter
                         )}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
-                          {displayName}
+                      <p className="font-extrabold text-sm text-slate-900 dark:text-white truncate max-w-full mt-2 tracking-tight">
+                        {displayName}
+                      </p>
+                      {userEmail && (
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate max-w-full mt-0.5 font-mono">
+                          {userEmail}
                         </p>
-                        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                          {config.email || `${config.currency} (${config.currencySymbol})`}
-                        </p>
-                      </div>
+                      )}
                     </div>
 
-                    {/* Operational Settings options */}
-                    <div className="p-2 space-y-1.5 bg-[#ebf0f7]/50 dark:bg-[#202225]/50">
+                    {/* Operational Settings & Logout buttons */}
+                    <div className="pt-3 space-y-2">
                       <button
                         type="button"
                         id="dropdown-settings"
                         onClick={() => handleDropdownItemClick('settings')}
-                        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
+                        className="w-full flex items-center justify-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 neumorphic-btn hover:text-black dark:hover:text-white transition cursor-pointer select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
                       >
-                        <div className="w-6 h-6 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 text-slate-800 dark:text-slate-200">
-                          <MaterialIcon name="settings" size={14} />
-                        </div>
+                        <MaterialIcon name="settings" size={15} className="text-slate-600 dark:text-slate-300" />
                         <span>{translate('settings', config.languageCode)}</span>
                       </button>
 
@@ -673,11 +672,9 @@ export default function Navigation({
                           setIsDropdownOpen(false);
                           onLogout();
                         }}
-                        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-extrabold text-rose-600 dark:text-rose-400 neumorphic-btn hover:text-rose-700 dark:hover:text-rose-300 transition cursor-pointer text-left select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
+                        className="w-full flex items-center justify-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 neumorphic-btn hover:text-rose-700 dark:hover:text-rose-300 transition cursor-pointer select-none border border-white/80 dark:border-slate-700/80 active:scale-[0.98]"
                       >
-                        <div className="w-6 h-6 rounded-full neumorphic-circle flex items-center justify-center shrink-0 border border-white/80 dark:border-slate-700/60 text-rose-500">
-                          <MaterialIcon name="logout" size={14} />
-                        </div>
+                        <MaterialIcon name="logout" size={15} className="text-rose-500" />
                         <span>{translate('logOut', config.languageCode)}</span>
                       </button>
                     </div>

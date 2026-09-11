@@ -3231,9 +3231,6 @@ export default function App() {
                   <p className="text-center sm:text-left">
                     © 2026 <strong className="text-slate-800 dark:text-slate-200">ZAR LABS</strong>. All rights reserved. LERGON is a product of ZAR LABS.
                   </p>
-                  <p className="text-center sm:text-right text-[11px] text-slate-500 dark:text-slate-500">
-                    Crafted with care in Ghana
-                  </p>
                 </div>
               </div>
             </footer>
