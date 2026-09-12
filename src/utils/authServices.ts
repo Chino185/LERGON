@@ -32,6 +32,31 @@ export async function resetPasswordForEmail(email: string): Promise<{ success: b
   }
 }
 
+/** Resolve a recovery username across the backend without exposing business
+ * names to the recovery screen. */
+export async function findPasswordRecoveryProfile(
+  username: string
+): Promise<{ success: boolean; userId?: string; businessId?: string; error?: string }> {
+  try {
+    const cleanUsername = username.trim();
+    if (!cleanUsername) return { success: false, error: 'Enter your username.' };
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, business_id, display_username, role, account_status')
+      .ilike('display_username', cleanUsername)
+      .limit(2);
+    if (error) throw error;
+    const matches = (data || []).filter(row => row.role === 'attendant' && row.business_id);
+    if (matches.length !== 1) return { success: false, error: 'We could not verify that username. Please contact your administrator.' };
+    const match = matches[0];
+    if (match.account_status && match.account_status !== 'active') return { success: false, error: 'This account is not active. Please contact your administrator.' };
+    return { success: true, userId: match.id, businessId: match.business_id };
+  } catch (err: any) {
+    console.error('findPasswordRecoveryProfile Error:', err);
+    return { success: false, error: 'Unable to verify the username right now. Please try again.' };
+  }
+}
+
 export async function registerUser(
   email: string,
   password: string,

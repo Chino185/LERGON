@@ -91,6 +91,7 @@ import { supabase } from './utils/supabaseClient';
 import {
   registerUser,
   loginUser,
+  findPasswordRecoveryProfile,
   logoutUser,
   sendVerificationEmail,
   resetPasswordForEmail,
@@ -352,7 +353,6 @@ export default function App() {
   const [isAttendantPassFocused, setIsAttendantPassFocused] = useState(false);
 
   // --- Forgot Passcode states ---
-  const [forgotOrgId, setForgotOrgId] = useState('');
   const [forgotUsername, setForgotUsername] = useState('');
   const [forgotError, setForgotError] = useState('');
 
@@ -367,14 +367,9 @@ export default function App() {
   const [settingsTabOverride, setSettingsTabOverride] = useState<'profile' | 'system' | 'security' | null>(null);
   const [inventoryTabOverride, setInventoryTabOverride] = useState<'active_stock' | 'damaged_audit' | 'restock_validations' | null>(null);
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotError('');
-
-    if (!forgotOrgId) {
-      setForgotError('Please select your organization.');
-      return;
-    }
 
     const usernameCheck = validateUsername(forgotUsername);
     if (!usernameCheck.isValid) {
@@ -382,19 +377,17 @@ export default function App() {
       return;
     }
 
-    const targetOrg = organizations.find(o => o.id === forgotOrgId);
+    const profileLookup = await findPasswordRecoveryProfile(usernameCheck.cleanUsername);
+    if (!profileLookup.success || !profileLookup.businessId) {
+      setForgotError(profileLookup.error || 'We could not verify that username. Please contact your administrator.');
+      return;
+    }
+    const targetOrg = organizations.find(o => o.id === profileLookup.businessId);
     if (!targetOrg) {
-      setForgotError('Selected organization not found.');
+      setForgotError('Your account was found, but its business administrator is not currently available. Please try again later.');
       return;
     }
-
-    const expectedUsername = (targetOrg.attendantName || 'Attendant').trim().toLowerCase();
-    const enteredUsername = usernameCheck.cleanUsername.toLowerCase();
-
-    if (enteredUsername !== expectedUsername) {
-      setForgotError(`Invalid Attendant Username for this organization. (Hint: Default is "Samuel Zar" or "Attendant" if not customized)`);
-      return;
-    }
+    const resolvedForgotOrgId = profileLookup.businessId;
 
     const capturedUserEmail = (targetOrg.attendantEmail || targetOrg.attendantResetEmail || '').trim().toLowerCase();
     if (!capturedUserEmail) {
@@ -415,7 +408,7 @@ export default function App() {
 
     // Find and update the organization
     const updatedOrgs = organizations.map(org => {
-      if (org.id === forgotOrgId) {
+      if (org.id === resolvedForgotOrgId) {
         if (isExistingValidRequest) {
           // Keep the existing organization state (preserving the original timestamp and the current attendantPass/PIN)
           return org;
@@ -436,7 +429,7 @@ export default function App() {
 
     setOrganizations(updatedOrgs);
 
-    setVerificationOrgId(forgotOrgId);
+    setVerificationOrgId(resolvedForgotOrgId);
     setVerificationCodeInput('');
     setVerificationError('');
     setVerificationSuccess('');
@@ -1675,7 +1668,11 @@ export default function App() {
     }
 
     const requestTimestamp = Date.now();
-    const capturedUserEmail = 'zarsamuel105@gmail.com';
+    const capturedUserEmail = (targetOrg.attendantEmail || targetOrg.attendantResetEmail || '').trim().toLowerCase();
+    if (!capturedUserEmail) {
+      setVerificationError('This attendant is not linked to a registered account email.');
+      return;
+    }
     const generatedPIN = Math.floor(100000 + Math.random() * 900000).toString();
 
     const updatedOrgs = organizations.map(org => {
@@ -3379,9 +3376,6 @@ export default function App() {
                           setLoginError('');
                           setForgotError('');
                           setForgotUsername('');
-                          if (organizations.length > 0) {
-                            setForgotOrgId(organizations[0].id);
-                          }
                         }}
                         className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 transition-colors cursor-pointer font-semibold"
                       >
@@ -3738,22 +3732,6 @@ export default function App() {
                 {activeView === 'forgot' && (
                   <form onSubmit={handleForgotSubmit} className="relative z-10 space-y-4">
                     <div className="relative">
-                      <select
-                        value={forgotOrgId}
-                        onChange={(e) => {
-                          setForgotOrgId(e.target.value);
-                          if (forgotError) setForgotError('');
-                        }}
-                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-10 text-sm text-slate-900 dark:text-white focus:outline-none appearance-none cursor-pointer border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
-                      >
-                        <option value="" disabled className="bg-white dark:bg-[#0A0E1A] text-slate-900 dark:text-white">Select Registered Organization</option>
-                        {organizations.map((org) => (
-                          <option key={org.id} value={org.id} className="bg-white dark:bg-[#0A0E1A] text-slate-900 dark:text-white">{org.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="relative">
                       <input
                         type="text"
                         placeholder="Attendant Username (e.g. Samuel Zar)"
@@ -3766,6 +3744,9 @@ export default function App() {
                       />
                       <User className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
                     </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed px-1">
+                      Enter your unique username. We will verify it privately and notify the administrator for the correct business.
+                    </p>
 
                     <div className="flex gap-3 pt-2">
                       <button
@@ -4195,7 +4176,7 @@ export default function App() {
               if (activeResetOrg) {
                 return (
                   <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-lg p-3 text-xs mb-4 text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-400">Simulated Email to {activeResetOrg.attendantResetEmail || 'zarsamuel105@gmail.com'}:</span>
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-400">Reset instructions for the verified account:</span>
                     <p className="mt-1 text-[11px]">Hello, a temporary passcode reset has been requested for your attendant account. Use the following temporary PIN to verify your identity:</p>
                     <div className="mt-2 text-center">
                       <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tracking-widest bg-white dark:bg-slate-950 px-3 py-1 rounded border border-slate-200 dark:border-slate-800 neumorphic-inset inline-block">
