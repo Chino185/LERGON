@@ -898,7 +898,7 @@ export default function SettingsScreen({
 
   // Sync active reset PIN and pending requests from server and current organization
   React.useEffect(() => {
-    const orgId = currentOrg?.id || currentOrgId;
+    const orgId = currentOrg?.id || currentOrgId || (organizations && organizations[0]?.id) || '';
     if (!orgId) return;
 
     if (currentOrg?.attendantPass && (currentOrg?.attendantResetRequested || currentOrg?.tempPasswordExpiresAt)) {
@@ -2001,8 +2001,8 @@ export default function SettingsScreen({
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
-                                businessId: currentOrg?.id || currentOrgId,
-                                businessName: currentOrg?.name || 'Business',
+                                businessId: currentOrg?.id || currentOrgId || (organizations && organizations[0]?.id) || '',
+                                businessName: currentOrg?.name || (organizations && organizations[0]?.name) || 'Business',
                                 pin: tempPasswordInput.trim(),
                                 username: pendingResetUser || currentOrg?.attendantResetUsername || undefined,
                                 expiresInSec: 300
@@ -2046,8 +2046,8 @@ export default function SettingsScreen({
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
-                                businessId: currentOrg?.id || currentOrgId,
-                                businessName: currentOrg?.name || 'Business',
+                                businessId: currentOrg?.id || currentOrgId || (organizations && organizations[0]?.id) || '',
+                                businessName: currentOrg?.name || (organizations && organizations[0]?.name) || 'Business',
                                 pin: tempPasswordInput.trim(),
                                 username: pendingResetUser || currentOrg?.attendantResetUsername || undefined,
                                 expiresInSec: 300

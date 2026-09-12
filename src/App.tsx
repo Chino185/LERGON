@@ -410,8 +410,29 @@ export default function App() {
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.record) {
+          const existingOrg = organizations.find(o =>
+            (data.record.businessId && o.id === data.record.businessId) ||
+            (data.record.businessName && o.name?.trim().toLowerCase() === data.record.businessName.trim().toLowerCase()) ||
+            (forgotUsername && (
+              o.attendantName?.toLowerCase() === forgotUsername.toLowerCase() ||
+              o.adminName?.toLowerCase() === forgotUsername.toLowerCase() ||
+              o.attendantEmail?.toLowerCase() === forgotUsername.toLowerCase() ||
+              o.adminEmail?.toLowerCase() === forgotUsername.toLowerCase()
+            ))
+          ) || organizations[0];
+
+          if (existingOrg) {
+            setPinResolvedOrg({
+              ...existingOrg,
+              attendantPass: cleanPin,
+              tempPasswordExpiresAt: data.record.expiresAt,
+              attendantResetRequested: true
+            });
+            return;
+          }
+
           setPinResolvedOrg({
-            id: data.record.businessId || 'org-temp',
+            id: data.record.businessId || 'org-shared',
             name: data.record.businessName || 'Business',
             attendantPass: cleanPin,
             tempPasswordExpiresAt: data.record.expiresAt,
@@ -423,7 +444,7 @@ export default function App() {
         }
       })
       .catch(() => {});
-  }, [forgotPinInput, organizations]);
+  }, [forgotPinInput, organizations, forgotUsername]);
 
   // Auto-resolve organization based on entered username
   const resolvedOrgForForgot = React.useMemo(() => {
@@ -498,7 +519,28 @@ export default function App() {
         return;
       }
 
-      const targetOrg = pinResolvedOrg || organizations[0];
+      // Always resolve to the existing organizational database that is being shared
+      let targetOrg = organizations.find(o =>
+        (pinResolvedOrg?.id && o.id === pinResolvedOrg.id) ||
+        (pinResolvedOrg?.name && o.name?.toLowerCase() === pinResolvedOrg.name.toLowerCase()) ||
+        (forgotUsername && (
+          o.attendantName?.toLowerCase() === forgotUsername.toLowerCase() ||
+          o.adminName?.toLowerCase() === forgotUsername.toLowerCase() ||
+          o.attendantEmail?.toLowerCase() === forgotUsername.toLowerCase() ||
+          o.adminEmail?.toLowerCase() === forgotUsername.toLowerCase()
+        ))
+      ) || pinResolvedOrg || organizations[0];
+
+      // If targetOrg has a generic/stub ID but an existing organizational database is present, link directly to it
+      if (organizations.length > 0 && (targetOrg.id === 'org-temp' || targetOrg.id === 'org-shared' || (targetOrg.id.startsWith('org-') && !organizations.some(o => o.id === targetOrg.id)))) {
+        targetOrg = {
+          ...organizations[0],
+          ...targetOrg,
+          id: organizations[0].id,
+          name: organizations[0].name
+        };
+      }
+
       if (!targetOrg) {
         setForgotError('Organization details could not be found. Please restart the reset process.');
         return;
@@ -520,7 +562,7 @@ export default function App() {
           console.warn('[Backend Auth] Note on updating password:', authErr);
         }
 
-        // 2. Save the updated password in organization state
+        // 2. Save the updated password in organization state while preserving all database/org attributes
         const updatedOrg: Organization = {
           ...targetOrg,
           adminPass: isRoleAdmin ? cleanNewPass : targetOrg.adminPass,
@@ -530,16 +572,15 @@ export default function App() {
           tempPasswordExpiresAt: undefined
         };
 
-        setOrganizations(prev => {
-          const exists = prev.some(o => o.id === updatedOrg.id);
-          const nextList = exists
-            ? prev.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
-            : [updatedOrg, ...prev];
-          try {
-            saveLocalState('velo_ic_organizations', nextList);
-          } catch {}
-          return nextList;
-        });
+        const exists = organizations.some(o => o.id === updatedOrg.id);
+        const nextList = exists
+          ? organizations.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
+          : [updatedOrg, ...organizations];
+
+        setOrganizations(nextList);
+        try {
+          saveLocalState('velo_ic_organizations', nextList);
+        } catch {}
 
         // 3. Clear temporary PIN & reset request from server
         try {
@@ -556,7 +597,11 @@ export default function App() {
         setCurrentUserRole(detectedRole);
         setIsLoggedIn(true);
 
-        // Open to the specified page for the user
+        // Hydrate effective business config immediately so business title, currency, etc. appear right away
+        const effectiveConfig = loadEffectiveConfig(updatedOrg.id, detectedRole, nextList, currentUserUid);
+        setConfig(effectiveConfig);
+
+        // Open to the dashboard
         const targetScreen = 'dashboard';
         setActiveScreen(targetScreen);
         try {
@@ -607,16 +652,59 @@ export default function App() {
               const data = await res.json();
               if (data?.record) {
                 recordUsername = data.record.username || '';
-                targetOrg = {
-                  id: data.record.businessId || `org-${Date.now()}`,
-                  name: data.record.businessName || 'Business',
-                  attendantPass: cleanPin,
-                  tempPasswordExpiresAt: data.record.expiresAt,
-                  attendantResetRequested: true,
-                  adminPass: '',
-                  adminEmail: '',
-                  attendantEmail: ''
-                };
+                const existingOrg = organizations.find(o =>
+                  (data.record.businessId && o.id === data.record.businessId) ||
+                  (data.record.businessName && o.name?.trim().toLowerCase() === data.record.businessName.trim().toLowerCase()) ||
+                  (forgotUsername && (
+                    o.attendantName?.toLowerCase() === forgotUsername.toLowerCase() ||
+                    o.adminName?.toLowerCase() === forgotUsername.toLowerCase() ||
+                    o.attendantEmail?.toLowerCase() === forgotUsername.toLowerCase() ||
+                    o.adminEmail?.toLowerCase() === forgotUsername.toLowerCase()
+                  ))
+                ) || organizations[0];
+
+                if (existingOrg) {
+                  targetOrg = {
+                    ...existingOrg,
+                    attendantPass: cleanPin,
+                    tempPasswordExpiresAt: data.record.expiresAt,
+                    attendantResetRequested: true
+                  };
+                } else if (data.record.businessId) {
+                  const { data: bData } = await supabase
+                    .from('businesses')
+                    .select('*')
+                    .eq('id', data.record.businessId)
+                    .maybeSingle();
+
+                  targetOrg = {
+                    id: data.record.businessId,
+                    name: bData?.trade_name || bData?.legal_name || data.record.businessName || 'Business',
+                    country: bData?.base_country,
+                    currency: bData?.base_currency_code,
+                    currencySymbol: bData?.base_currency_symbol,
+                    attendantPass: cleanPin,
+                    tempPasswordExpiresAt: data.record.expiresAt,
+                    attendantResetRequested: true,
+                    adminPass: '',
+                    adminEmail: '',
+                    attendantEmail: ''
+                  };
+                } else {
+                  targetOrg = {
+                    id: organizations[0]?.id || 'org-shared',
+                    name: organizations[0]?.name || data.record.businessName || 'Business',
+                    country: organizations[0]?.country,
+                    currency: organizations[0]?.currency,
+                    currencySymbol: organizations[0]?.currencySymbol,
+                    attendantPass: cleanPin,
+                    tempPasswordExpiresAt: data.record.expiresAt,
+                    attendantResetRequested: true,
+                    adminPass: '',
+                    adminEmail: '',
+                    attendantEmail: ''
+                  };
+                }
               }
             }
           } catch {}
@@ -1812,7 +1900,7 @@ export default function App() {
   }, [currentUserRole, activeScreen]);
 
   useEffect(() => {
-    if (authBootstrapReady && isLoggedIn && currentOrgId && currentUserUid) {
+    if (authBootstrapReady && isLoggedIn && currentOrgId) {
       const effective = loadEffectiveConfig(currentOrgId, currentUserRole, organizations, currentUserUid);
       if (backendProfilePhone !== null) {
         if (currentUserRole === 2) {
