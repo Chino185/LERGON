@@ -369,6 +369,8 @@ export default function App() {
   const [forgotPinInput, setForgotPinInput] = useState('');
   const [pinResolvedOrg, setPinResolvedOrg] = useState<Organization | null>(null);
   const [forgotOrgId, setForgotOrgId] = useState('');
+  const [forgotUserId, setForgotUserId] = useState('');
+  const [forgotUserEmail, setForgotUserEmail] = useState('');
   const [forgotUsername, setForgotUsername] = useState('');
   const [detectedRole, setDetectedRole] = useState<UserRole>(5);
   const [detectedUserLabel, setDetectedUserLabel] = useState<string>('Attendant');
@@ -519,17 +521,18 @@ export default function App() {
         return;
       }
 
-      // Always resolve to the existing organizational database that is being shared
-      let targetOrg = organizations.find(o =>
-        (pinResolvedOrg?.id && o.id === pinResolvedOrg.id) ||
-        (pinResolvedOrg?.name && o.name?.toLowerCase() === pinResolvedOrg.name.toLowerCase()) ||
-        (forgotUsername && (
-          o.attendantName?.toLowerCase() === forgotUsername.toLowerCase() ||
-          o.adminName?.toLowerCase() === forgotUsername.toLowerCase() ||
-          o.attendantEmail?.toLowerCase() === forgotUsername.toLowerCase() ||
-          o.adminEmail?.toLowerCase() === forgotUsername.toLowerCase()
-        ))
-      ) || pinResolvedOrg || organizations[0];
+      // Always resolve to the existing organizational database that the user already belongs to
+      let targetOrg = (forgotOrgId && organizations.find(o => o.id === forgotOrgId)) ||
+        organizations.find(o =>
+          (pinResolvedOrg?.id && o.id === pinResolvedOrg.id) ||
+          (pinResolvedOrg?.name && o.name?.toLowerCase() === pinResolvedOrg.name.toLowerCase()) ||
+          (forgotUsername && (
+            o.attendantName?.toLowerCase() === forgotUsername.toLowerCase() ||
+            o.adminName?.toLowerCase() === forgotUsername.toLowerCase() ||
+            o.attendantEmail?.toLowerCase() === forgotUsername.toLowerCase() ||
+            o.adminEmail?.toLowerCase() === forgotUsername.toLowerCase()
+          ))
+        ) || pinResolvedOrg || organizations[0];
 
       // If targetOrg has a generic/stub ID but an existing organizational database is present, link directly to it
       if (organizations.length > 0 && (targetOrg.id === 'org-temp' || targetOrg.id === 'org-shared' || (targetOrg.id.startsWith('org-') && !organizations.some(o => o.id === targetOrg.id)))) {
@@ -550,19 +553,40 @@ export default function App() {
 
       try {
         const isRoleAdmin = detectedRole === 2;
-        const userEmail = isRoleAdmin
+        let resolvedUserEmail = forgotUserEmail || (isRoleAdmin
           ? (targetOrg.adminEmail || targetOrg.attendantResetEmail)
-          : (targetOrg.attendantEmail || targetOrg.attendantResetEmail);
+          : (targetOrg.attendantEmail || targetOrg.attendantResetEmail));
+        let resolvedUserId = forgotUserId;
 
-        // 1. Sync updated password to Supabase Auth backend if user exists
+        // Strict lookup against Supabase profiles table for original user account within this tenant
+        try {
+          let query = supabase.from('profiles').select('id, business_id, display_username, email, role');
+          if (resolvedUserId) {
+            query = query.eq('id', resolvedUserId);
+          } else if (forgotUsername) {
+            query = query.or(`display_username.ilike.${forgotUsername.trim()},email.ilike.${forgotUsername.trim()}`);
+          }
+          if (targetOrg?.id) {
+            query = query.eq('business_id', targetOrg.id);
+          }
+          const { data: existingProfile } = await query.limit(1).maybeSingle();
+          if (existingProfile) {
+            resolvedUserId = existingProfile.id;
+            if (existingProfile.email) resolvedUserEmail = existingProfile.email;
+          }
+        } catch (lookupErr) {
+          console.warn('[Backend Auth] User lookup note:', lookupErr);
+        }
+
+        // 1. Sync updated password to Supabase Auth backend via lookup-then-update against original user ID
         try {
           const tempCode = forgotPinInput.trim() || targetOrg.attendantPass;
-          await updatePasswordAfterReset(cleanNewPass, userEmail, tempCode);
+          await updatePasswordAfterReset(cleanNewPass, resolvedUserEmail, tempCode, resolvedUserId, targetOrg.id);
         } catch (authErr) {
           console.warn('[Backend Auth] Note on updating password:', authErr);
         }
 
-        // 2. Save the updated password in organization state while preserving all database/org attributes
+        // 2. Update the existing user record in place — never create a new user account or organization row
         const updatedOrg: Organization = {
           ...targetOrg,
           adminPass: isRoleAdmin ? cleanNewPass : targetOrg.adminPass,
@@ -572,10 +596,10 @@ export default function App() {
           tempPasswordExpiresAt: undefined
         };
 
-        const exists = organizations.some(o => o.id === updatedOrg.id);
-        const nextList = exists
+        const existingOrgIndex = organizations.findIndex(o => o.id === updatedOrg.id);
+        const nextList = existingOrgIndex !== -1
           ? organizations.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
-          : [updatedOrg, ...organizations];
+          : (organizations.length > 0 ? organizations.map((o, idx) => idx === 0 ? updatedOrg : o) : [updatedOrg]);
 
         setOrganizations(nextList);
         try {
@@ -608,9 +632,12 @@ export default function App() {
           localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, targetScreen);
         } catch {}
 
-        // Reset forgot password state
+        // Reset forgot password state completely
         setForgotPinInput('');
         setForgotUsername('');
+        setForgotUserId('');
+        setForgotUserEmail('');
+        setForgotOrgId('');
         setForgotNewPassword('');
         setForgotConfirmPassword('');
         setForgotStep('username');
@@ -742,6 +769,7 @@ export default function App() {
         setDetectedRole(roleDetected);
         setDetectedUserLabel(roleLabel);
         setPinResolvedOrg(targetOrg);
+        if (targetOrg?.id) setForgotOrgId(targetOrg.id);
 
         // Advance to Step 3: Create New Password
         setForgotStep('new_password');
@@ -784,12 +812,15 @@ export default function App() {
       try {
         const { data } = await supabase
           .from('profiles')
-          .select('business_id, display_username, email, role')
+          .select('id, business_id, display_username, email, role')
           .or(`display_username.ilike.${cleanUsername},email.ilike.${cleanUsername}`)
           .limit(1)
           .maybeSingle();
 
         if (data) {
+          setForgotUserId(data.id);
+          if (data.email) setForgotUserEmail(data.email);
+          if (data.business_id) setForgotOrgId(data.business_id);
           if (data.role === 'admin') {
             userRoleDetected = 2;
             userLabel = 'Administrator';
@@ -809,6 +840,9 @@ export default function App() {
                 targetOrg = {
                   id: bData.id,
                   name: bData.trade_name || bData.legal_name || 'Business',
+                  country: bData.base_country,
+                  currency: bData.base_currency_code,
+                  currencySymbol: bData.base_currency_symbol,
                   adminPass: '',
                   attendantPass: '',
                   attendantName: data.display_username || cleanUsername
@@ -825,7 +859,10 @@ export default function App() {
 
       setDetectedRole(userRoleDetected);
       setDetectedUserLabel(userLabel);
-      if (targetOrg) setPinResolvedOrg(targetOrg);
+      if (targetOrg) {
+        setPinResolvedOrg(targetOrg);
+        if (targetOrg.id) setForgotOrgId(targetOrg.id);
+      }
 
       const businessId = targetOrg?.id || '';
       const businessName = targetOrg?.name || 'Business';
@@ -839,16 +876,15 @@ export default function App() {
           attendantResetTimestamp: requestTimestamp
         };
 
-        setOrganizations(prev => {
-          const exists = prev.some(o => o.id === updatedOrg.id);
-          const nextList = exists
-            ? prev.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
-            : [updatedOrg, ...prev];
-          try {
-            saveLocalState('velo_ic_organizations', nextList);
-          } catch {}
-          return nextList;
-        });
+        const existingOrgIndex = organizations.findIndex(o => o.id === updatedOrg.id);
+        const nextList = existingOrgIndex !== -1
+          ? organizations.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
+          : (organizations.length > 0 ? organizations : [updatedOrg]);
+
+        setOrganizations(nextList);
+        try {
+          saveLocalState('velo_ic_organizations', nextList);
+        } catch {}
 
         // Insert notification for admin notification area
         try {
