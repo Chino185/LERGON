@@ -371,15 +371,15 @@ export default function App() {
     e.preventDefault();
     setForgotError('');
 
-    const usernameCheck = validateUsername(forgotUsername);
-    if (!usernameCheck.isValid) {
-      setForgotError(usernameCheck.error || 'Please specify a valid attendant username.');
+    const emailCheck = validateEmail(forgotUsername);
+    if (!emailCheck.isValid) {
+      setForgotError(emailCheck.error || 'Please enter a valid registered email address.');
       return;
     }
 
-    const profileLookup = await findPasswordRecoveryProfile(usernameCheck.cleanUsername);
+    const profileLookup = await findPasswordRecoveryProfile(emailCheck.cleanEmail);
     if (!profileLookup.success || !profileLookup.businessId) {
-      setForgotError(profileLookup.error || 'We could not verify that username. Please contact your administrator.');
+      setForgotError(profileLookup.error || 'We could not verify that email address. Please contact your administrator.');
       return;
     }
     const targetOrg = organizations.find(o => o.id === profileLookup.businessId);
@@ -3733,8 +3733,9 @@ export default function App() {
                   <form onSubmit={handleForgotSubmit} className="relative z-10 space-y-4">
                     <div className="relative">
                       <input
-                        type="text"
-                        placeholder="Attendant Username (e.g. Samuel Zar)"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="Registered email address"
                         value={forgotUsername}
                         onChange={(e) => {
                           setForgotUsername(e.target.value);
@@ -3745,7 +3746,7 @@ export default function App() {
                       <User className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
                     </div>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed px-1">
-                      Enter your unique username. We will verify it privately and notify the administrator for the correct business.
+                      Enter the email address linked to your account. We will verify it privately and notify the administrator for the correct business.
                     </p>
 
                     <div className="flex gap-3 pt-2">
