@@ -46,7 +46,8 @@ import {
   Loader2,
   LogIn,
   RotateCw,
-  RefreshCw
+  RefreshCw,
+  Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -105,7 +106,7 @@ import {
   updateUserPhone,
   updateUserDisplayName,
   updateUserTheme,
-  updatePasswordAfterReset
+  updateAuthenticatedUserPassword
 } from './utils/authServices';
 
 import { saveInventoryItem, deleteInventoryItem, directAdminRestockTransaction, subscribeToInventoryItems, subscribeToStockAdjustments, submitRestockRequest, verifyRestockRequestTransaction, recordStockAdjustmentTransaction, subscribeToRestockRequests, createAttendantInvite } from './utils/inventoryServices';
@@ -119,7 +120,6 @@ import {
 } from './utils/correctionServices';
 import { subscribeToBackendNotifications } from './utils/notificationServices';
 import { LandingPageBackground } from './components/LandingPageBackground';
-import TermsModal from './components/TermsModal';
 import Navigation from './components/Navigation';
 
 import DashboardScreen from './components/DashboardScreen';
@@ -189,21 +189,11 @@ export default function App() {
 
   // --- Login wizard states ---
   const [newOrgAdminEmail, setNewOrgAdminEmail] = useState('');
-  const [newOrgAdminFullName, setNewOrgAdminFullName] = useState('');
   const [newOrgName, setNewOrgName] = useState('');
   const [newOrgAdminPass, setNewOrgAdminPass] = useState('');
 
   // --- Dynamic multi-tenant organization state ---
-  const [organizations, setOrganizations] = useState<Organization[]>(() => {
-    return getLocalState<Organization[]>('velo_ic_organizations', []);
-  });
-
-  useEffect(() => {
-    if (organizations.length > 0) {
-      saveLocalState('velo_ic_organizations', organizations);
-    }
-  }, [organizations]);
-
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrgId, setCurrentOrgId] = useState<string>('');
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -215,6 +205,7 @@ export default function App() {
 
   // --- Landing Page & Auth Modal States ---
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [isLandingMobileMenuOpen, setIsLandingMobileMenuOpen] = useState<boolean>(false);
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
   const [isLandingDark, setIsLandingDark] = useState<boolean>(() => {
@@ -344,7 +335,6 @@ export default function App() {
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [joinError, setJoinError] = useState('');
   const [validatedJoinOrg, setValidatedJoinOrg] = useState<Organization | null>(null);
-  const [attendantFullName, setAttendantFullName] = useState('');
   const [attendantEmail, setAttendantEmail] = useState('');
   const [attendantPassword, setAttendantPassword] = useState('');
   const [attendantConfirmPassword, setAttendantConfirmPassword] = useState('');
@@ -353,138 +343,18 @@ export default function App() {
   const [attendantPasswordError, setAttendantPasswordError] = useState('');
 
   // --- Register/Validation states ---
-  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
-  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
   const [registerError, setRegisterError] = useState('');
   const [tempPasscodeError, setTempPasscodeError] = useState('');
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isLoginEmailFocused, setIsLoginEmailFocused] = useState(false);
   const [isRegEmailFocused, setIsRegEmailFocused] = useState(false);
   const [isAttendantEmailFocused, setIsAttendantEmailFocused] = useState(false);
   const [isRegPassFocused, setIsRegPassFocused] = useState(false);
   const [isAttendantPassFocused, setIsAttendantPassFocused] = useState(false);
 
-  // --- Forgot Password states ---
-  const [forgotStep, setForgotStep] = useState<'username' | 'pin' | 'new_password'>('username');
-  const [forgotPinInput, setForgotPinInput] = useState('');
-  const [pinResolvedOrg, setPinResolvedOrg] = useState<Organization | null>(null);
+  // --- Forgot Passcode states ---
   const [forgotOrgId, setForgotOrgId] = useState('');
-  const [forgotUserId, setForgotUserId] = useState('');
-  const [forgotUserEmail, setForgotUserEmail] = useState('');
   const [forgotUsername, setForgotUsername] = useState('');
-  const [detectedRole, setDetectedRole] = useState<UserRole>(5);
-  const [detectedUserLabel, setDetectedUserLabel] = useState<string>('Attendant');
-  const [forgotNewPassword, setForgotNewPassword] = useState('');
-  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
-  const [showForgotNewPass, setShowForgotNewPass] = useState(false);
-  const [showForgotConfirmPass, setShowForgotConfirmPass] = useState(false);
-  const [forgotSuccess, setForgotSuccess] = useState('');
   const [forgotError, setForgotError] = useState('');
-  const [isForgotLoading, setIsForgotLoading] = useState(false);
-
-  // Real-time lookup of organization when typing 6-digit PIN
-  useEffect(() => {
-    const cleanPin = forgotPinInput.trim();
-    if (cleanPin.length !== 6) {
-      setPinResolvedOrg(null);
-      return;
-    }
-
-    // 1. Check in-memory organizations
-    const found = organizations.find(o => o.attendantPass?.trim() === cleanPin);
-    if (found) {
-      setPinResolvedOrg(found);
-      return;
-    }
-
-    // 2. Check localStorage
-    try {
-      const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
-      const stored = storedOrgs.find(o => o.attendantPass?.trim() === cleanPin);
-      if (stored) {
-        setPinResolvedOrg(stored);
-        return;
-      }
-    } catch {}
-
-    // 3. Check server temp-pin store
-    fetch(`/api/auth/temp-pin/${encodeURIComponent(cleanPin)}`)
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.record) {
-          const existingOrg = organizations.find(o =>
-            (data.record.businessId && o.id === data.record.businessId) ||
-            (data.record.businessName && o.name?.trim().toLowerCase() === data.record.businessName.trim().toLowerCase()) ||
-            (forgotUsername && (
-              o.attendantName?.toLowerCase() === forgotUsername.toLowerCase() ||
-              o.adminName?.toLowerCase() === forgotUsername.toLowerCase() ||
-              o.attendantEmail?.toLowerCase() === forgotUsername.toLowerCase() ||
-              o.adminEmail?.toLowerCase() === forgotUsername.toLowerCase()
-            ))
-          ) || organizations[0];
-
-          if (existingOrg) {
-            setPinResolvedOrg({
-              ...existingOrg,
-              attendantPass: cleanPin,
-              tempPasswordExpiresAt: data.record.expiresAt,
-              attendantResetRequested: true
-            });
-            return;
-          }
-
-          setPinResolvedOrg({
-            id: data.record.businessId || 'org-shared',
-            name: data.record.businessName || 'Business',
-            attendantPass: cleanPin,
-            tempPasswordExpiresAt: data.record.expiresAt,
-            attendantResetRequested: true,
-            adminPass: '',
-            adminEmail: '',
-            attendantEmail: ''
-          });
-        }
-      })
-      .catch(() => {});
-  }, [forgotPinInput, organizations, forgotUsername]);
-
-  // Auto-resolve organization based on entered username
-  const resolvedOrgForForgot = React.useMemo(() => {
-    const u = forgotUsername.trim().toLowerCase();
-    if (!u) return null;
-
-    // 1. Match from in-memory organizations list
-    const found = organizations.find(org => (
-      (org.attendantName && org.attendantName.trim().toLowerCase() === u) ||
-      (org.adminName && org.adminName.trim().toLowerCase() === u) ||
-      (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === u) ||
-      (org.adminEmail && org.adminEmail.trim().toLowerCase() === u) ||
-      (org.attendantEmail && org.attendantEmail.split('@')[0].trim().toLowerCase() === u) ||
-      (org.name && org.name.trim().toLowerCase() === u)
-    ));
-    if (found) return found;
-
-    // 2. Match from localStorage saved organizations
-    try {
-      const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
-      const storedFound = storedOrgs.find(org => (
-        (org.attendantName && org.attendantName.trim().toLowerCase() === u) ||
-        (org.adminName && org.adminName.trim().toLowerCase() === u) ||
-        (org.attendantEmail && org.attendantEmail.trim().toLowerCase() === u) ||
-        (org.adminEmail && org.adminEmail.trim().toLowerCase() === u) ||
-        (org.attendantEmail && org.attendantEmail.split('@')[0].trim().toLowerCase() === u) ||
-        (org.name && org.name.trim().toLowerCase() === u)
-      ));
-      if (storedFound) return storedFound;
-    } catch {}
-
-    // 3. Fallback: single registered organization
-    if (organizations.length === 1) {
-      return organizations[0];
-    }
-
-    return null;
-  }, [forgotUsername, organizations]);
 
   // --- Code Verification Modal states ---
   const [showCodeVerificationModal, setShowCodeVerificationModal] = useState(false);
@@ -492,436 +362,87 @@ export default function App() {
   const [verificationCodeInput, setVerificationCodeInput] = useState('');
   const [verificationError, setVerificationError] = useState('');
   const [verificationSuccess, setVerificationSuccess] = useState('');
-  const [timeRemainingText, setTimeRemainingText] = useState('02:00');
-  const [resendCooldown, setResendCooldown] = useState(120);
+  const [timeRemainingText, setTimeRemainingText] = useState('05:00');
+  const [resendCooldown, setResendCooldown] = useState(300);
   const [settingsTabOverride, setSettingsTabOverride] = useState<'profile' | 'system' | 'security' | null>(null);
   const [inventoryTabOverride, setInventoryTabOverride] = useState<'active_stock' | 'damaged_audit' | 'restock_validations' | null>(null);
 
-  const handleForgotSubmit = async (e: React.FormEvent) => {
+  const handleForgotSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setForgotError('');
 
-    // --- Step 3: Create New Password ---
-    if (forgotStep === 'new_password') {
-      const cleanNewPass = forgotNewPassword.trim();
-      const cleanConfirmPass = forgotConfirmPassword.trim();
-
-      if (!cleanNewPass) {
-        setForgotError('Please enter a new password.');
-        return;
-      }
-
-      if (cleanNewPass.length < 6) {
-        setForgotError('Password must be at least 6 characters long.');
-        return;
-      }
-
-      if (cleanNewPass !== cleanConfirmPass) {
-        setForgotError('Passwords do not match. Please ensure both fields are identical.');
-        return;
-      }
-
-      // Always resolve to the existing organizational database that the user already belongs to
-      let targetOrg = (forgotOrgId && organizations.find(o => o.id === forgotOrgId)) ||
-        organizations.find(o =>
-          (pinResolvedOrg?.id && o.id === pinResolvedOrg.id) ||
-          (pinResolvedOrg?.name && o.name?.toLowerCase() === pinResolvedOrg.name.toLowerCase()) ||
-          (forgotUsername && (
-            o.attendantName?.toLowerCase() === forgotUsername.toLowerCase() ||
-            o.adminName?.toLowerCase() === forgotUsername.toLowerCase() ||
-            o.attendantEmail?.toLowerCase() === forgotUsername.toLowerCase() ||
-            o.adminEmail?.toLowerCase() === forgotUsername.toLowerCase()
-          ))
-        ) || pinResolvedOrg || organizations[0];
-
-      // If targetOrg has a generic/stub ID but an existing organizational database is present, link directly to it
-      if (organizations.length > 0 && (targetOrg.id === 'org-temp' || targetOrg.id === 'org-shared' || (targetOrg.id.startsWith('org-') && !organizations.some(o => o.id === targetOrg.id)))) {
-        targetOrg = {
-          ...organizations[0],
-          ...targetOrg,
-          id: organizations[0].id,
-          name: organizations[0].name
-        };
-      }
-
-      if (!targetOrg) {
-        setForgotError('Organization details could not be found. Please restart the reset process.');
-        return;
-      }
-
-      setIsForgotLoading(true);
-
-      try {
-        const isRoleAdmin = detectedRole === 2;
-        let resolvedUserEmail = forgotUserEmail || (isRoleAdmin
-          ? (targetOrg.adminEmail || targetOrg.attendantResetEmail)
-          : (targetOrg.attendantEmail || targetOrg.attendantResetEmail));
-        let resolvedUserId = forgotUserId;
-
-        // Strict lookup against Supabase profiles table for original user account within this tenant
-        try {
-          let query = supabase.from('profiles').select('id, business_id, display_username, email, role');
-          if (resolvedUserId) {
-            query = query.eq('id', resolvedUserId);
-          } else if (forgotUsername) {
-            query = query.or(`display_username.ilike.${forgotUsername.trim()},email.ilike.${forgotUsername.trim()}`);
-          }
-          if (targetOrg?.id) {
-            query = query.eq('business_id', targetOrg.id);
-          }
-          const { data: existingProfile } = await query.limit(1).maybeSingle();
-          if (existingProfile) {
-            resolvedUserId = existingProfile.id;
-            if (existingProfile.email) resolvedUserEmail = existingProfile.email;
-          }
-        } catch (lookupErr) {
-          console.warn('[Backend Auth] User lookup note:', lookupErr);
-        }
-
-        // 1. Sync updated password to Supabase Auth backend via lookup-then-update against original user ID
-        try {
-          const tempCode = forgotPinInput.trim() || targetOrg.attendantPass;
-          await updatePasswordAfterReset(cleanNewPass, resolvedUserEmail, tempCode, resolvedUserId, targetOrg.id);
-        } catch (authErr) {
-          console.warn('[Backend Auth] Note on updating password:', authErr);
-        }
-
-        // 2. Update the existing user record in place — never create a new user account or organization row
-        const updatedOrg: Organization = {
-          ...targetOrg,
-          adminPass: isRoleAdmin ? cleanNewPass : targetOrg.adminPass,
-          attendantPass: !isRoleAdmin ? cleanNewPass : targetOrg.attendantPass,
-          attendantResetRequested: false,
-          isTempPassword: false,
-          tempPasswordExpiresAt: undefined
-        };
-
-        const existingOrgIndex = organizations.findIndex(o => o.id === updatedOrg.id);
-        const nextList = existingOrgIndex !== -1
-          ? organizations.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
-          : (organizations.length > 0 ? organizations.map((o, idx) => idx === 0 ? updatedOrg : o) : [updatedOrg]);
-
-        setOrganizations(nextList);
-        try {
-          saveLocalState('velo_ic_organizations', nextList);
-        } catch {}
-
-        // 3. Clear temporary PIN & reset request from server
-        try {
-          const cleanPin = forgotPinInput.trim();
-          if (cleanPin) {
-            fetch(`/api/auth/temp-pin/${encodeURIComponent(cleanPin)}`, { method: 'DELETE' }).catch(() => {});
-          }
-          fetch(`/api/auth/reset-request/${encodeURIComponent(updatedOrg.id)}`, { method: 'DELETE' }).catch(() => {});
-        } catch {}
-
-        // 4. Log in the user into the system according to their detected role
-        setShowAuthModal(false);
-        setCurrentOrgId(updatedOrg.id);
-        setCurrentUserRole(detectedRole);
-        setIsLoggedIn(true);
-
-        // Hydrate effective business config immediately so business title, currency, etc. appear right away
-        const effectiveConfig = loadEffectiveConfig(updatedOrg.id, detectedRole, nextList, currentUserUid);
-        setConfig(effectiveConfig);
-
-        // Open to the dashboard
-        const targetScreen = 'dashboard';
-        setActiveScreen(targetScreen);
-        try {
-          localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, targetScreen);
-        } catch {}
-
-        // Reset forgot password state completely
-        setForgotPinInput('');
-        setForgotUsername('');
-        setForgotUserId('');
-        setForgotUserEmail('');
-        setForgotOrgId('');
-        setForgotNewPassword('');
-        setForgotConfirmPassword('');
-        setForgotStep('username');
-        setForgotError('');
-        setSuccess(`Password saved successfully! Welcome back to ${updatedOrg.name}.`);
-        setTimeout(() => setSuccess(null), 4000);
-      } catch (err: any) {
-        setForgotError(err?.message || 'Failed to save new password. Please try again.');
-      } finally {
-        setIsForgotLoading(false);
-      }
+    if (!forgotOrgId) {
+      setForgotError('Please select your organization.');
       return;
     }
 
-    // --- Step 2: Verify 6-digit Temporary PIN ---
-    if (forgotStep === 'pin') {
-      const cleanPin = forgotPinInput.trim();
-      if (!cleanPin) {
-        setForgotError('Please enter the 6-digit temporary PIN provided by your administrator.');
-        return;
-      }
-      setIsForgotLoading(true);
-
-      try {
-        let targetOrg = pinResolvedOrg || organizations.find(o => o.attendantPass?.trim() === cleanPin);
-
-        if (!targetOrg) {
-          try {
-            const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
-            targetOrg = storedOrgs.find(o => o.attendantPass?.trim() === cleanPin);
-          } catch {}
-        }
-
-        let recordUsername = '';
-        if (!targetOrg) {
-          try {
-            const res = await fetch(`/api/auth/temp-pin/${encodeURIComponent(cleanPin)}`);
-            if (res.ok) {
-              const data = await res.json();
-              if (data?.record) {
-                recordUsername = data.record.username || '';
-                const existingOrg = organizations.find(o =>
-                  (data.record.businessId && o.id === data.record.businessId) ||
-                  (data.record.businessName && o.name?.trim().toLowerCase() === data.record.businessName.trim().toLowerCase()) ||
-                  (forgotUsername && (
-                    o.attendantName?.toLowerCase() === forgotUsername.toLowerCase() ||
-                    o.adminName?.toLowerCase() === forgotUsername.toLowerCase() ||
-                    o.attendantEmail?.toLowerCase() === forgotUsername.toLowerCase() ||
-                    o.adminEmail?.toLowerCase() === forgotUsername.toLowerCase()
-                  ))
-                ) || organizations[0];
-
-                if (existingOrg) {
-                  targetOrg = {
-                    ...existingOrg,
-                    attendantPass: cleanPin,
-                    tempPasswordExpiresAt: data.record.expiresAt,
-                    attendantResetRequested: true
-                  };
-                } else if (data.record.businessId) {
-                  const { data: bData } = await supabase
-                    .from('businesses')
-                    .select('*')
-                    .eq('id', data.record.businessId)
-                    .maybeSingle();
-
-                  targetOrg = {
-                    id: data.record.businessId,
-                    name: bData?.trade_name || bData?.legal_name || data.record.businessName || 'Business',
-                    country: bData?.base_country,
-                    currency: bData?.base_currency_code,
-                    currencySymbol: bData?.base_currency_symbol,
-                    attendantPass: cleanPin,
-                    tempPasswordExpiresAt: data.record.expiresAt,
-                    attendantResetRequested: true,
-                    adminPass: '',
-                    adminEmail: '',
-                    attendantEmail: ''
-                  };
-                } else {
-                  targetOrg = {
-                    id: organizations[0]?.id || 'org-shared',
-                    name: organizations[0]?.name || data.record.businessName || 'Business',
-                    country: organizations[0]?.country,
-                    currency: organizations[0]?.currency,
-                    currencySymbol: organizations[0]?.currencySymbol,
-                    attendantPass: cleanPin,
-                    tempPasswordExpiresAt: data.record.expiresAt,
-                    attendantResetRequested: true,
-                    adminPass: '',
-                    adminEmail: '',
-                    attendantEmail: ''
-                  };
-                }
-              }
-            }
-          } catch {}
-        }
-
-        if (!targetOrg) {
-          setForgotError('Invalid or expired passcode PIN. Please ask your administrator to generate a fresh PIN in Settings.');
-          return;
-        }
-
-        if (targetOrg.tempPasswordExpiresAt && Date.now() > targetOrg.tempPasswordExpiresAt) {
-          setForgotError('This temporary passcode has expired. Please ask your admin to issue a new code.');
-          return;
-        }
-
-        // Re-confirm or refine role from targetOrg or username
-        const u = (recordUsername || forgotUsername).trim().toLowerCase();
-        let roleDetected: UserRole = detectedRole;
-        let roleLabel = detectedUserLabel;
-        if (targetOrg) {
-          if (
-            (targetOrg.adminName && targetOrg.adminName.trim().toLowerCase() === u) ||
-            (targetOrg.adminEmail && targetOrg.adminEmail.trim().toLowerCase() === u)
-          ) {
-            roleDetected = 2;
-            roleLabel = 'Administrator';
-          } else if (
-            (targetOrg.attendantName && targetOrg.attendantName.trim().toLowerCase() === u) ||
-            (targetOrg.attendantEmail && targetOrg.attendantEmail.trim().toLowerCase() === u)
-          ) {
-            roleDetected = 5;
-            roleLabel = 'Attendant';
-          }
-        }
-        setDetectedRole(roleDetected);
-        setDetectedUserLabel(roleLabel);
-        setPinResolvedOrg(targetOrg);
-        if (targetOrg?.id) setForgotOrgId(targetOrg.id);
-
-        // Advance to Step 3: Create New Password
-        setForgotStep('new_password');
-        setForgotError('');
-      } finally {
-        setIsForgotLoading(false);
-      }
+    const usernameCheck = validateUsername(forgotUsername);
+    if (!usernameCheck.isValid) {
+      setForgotError(usernameCheck.error || 'Please specify a valid attendant username.');
       return;
     }
 
-    // --- Step 1: Request via Username ---
-    const cleanUsername = forgotUsername.trim();
-    if (!cleanUsername) {
-      setForgotError('Please enter your username.');
+    const targetOrg = organizations.find(o => o.id === forgotOrgId);
+    if (!targetOrg) {
+      setForgotError('Selected organization not found.');
       return;
     }
 
-    setIsForgotLoading(true);
+    const expectedUsername = (targetOrg.attendantName || 'Attendant').trim().toLowerCase();
+    const enteredUsername = usernameCheck.cleanUsername.toLowerCase();
 
-    try {
-      let targetOrg = resolvedOrgForForgot;
-      let userRoleDetected: UserRole = 5;
-      let userLabel = 'Attendant';
+    if (enteredUsername !== expectedUsername) {
+      setForgotError(`Invalid Attendant Username for this organization. (Hint: Default is "Samuel Zar" or "Attendant" if not customized)`);
+      return;
+    }
 
-      if (targetOrg) {
-        const u = cleanUsername.toLowerCase();
-        if (
-          (targetOrg.adminName && targetOrg.adminName.trim().toLowerCase() === u) ||
-          (targetOrg.adminEmail && targetOrg.adminEmail.trim().toLowerCase() === u)
-        ) {
-          userRoleDetected = 2;
-          userLabel = 'Administrator';
-        } else {
-          userRoleDetected = 5;
-          userLabel = 'Attendant';
+    const capturedUserEmail = (targetOrg.attendantEmail || targetOrg.attendantResetEmail || '').trim().toLowerCase();
+    if (!capturedUserEmail) {
+      setForgotError('This attendant is not linked to a registered account email. Please ask the administrator to update the attendant profile first.');
+      return;
+    }
+    const isExistingValidRequest = !!(
+      targetOrg.attendantResetRequested &&
+      targetOrg.attendantResetTimestamp &&
+      (Date.now() - targetOrg.attendantResetTimestamp < 5 * 60 * 1000)
+    );
+
+    const requestTimestamp = isExistingValidRequest && targetOrg.attendantResetTimestamp
+      ? targetOrg.attendantResetTimestamp
+      : Date.now();
+
+    const generatedPIN = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Find and update the organization
+    const updatedOrgs = organizations.map(org => {
+      if (org.id === forgotOrgId) {
+        if (isExistingValidRequest) {
+          // Keep the existing organization state (preserving the original timestamp and the current attendantPass/PIN)
+          return org;
         }
-      }
-
-      // Query Supabase profiles if not matched in memory
-      try {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, business_id, display_username, email, role')
-          .or(`display_username.ilike.${cleanUsername},email.ilike.${cleanUsername}`)
-          .limit(1)
-          .maybeSingle();
-
-        if (data) {
-          setForgotUserId(data.id);
-          if (data.email) setForgotUserEmail(data.email);
-          if (data.business_id) setForgotOrgId(data.business_id);
-          if (data.role === 'admin') {
-            userRoleDetected = 2;
-            userLabel = 'Administrator';
-          } else {
-            userRoleDetected = 5;
-            userLabel = 'Attendant';
-          }
-          if (data.business_id && !targetOrg) {
-            targetOrg = organizations.find(o => o.id === data.business_id);
-            if (!targetOrg) {
-              const { data: bData } = await supabase
-                .from('businesses')
-                .select('*')
-                .eq('id', data.business_id)
-                .maybeSingle();
-              if (bData) {
-                targetOrg = {
-                  id: bData.id,
-                  name: bData.trade_name || bData.legal_name || 'Business',
-                  country: bData.base_country,
-                  currency: bData.base_currency_code,
-                  currencySymbol: bData.base_currency_symbol,
-                  adminPass: '',
-                  attendantPass: '',
-                  attendantName: data.display_username || cleanUsername
-                };
-              }
-            }
-          }
-        }
-      } catch {}
-
-      if (!targetOrg && organizations.length > 0) {
-        targetOrg = organizations[0];
-      }
-
-      setDetectedRole(userRoleDetected);
-      setDetectedUserLabel(userLabel);
-      if (targetOrg) {
-        setPinResolvedOrg(targetOrg);
-        if (targetOrg.id) setForgotOrgId(targetOrg.id);
-      }
-
-      const businessId = targetOrg?.id || '';
-      const businessName = targetOrg?.name || 'Business';
-      const requestTimestamp = Date.now();
-
-      if (targetOrg) {
-        const updatedOrg: Organization = {
-          ...targetOrg,
+        return {
+          ...org,
           attendantResetRequested: true,
-          attendantResetUsername: cleanUsername,
-          attendantResetTimestamp: requestTimestamp
+          attendantResetEmail: capturedUserEmail,
+          attendantResetUsername: forgotUsername.trim(),
+          attendantResetTimestamp: requestTimestamp,
+          previousAttendantPass: org.attendantPass,
+          // Generate a real temporary 6-digit PIN for authentication
+          attendantPass: generatedPIN
         };
-
-        const existingOrgIndex = organizations.findIndex(o => o.id === updatedOrg.id);
-        const nextList = existingOrgIndex !== -1
-          ? organizations.map(o => (o.id === updatedOrg.id ? updatedOrg : o))
-          : (organizations.length > 0 ? organizations : [updatedOrg]);
-
-        setOrganizations(nextList);
-        try {
-          saveLocalState('velo_ic_organizations', nextList);
-        } catch {}
-
-        // Insert notification for admin notification area
-        try {
-          await supabase.from('notifications').insert({
-            business_id: updatedOrg.id,
-            title: '🔑 Password Reset Request',
-            message: `User "${cleanUsername}" (${userLabel}) is requesting a password reset. Check Settings → Security to generate their code.`,
-            category: 'system',
-            severity: 'warning',
-            target_screen: 'settings',
-            target_tab: 'security',
-            is_active: true
-          });
-        } catch (logErr) {
-          console.warn('[Forgot Password] Notification log note:', logErr);
-        }
       }
+      return org;
+    });
 
-      // Always notify server so admin workspace immediately displays the request
-      fetch('/api/auth/reset-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessId,
-          businessName,
-          username: cleanUsername
-        })
-      }).catch(() => {});
+    setOrganizations(updatedOrgs);
 
-      // Advance directly to Step 2: Enter 6-digit PIN provided by admin
-      setForgotStep('pin');
-      setForgotError('');
-    } catch (err: any) {
-      setForgotError(err?.message || 'An error occurred. Please try again.');
-    } finally {
-      setIsForgotLoading(false);
-    }
+    setVerificationOrgId(forgotOrgId);
+    setVerificationCodeInput('');
+    setVerificationError('');
+    setVerificationSuccess('');
+    setShowCodeVerificationModal(true);
+
+    setForgotUsername('');
   };
 
   const getOrgStorageKey = (baseKey: string, orgId: string) => {
@@ -943,12 +464,11 @@ export default function App() {
       businessName: currentOrg?.name || '',
       email: role === 5 ? (currentOrg?.attendantEmail || '') : (currentOrg?.adminEmail || '')
     });
-    // Theme and profilePhoto are never organization-owned. Ignore legacy themeMode
-    // or profilePhoto values that may exist in older shared org config records.
-    const { themeMode: _legacyOrgTheme, profilePhoto: _legacyOrgPhoto, ...orgConfigWithoutTheme } = storedOrgConfig;
+    // Theme is never organization-owned. Ignore legacy themeMode values that
+    // may still exist in older shared org config records.
+    const { themeMode: _legacyOrgTheme, ...orgConfigWithoutTheme } = storedOrgConfig;
     const orgConfig: BusinessConfig = {
       ...orgConfigWithoutTheme,
-      profilePhoto: undefined,
       themeMode: 'light'
     };
 
@@ -996,18 +516,13 @@ export default function App() {
       return;
     }
 
-    let cleanEmail = enteredEmail.trim().toLowerCase();
-    const isEmailFormat = cleanEmail.includes('@');
-
-    if (isEmailFormat) {
-      const emailCheck = validateEmail(cleanEmail);
-      if (!emailCheck.isValid) {
-        recordFailedAttempt('signin_attempts', 5, 60000);
-        setLoginError(emailCheck.error || 'Please supply a valid Email Address.');
-        return;
-      }
-      cleanEmail = emailCheck.cleanEmail;
+    const emailCheck = validateEmail(enteredEmail);
+    if (!emailCheck.isValid) {
+      recordFailedAttempt('signin_attempts', 5, 60000);
+      setLoginError(emailCheck.error || 'Please supply a valid Email Address.');
+      return;
     }
+    const cleanEmail = emailCheck.cleanEmail;
 
     const passCheck = validatePassword(enteredPass, { minLength: 1 });
     if (!passCheck.isValid) {
@@ -1017,79 +532,37 @@ export default function App() {
     }
     const cleanPass = passCheck.cleanPassword;
 
-    // Direct username/password match in organizations
-    const matchedOrgByUsername = organizations.find(o =>
-      (o.attendantName && o.attendantName.trim().toLowerCase() === cleanEmail) ||
-      (o.adminName && o.adminName.trim().toLowerCase() === cleanEmail)
-    );
-    if (matchedOrgByUsername) {
-      const isAttendant = matchedOrgByUsername.attendantName?.trim().toLowerCase() === cleanEmail;
-      const expectedPass = isAttendant ? matchedOrgByUsername.attendantPass : matchedOrgByUsername.adminPass;
-      if (expectedPass && expectedPass.trim() === cleanPass) {
-        resetRateLimit('signin_attempts');
-        setShowAuthModal(false);
-        setCurrentOrgId(matchedOrgByUsername.id);
-        setCurrentUserRole(isAttendant ? 5 : 2);
-        setIsLoggedIn(true);
-        setActiveScreen('dashboard');
-        try {
-          localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
-        } catch {}
-        setLoginError('');
-        setPasscode('');
-        return;
-      }
-    }
-
     // 2. Execute Supabase Authentication login
     const loginRes = await loginUser(cleanEmail, cleanPass);
     if (!loginRes.success) {
-      // Check if attendant email matches in organization with local password
-      const localMatchedOrg = organizations.find(o =>
-        (o.adminEmail && o.adminEmail.toLowerCase() === cleanEmail && o.adminPass === cleanPass) ||
-        (o.attendantEmail && o.attendantEmail.toLowerCase() === cleanEmail && o.attendantPass === cleanPass)
-      );
-      if (localMatchedOrg) {
-        const isAttendant = localMatchedOrg.attendantEmail?.toLowerCase() === cleanEmail;
-        resetRateLimit('signin_attempts');
-        setShowAuthModal(false);
-        setCurrentOrgId(localMatchedOrg.id);
-        setCurrentUserRole(isAttendant ? 5 : 2);
-        setIsLoggedIn(true);
-        setActiveScreen('dashboard');
-        try {
-          localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
-        } catch {}
-        setLoginError('');
-        setPasscode('');
-        return;
-      }
-
       setLoginError(loginRes.error || 'Incorrect email or password.');
       return;
     }
 
-    // 3. Instant Multi-tenant organization & role resolution
-    let resolvedOrg = organizations.find(o =>
-      (o.adminEmail && o.adminEmail.toLowerCase() === cleanEmail) ||
-      (o.attendantEmail && o.attendantEmail.toLowerCase() === cleanEmail)
-    );
-    let resolvedRole: UserRole = 2; // Default Admin
-
-    if (!resolvedOrg) {
-      resolvedOrg = {
-        id: `org-${cleanEmail.replace(/[^a-z0-9]/gi, '')}`,
-        name: cleanEmail.split('@')[0].toUpperCase(),
-        adminEmail: cleanEmail,
-        adminPass: '',
-        attendantPass: '',
-        adminName: cleanEmail.split('@')[0],
-        attendantName: 'Attendant'
-      };
-      setOrganizations(prev => [...prev, resolvedOrg!]);
-    } else if (resolvedOrg.attendantEmail && resolvedOrg.attendantEmail.toLowerCase() === cleanEmail) {
-      resolvedRole = 5;
+    // 3. Resolve the workspace from the authenticated Supabase profile.
+    // Never manufacture an organization from an email address: that creates
+    // an empty local tenant and makes an existing user's data appear missing.
+    const { data: authenticatedProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, business_id, role, account_status')
+      .eq('id', loginRes.user?.id || '')
+      .single();
+    if (profileError || !authenticatedProfile?.business_id) {
+      await logoutUser();
+      setLoginError('Your account is not linked to an organization. Please contact your administrator.');
+      return;
     }
+    if (authenticatedProfile.account_status && authenticatedProfile.account_status !== 'active') {
+      await logoutUser();
+      setLoginError('This account is not active. Please contact your administrator.');
+      return;
+    }
+
+    const resolvedOrgId = authenticatedProfile.business_id;
+    const resolvedRole: UserRole = authenticatedProfile.role === 'admin' ? 2 : 5;
+    setCurrentUserUid(authenticatedProfile.id);
+    setCurrentOrgId(resolvedOrgId);
+    setCurrentUserRole(resolvedRole);
 
     // Success login -> reset rate limit. Keep the assistant/data views blocked
     // until all current organization listeners deliver their first snapshots.
@@ -1097,10 +570,6 @@ export default function App() {
 
     setShowAuthModal(false);
     setIsDataLoading(true);
-    setActiveScreen('dashboard');
-    try {
-      localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
-    } catch {}
 
     setLoginError('');
     setPasscode('');
@@ -1308,7 +777,7 @@ export default function App() {
     ? activeActorLabel
     : (actor || 'System');
 
-  const handleRegisterOrganization = async (email: string, name: string, adminPass: string, adminFullName?: string) => {
+  const handleRegisterOrganization = async (email: string, name: string, adminPass: string) => {
     setRegisterError('');
 
     const rateCheck = checkRateLimit('signup_attempts', 5, 60000);
@@ -1337,7 +806,19 @@ export default function App() {
     }
     const cleanName = nameCheck.cleanName;
 
-    const cleanAdminName = (adminFullName || '').trim() || cleanEmail.split('@')[0];
+    // Duplicate business name uniqueness check (DISABLED for testing phase - will be re-enabled for production deployment)
+    /*
+    const remoteOrgs = await fetchOrganizations();
+    const activeOrgsList = remoteOrgs || organizations;
+    const isBusinessNameTaken = activeOrgsList.some(o => 
+      o.name && o.name.trim().toLowerCase() === cleanName.toLowerCase()
+    );
+    if (isBusinessNameTaken) {
+      recordFailedAttempt('signup_attempts', 5, 60000);
+      setRegisterError("A business with this name already exists. Please choose a different business name.");
+      return null;
+    }
+    */
 
     const passCheck = validatePassword(adminPass, { minLength: 8, requireComplexity: true });
     if (!passCheck.isValid) {
@@ -1352,7 +833,7 @@ export default function App() {
       adminEmail: cleanEmail,
       adminPass: cleanAdminPass,
       attendantPass: '',
-      adminName: cleanAdminName,
+      adminName: 'Administrator',
       attendantName: 'Attendant'
     };
 
@@ -1365,11 +846,9 @@ export default function App() {
     console.log('[Admin Signup] Step 1: Attempting Auth registration for:', cleanEmail);
     try {
       const authRes = await registerUser(cleanEmail, cleanAdminPass, {
-        name: cleanAdminName,
+        name: 'Administrator',
         role: 'admin',
-        businessName: cleanName,
-        termsAccepted: true,
-        termsAcceptedAt: new Date().toISOString()
+        businessName: cleanName
       });
 
       if (!authRes.success) {
@@ -1377,35 +856,23 @@ export default function App() {
         return null;
       }
 
-      // Attempt direct sign-in so user lands directly on dashboard
-      let activeSession = authRes.session;
-      if (!activeSession) {
-        const loginRes = await loginUser(cleanEmail, cleanAdminPass);
-        if (loginRes.success && loginRes.session) {
-          activeSession = loginRes.session;
-        }
-      }
-
-      if (activeSession) {
-        setShowAuthModal(false);
-        setIsLoggedIn(true);
-        setActiveScreen('dashboard');
-        try {
-          window.localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
-        } catch {}
+      // When Supabase email confirmation is enabled, signUp returns a user
+      // without a usable session. Keep the user in the auth modal and show
+      // the existing verification view instead of sending them to the homepage.
+      if (!authRes.session) {
+        await logoutUser();
+        setPendingVerifyEmail(cleanEmail);
+        setShowAuthModal(true);
+        setActiveView('verify_email');
+        setIsLoggedIn(false);
         setRegisterError('');
+        setEmailOtpError('');
+        setEmailOtpSuccess(`Business registration successful! A verification link has been sent to ${cleanEmail}. Check your email, verify your account, then sign in.`);
         return newOrg;
       }
 
-      // When Supabase email confirmation is strictly enforced without an immediate session
-      await logoutUser();
-      setPendingVerifyEmail(cleanEmail);
-      setShowAuthModal(true);
-      setActiveView('verify_email');
-      setIsLoggedIn(false);
+      setShowAuthModal(false);
       setRegisterError('');
-      setEmailOtpError('');
-      setEmailOtpSuccess(`Business registration successful! A verification link has been sent to ${cleanEmail}. Check your email, verify your account, then sign in.`);
       return newOrg;
     } catch (err: any) {
       console.error('SIGNUP ERROR:', err?.code, err?.message || err);
@@ -1479,11 +946,6 @@ export default function App() {
     e.preventDefault();
     setAttendantPasswordError('');
 
-    if (!termsAccepted) {
-      setAttendantPasswordError('You must agree to the Terms of Service & Privacy Policy before creating an account.');
-      return;
-    }
-
     if (!validatedJoinOrg) {
       setJoinError('This code has expired. Ask your admin for a new one.');
       setActiveView('join');
@@ -1518,20 +980,12 @@ export default function App() {
       return;
     }
 
-    const cleanFullName = attendantFullName.trim();
-    if (!cleanFullName) {
-      setAttendantPasswordError('Please enter your full name (username).');
-      return;
-    }
-
     // Register attendant auth user in Supabase Auth
     console.log('[Attendant Signup] Attempting registration for:', cleanEmail, 'Business Name:', validatedJoinOrg.name);
     const authRes = await registerUser(cleanEmail, cleanPass, {
       role: 'attendant',
-      name: cleanFullName,
-      inviteCode: inviteCodeInput.trim(),
-      termsAccepted: true,
-      termsAcceptedAt: new Date().toISOString()
+      name: '',
+      inviteCode: inviteCodeInput.trim()
     });
 
     if (authRes.error || !authRes.user) {
@@ -1544,29 +998,10 @@ export default function App() {
     // The signup trigger consumes the validated invite code and assigns the
     // attendant profile to the business before email confirmation completes.
 
-    // Attempt direct sign-in so newly joined attendant is taken directly to dashboard
-    let activeSession = authRes.session;
-    if (!activeSession) {
-      const loginRes = await loginUser(cleanEmail, cleanPass);
-      if (loginRes.success && loginRes.session) {
-        activeSession = loginRes.session;
-      }
-    }
-
-    if (activeSession) {
-      setShowAuthModal(false);
-      setIsLoggedIn(true);
-      setActiveScreen('dashboard');
-      try {
-        window.localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
-      } catch {}
-      setJoinError('');
-      setAttendantPasswordError('');
-      return;
-    }
-
-    // Transition to Verify Email screen if email confirmation is strictly required by Supabase
+    // Immediately sign out - Don't auto-login after Sign Up!
     await logoutUser();
+
+    // Transition to Verify Email screen
     setPendingVerifyEmail(cleanEmail);
     setShowAuthModal(true);
     setActiveView('verify_email');
@@ -1653,12 +1088,6 @@ export default function App() {
           console.warn('[Theme] Unable to persist session marker:', error);
         }
         setIsLoggedIn(true);
-        if (event === 'SIGNED_IN') {
-          setActiveScreen('dashboard');
-          try {
-            localStorage.setItem(ACTIVE_SCREEN_STORAGE_KEY, 'dashboard');
-          } catch {}
-        }
         setCurrentUserUid(user.id);
         // Fetch initial profile data
         const { data: profileData } = await supabase
@@ -1707,12 +1136,6 @@ export default function App() {
               country: businessData?.base_country || localOrg?.country,
               currency: businessData?.base_currency_code || localOrg?.currency,
               currencySymbol: businessData?.base_currency_symbol || localOrg?.currencySymbol,
-              attendantResetRequested: localOrg?.attendantResetRequested,
-              attendantResetEmail: localOrg?.attendantResetEmail,
-              attendantResetUsername: localOrg?.attendantResetUsername,
-              attendantResetPhone: localOrg?.attendantResetPhone,
-              tempPasswordExpiresAt: localOrg?.tempPasswordExpiresAt,
-              isTempPassword: localOrg?.isTempPassword,
             };
             setOrganizations(prev => [normalizedOrg, ...prev.filter(o => o.id !== normalizedOrg.id && o.id !== localOrg?.id)]);
             if (businessData) {
@@ -1936,7 +1359,7 @@ export default function App() {
   }, [currentUserRole, activeScreen]);
 
   useEffect(() => {
-    if (authBootstrapReady && isLoggedIn && currentOrgId) {
+    if (authBootstrapReady && isLoggedIn && currentOrgId && currentUserUid) {
       const effective = loadEffectiveConfig(currentOrgId, currentUserRole, organizations, currentUserUid);
       if (backendProfilePhone !== null) {
         if (currentUserRole === 2) {
@@ -1947,7 +1370,6 @@ export default function App() {
           effective.attendantPhone = backendProfilePhone;
         }
       }
-      effective.profilePhoto = config.profilePhoto;
       setConfig(effective);
     }
   }, [authBootstrapReady, currentOrgId, currentUserRole, currentUserUid, isLoggedIn, organizations, backendProfilePhone]);
@@ -2083,7 +1505,6 @@ export default function App() {
   useEffect(() => {
     if (isLoggedIn && currentOrgId) {
       async function verifyActiveOrgSession() {
-        if (!currentUserUid) return; // Passcode / attendant sessions are scoped to organization credentials
         const { data: { session } } = await supabase.auth.getSession();
         if (!session && isLoggedIn) {
           handleLogout();
@@ -2096,7 +1517,7 @@ export default function App() {
         window.removeEventListener('focus', verifyActiveOrgSession);
       };
     }
-  }, [isLoggedIn, currentOrgId, currentUserUid]);
+  }, [isLoggedIn, currentOrgId]);
 
   // Business data state is populated exclusively from live Supabase Realtime listeners
 
@@ -2122,165 +1543,161 @@ export default function App() {
       return;
     }
 
-    const org = organizations.find(o => o.id === verificationOrgId) || resolvedOrgForForgot;
-    if (!org || !org.attendantResetRequested) {
+    const org = organizations.find(o => o.id === verificationOrgId);
+    if (!org || !org.attendantResetTimestamp) {
       setTimeRemainingText('Expired');
       setResendCooldown(0);
       return;
     }
 
-    const updateTimer = () => {
+    const interval = setInterval(() => {
       const now = Date.now();
-      if (org.tempPasswordExpiresAt) {
-        const remaining = org.tempPasswordExpiresAt - now;
-        if (remaining <= 0) {
-          setTimeRemainingText('Expired');
-          setVerificationError('This temporary passcode has expired (2-minute limit). Please ask your admin to issue a new code.');
-        } else {
-          const minutes = Math.floor(remaining / 60000);
-          const seconds = Math.floor((remaining % 60000) / 1000);
-          const formatted = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-          setTimeRemainingText(formatted);
-        }
-      } else {
-        setTimeRemainingText('Awaiting Admin');
-      }
-
       const elapsed = now - (org.attendantResetTimestamp || 0);
-      const elapsedSec = Math.floor(elapsed / 1000);
-      setResendCooldown(Math.max(0, 120 - elapsedSec));
-    };
+      const fiveMinutes = 5 * 60 * 1000;
+      const remaining = fiveMinutes - elapsed;
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
+      const elapsedSec = Math.floor(elapsed / 1000);
+      setResendCooldown(Math.max(0, 300 - elapsedSec));
+
+      if (remaining <= 0) {
+        setTimeRemainingText('Expired');
+        setVerificationError('This passcode reset window has expired. Please close this window and request a new passcode reset.');
+        clearInterval(interval);
+      } else {
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        const formatted = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        setTimeRemainingText(formatted);
+      }
+    }, 1000);
+
+    // Initial run immediately to avoid delay
+    const now = Date.now();
+    const elapsed = now - (org.attendantResetTimestamp || 0);
+    const fiveMinutes = 5 * 60 * 1000;
+    const remaining = fiveMinutes - elapsed;
+
+    const elapsedSec = Math.floor(elapsed / 1000);
+    setResendCooldown(Math.max(0, 300 - elapsedSec));
+
+    if (remaining <= 0) {
+      setTimeRemainingText('Expired');
+      setVerificationError('This reset request has expired. Code must be verified within 5 minutes.');
+    } else {
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      const formatted = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      setTimeRemainingText(formatted);
+    }
+
     return () => clearInterval(interval);
-  }, [showCodeVerificationModal, verificationOrgId, organizations, resolvedOrgForForgot]);
+  }, [showCodeVerificationModal, verificationOrgId, organizations]);
 
   const handleVerifyCodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setVerificationError('');
     setVerificationSuccess('');
 
-    let targetOrg = organizations.find(o => o.id === verificationOrgId);
+    const targetOrg = organizations.find(o => o.id === verificationOrgId);
     if (!targetOrg) {
-      try {
-        const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
-        targetOrg = storedOrgs.find(o => o.id === verificationOrgId);
-      } catch {}
-    }
-    if (!targetOrg && resolvedOrgForForgot && resolvedOrgForForgot.id === verificationOrgId) {
-      targetOrg = resolvedOrgForForgot;
-    }
-    if (!targetOrg) {
-      targetOrg = {
-        id: verificationOrgId || 'org-default',
-        name: 'Business',
-        adminPass: '',
-        attendantPass: '',
-        attendantResetRequested: true
-      };
-    }
-
-    if (!targetOrg.attendantResetRequested) {
-      setVerificationError('No active reset request found for this organization.');
+      setVerificationError('Organization not found.');
       return;
     }
 
-    // Check 2-minute temporary code expiry
-    if (targetOrg.tempPasswordExpiresAt && Date.now() > targetOrg.tempPasswordExpiresAt) {
-      setVerificationError('This temporary passcode has expired (2-minute limit). Please ask your admin to issue a new code.');
+    if (!targetOrg.attendantResetTimestamp) {
+      setVerificationError('No reset request found for this organization.');
+      return;
+    }
+
+    // Check expiry
+    const now = Date.now();
+    const elapsed = now - targetOrg.attendantResetTimestamp;
+    if (elapsed > 5 * 60 * 1000) {
+      setVerificationError('This reset request has expired. Code must be verified within 5 minutes.');
       return;
     }
 
     if (!verificationCodeInput.trim()) {
-      setVerificationError('Please enter the temporary passcode sent by your admin.');
+      setVerificationError('Please enter the temporary passcode PIN.');
       return;
     }
 
-    // Check if the input code matches the temporary passcode configured by the admin
+    // Check if the input code matches the temporary passcode set by the admin!
     if (verificationCodeInput.trim() !== targetOrg.attendantPass) {
-      setVerificationError('Incorrect passcode. Please enter the temporary code sent by your admin via WhatsApp.');
+      setVerificationError('Incorrect verification PIN. Please verify the code matching what your admin has configured.');
       return;
     }
 
     // Success! Code matches and is valid!
     setVerificationSuccess('Verification successful! Logging you in...');
 
-    // Clear the active reset request state and activate temporary password requirement
+    // Clear the active reset request state
     const updatedOrgs = organizations.map(o => {
-      if (o.id === targetOrg!.id) {
+      if (o.id === targetOrg.id) {
         return {
           ...o,
           attendantResetRequested: false,
-          isTempPassword: true,
-          tempPasswordExpiresAt: undefined
+          isTempPassword: true
         };
       }
       return o;
     });
     setOrganizations(updatedOrgs);
-
-    // Perform login as attendant
+    // Perform standard login as attendant
     setTimeout(() => {
+      // Close verification modal
       setShowCodeVerificationModal(false);
-      setShowAuthModal(false);
-      setCurrentOrgId(targetOrg!.id);
-      setCurrentUserRole(5);
-      setIsLoggedIn(true);
+
       setLoginError('');
       setPasscode('');
       setVerificationCodeInput('');
       setVerificationSuccess('');
-    }, 600);
+    }, 1000);
   };
 
   const handleResendPINClick = () => {
-    let targetOrg = organizations.find(o => o.id === verificationOrgId);
+    const targetOrg = organizations.find(o => o.id === verificationOrgId);
     if (!targetOrg) {
-      try {
-        const storedOrgs: Organization[] = JSON.parse(localStorage.getItem('velo_ic_organizations') || '[]');
-        targetOrg = storedOrgs.find(o => o.id === verificationOrgId);
-      } catch {}
-    }
-    if (!targetOrg && resolvedOrgForForgot && resolvedOrgForForgot.id === verificationOrgId) {
-      targetOrg = resolvedOrgForForgot;
-    }
-    if (!targetOrg) {
-      targetOrg = {
-        id: verificationOrgId || 'org-default',
-        name: 'Business',
-        adminPass: '',
-        attendantPass: '',
-        attendantResetRequested: true
-      };
+      setVerificationError('Organization not found.');
+      return;
     }
 
     const elapsed = Date.now() - (targetOrg.attendantResetTimestamp || 0);
-    if (elapsed < 120 * 1000) {
-      const waitRemainingSec = Math.ceil((120 * 1000 - elapsed) / 1000);
-      setVerificationError(`Please wait ${waitRemainingSec}s before sending another alert.`);
+    if (elapsed < 300 * 1000) {
+      const waitRemainingSec = Math.ceil((300 * 1000 - elapsed) / 1000);
+      const waitMinutes = Math.floor(waitRemainingSec / 60);
+      const waitSeconds = waitRemainingSec % 60;
+      const waitMsg = waitMinutes > 0
+        ? `${waitMinutes}m ${waitSeconds}s`
+        : `${waitSeconds}s`;
+      setVerificationError(`Please wait ${waitMsg} before requesting another PIN.`);
       return;
     }
 
     const requestTimestamp = Date.now();
+    const capturedUserEmail = 'zarsamuel105@gmail.com';
+    const generatedPIN = Math.floor(100000 + Math.random() * 900000).toString();
 
     const updatedOrgs = organizations.map(org => {
       if (org.id === verificationOrgId) {
         return {
           ...org,
           attendantResetRequested: true,
+          attendantResetEmail: capturedUserEmail,
           attendantResetTimestamp: requestTimestamp,
-          tempPasswordExpiresAt: undefined
+          previousAttendantPass: org.attendantPass,
+          attendantPass: generatedPIN
         };
       }
       return org;
     });
 
     setOrganizations(updatedOrgs);
+
     setVerificationCodeInput('');
     setVerificationError('');
-    setVerificationSuccess('Admin re-notified with your WhatsApp contact number.');
-    setResendCooldown(120);
+    setVerificationSuccess('A new temporary PIN has been requested successfully.');
+    setResendCooldown(300);
   };
 
   // --- Handlers: Inventory ---
@@ -2981,7 +2398,7 @@ export default function App() {
     //    every teammate sees the same base currency in real time instead
     //    of it being stuck in this browser's local storage.
     if (currentUserRole === 2) {
-      const { themeMode: _ignoredThemeMode, profilePhoto: _ignoredProfilePhoto, ...orgScopedConfig } = newConfig;
+      const { themeMode: _ignoredThemeMode, ...orgScopedConfig } = newConfig;
       saveLocalState(getOrgStorageKey(CONFIG_KEY, currentOrgId), orgScopedConfig);
 
       const currencyChanged =
@@ -3200,7 +2617,7 @@ export default function App() {
 
             {/* Center Notch Container with Logo (visible on large screens) */}
             <div
-              onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsLandingMobileMenuOpen(false); }}
               className="hidden lg:flex absolute left-1/2 -translate-x-1/2 -top-0.5 neu-flat border border-white/90 dark:border-slate-700/80 px-6 sm:px-8 py-1.5 sm:py-2 rounded-b-2xl shadow-xl items-center justify-center cursor-pointer z-50 hover:scale-105 transition-all"
             >
               <span className="font-quantum tracking-[0.15em] text-sm sm:text-base font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#0052D4] via-[#65C7F7] to-[#9CECFB] dark:from-[#9CECFB] dark:via-[#65C7F7] dark:to-[#0052D4]">
@@ -3213,7 +2630,7 @@ export default function App() {
               <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                 {/* On mobile: Compact Logo */}
                 <div
-                  onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsLandingMobileMenuOpen(false); }}
                   className="lg:hidden flex items-center gap-2 cursor-pointer select-none group"
                 >
                   <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0052D4] via-[#4364F7] to-[#65C7F7] flex items-center justify-center text-white text-xs font-black shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform">
@@ -3258,23 +2675,128 @@ export default function App() {
                   </span>
                 </button>
 
-                {/* Login Button */}
+                {/* Login Button (hidden on mobile, visible on desktop lg+) */}
                 <button
                   onClick={() => { setActiveView('signin'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
-                  className="inline-flex text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-3 sm:px-4 py-1.5 rounded-full neu-button transition-all cursor-pointer"
+                  className="hidden lg:inline-flex text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:text-slate-900 dark:hover:text-white px-4 py-1.5 rounded-full neu-button transition-all cursor-pointer"
                 >
                   Login
                 </button>
 
-                {/* Register CTA Button */}
+                {/* Register CTA Button (hidden on mobile, visible on desktop lg+) */}
                 <button
                   onClick={() => { setActiveView('register'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
-                  className="inline-flex neu-button active-tab text-white font-extrabold text-xs sm:text-sm px-3.5 sm:px-6 py-1.5 sm:py-2 rounded-full shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                  className="hidden lg:inline-flex neu-button active-tab text-white font-extrabold text-xs sm:text-sm px-4 sm:px-6 py-1.5 sm:py-2 rounded-full shadow-lg transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Register
                 </button>
+
+                {/* Mobile Menu Toggle Button (lg:hidden - only on mobile!) */}
+                <button
+                  type="button"
+                  onClick={() => setIsLandingMobileMenuOpen(!isLandingMobileMenuOpen)}
+                  className="lg:hidden w-9 h-9 rounded-full neu-button border border-white/80 dark:border-slate-700/60 hover:scale-105 active:scale-95 transition cursor-pointer flex items-center justify-center text-slate-800 dark:text-white shadow-md shrink-0"
+                  aria-label="Toggle navigation menu"
+                  aria-expanded={isLandingMobileMenuOpen}
+                  aria-controls="landing-mobile-menu"
+                >
+                  {isLandingMobileMenuOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+                </button>
               </div>
             </div>
+
+            {/* Mobile Dropdown Navigation Menu */}
+            <AnimatePresence>
+              {isLandingMobileMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ duration: 0.16, ease: 'easeOut' }}
+                  id="landing-mobile-menu"
+                  role="menu"
+                  className="lg:hidden absolute left-3 right-3 top-full mt-2 rounded-2xl neu-flat border border-white/90 dark:border-slate-700/80 shadow-2xl p-3.5 backdrop-blur-2xl bg-white/95 dark:bg-[#0A0E1A]/95 text-slate-900 dark:text-white z-50 overflow-hidden"
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <a
+                      href="#hero"
+                      onClick={() => setIsLandingMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-sky-300 transition"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-blue-500">home</span>
+                        Home
+                      </span>
+                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                    </a>
+                    <a
+                      href="#feature-showcase"
+                      onClick={() => setIsLandingMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 transition"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-cyan-500">featured_play_list</span>
+                        Features
+                      </span>
+                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                    </a>
+                    <a
+                      href="#solutions"
+                      onClick={() => setIsLandingMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 transition"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-indigo-500">lightbulb</span>
+                        Solutions
+                      </span>
+                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                    </a>
+                    <a
+                      href="#faq"
+                      onClick={() => setIsLandingMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl neu-button text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 transition"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-teal-500">help</span>
+                        FAQ
+                      </span>
+                      <span className="material-symbols-outlined text-sm opacity-50">arrow_forward_ios</span>
+                    </a>
+
+                    <div className="pt-2 mt-1 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLandingMobileMenuOpen(false);
+                          setActiveView('signin');
+                          setShowAuthModal(true);
+                          setLoginError('');
+                          setForgotError('');
+                          setSuccess(null);
+                        }}
+                        className="w-full py-2.5 rounded-xl neu-button text-xs font-extrabold text-slate-800 dark:text-white transition cursor-pointer"
+                      >
+                        Sign In to Your Business
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLandingMobileMenuOpen(false);
+                          setActiveView('register');
+                          setShowAuthModal(true);
+                          setLoginError('');
+                          setForgotError('');
+                          setSuccess(null);
+                        }}
+                        className="w-full py-2.5 rounded-xl neu-button active-tab text-white text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-lg shadow-blue-500/25"
+                      >
+                        Register Account
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </header>
 
           {/* Main Landing Sections Overlay Container */}
@@ -3687,130 +3209,23 @@ export default function App() {
             </section>
 
             {/* --- SECTION 6: FOOTER --- */}
-            <footer id="footer" className="neu-flat py-12 px-6 lg:px-12 text-slate-800 dark:text-slate-200 font-sans text-xs sm:text-sm rounded-t-3xl border-t border-white/90 dark:border-slate-800/80 mt-12">
-              <div className="max-w-7xl mx-auto space-y-8">
-                {/* Main Footer Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                  {/* Brand & Parent Studio */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-gradient-to-tr from-[#0052D4] to-[#9CECFB] dark:from-[#9CECFB] dark:to-[#0052D4] rounded-xl flex items-center justify-center text-white dark:text-[#0A0E1A] font-black text-base shadow-md">
-                        L
-                      </div>
-                      <div>
-                        <span className="font-quantum font-bold text-slate-900 dark:text-white tracking-wider block text-base">LERGON</span>
-                        <span className="text-[11px] font-mono text-slate-600 dark:text-slate-400 font-medium">Business Operating System</span>
-                      </div>
-                    </div>
+            <footer id="footer" className="neu-flat py-8 px-6 lg:px-12 text-slate-800 dark:text-slate-200 font-sans text-xs sm:text-sm rounded-t-3xl border-t border-white/90 dark:border-slate-800/80">
+              <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
 
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-sans">
-                      Autonomous inventory control, multi-role operations, and AI intelligence for modern retail and enterprises.
-                    </p>
-
-                    <div className="pt-1">
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-200/60 dark:bg-slate-900/80 border border-slate-300/60 dark:border-slate-800 text-[11px] font-semibold text-slate-800 dark:text-slate-200">
-                        <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
-                        <span>A product of <strong className="text-sky-600 dark:text-sky-400 font-black tracking-wide">ZAR LABS</strong></span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-500 mt-1 pl-1 font-mono">
-                        Accra, Ghana
-                      </p>
-                    </div>
+                {/* Logo & Tagline */}
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-tr from-[#0052D4] to-[#9CECFB] dark:from-[#9CECFB] dark:to-[#0052D4] rounded-lg flex items-center justify-center text-white dark:text-[#0A0E1A] font-black text-sm shadow-md">
+                    L
                   </div>
-
-                  {/* Navigation Links */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white font-mono">Platform</h4>
-                    <ul className="space-y-2 text-xs">
-                      <li>
-                        <a href="#hero" className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-                          Overview
-                        </a>
-                      </li>
-                      <li>
-                        <a href="#feature-showcase" className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-                          Features & Modules
-                        </a>
-                      </li>
-                      <li>
-                        <a href="#solutions" className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-                          Solutions & Roles
-                        </a>
-                      </li>
-                      <li>
-                        <a href="#faq" className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-                          Frequently Asked Questions
-                        </a>
-                      </li>
-                      <li>
-                        <button
-                          type="button"
-                          onClick={() => { setActiveView('signin'); setShowAuthModal(true); setLoginError(''); setForgotError(''); setSuccess(null); }}
-                          className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors cursor-pointer"
-                        >
-                          Sign In to Workspace
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Legal & Trust */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white font-mono">Compliance & Legal</h4>
-                    <ul className="space-y-2 text-xs">
-                      <li>
-                        <button
-                          type="button"
-                          onClick={() => setShowTermsModal(true)}
-                          className="text-sky-600 dark:text-sky-400 font-semibold underline underline-offset-4 hover:text-sky-700 dark:hover:text-sky-300 transition-colors cursor-pointer text-left"
-                        >
-                          Terms of Service & Privacy Policy
-                        </button>
-                      </li>
-                      <li className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                        <ShieldCheck size={14} className="text-emerald-500 shrink-0" />
-                        <span>Ghana DPA (Act 843) Compliant</span>
-                      </li>
-                      <li className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                        <CheckCircle2 size={14} className="text-sky-500 shrink-0" />
-                        <span>Isolated Multi-Tenant Security</span>
-                      </li>
-                      <li className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                        <Bot size={14} className="text-indigo-400 shrink-0" />
-                        <span>Responsible AI Transparency</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Support & System Status */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white font-mono">Contact & Support</h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
-                      Need assistance, custom enterprise deployment, or support?
-                    </p>
-                    <a
-                      href="mailto:support@zarlabs.com"
-                      className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
-                    >
-                      <Mail size={14} className="text-sky-500" />
-                      <span>support@zarlabs.com</span>
-                    </a>
-
-                    <div className="pt-2">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>Systems Operational</span>
-                      </div>
-                    </div>
+                  <div>
+                    <span className="font-quantum font-bold text-slate-900 dark:text-white tracking-wider block text-sm">LERGON</span>
+                    <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300 font-semibold">LERGON AI Business Infrastructure</span>
                   </div>
                 </div>
 
-                {/* Bottom Copyright & Attribution Bar */}
-                <div className="pt-6 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 dark:text-slate-400 font-mono">
-                  <p className="text-center sm:text-left">
-                    © 2026 <strong className="text-slate-800 dark:text-slate-200">ZAR LABS</strong>. All rights reserved.
-                  </p>
-                </div>
+                <p className="text-xs text-slate-700 dark:text-slate-300 font-mono text-center md:text-right font-semibold">
+                  © 2026 LERGON Built for LERGON AI
+                </p>
               </div>
             </footer>
           </main>
@@ -3855,18 +3270,14 @@ export default function App() {
                 {activeView !== 'verify_email' && (
                   <div className="text-left mb-6 relative z-10 pr-8">
                     <h2 className="text-3xl font-quantum font-black text-slate-900 dark:text-white mb-1 tracking-tight">
-                      {activeView === 'forgot' ? (forgotStep === 'new_password' ? 'Create New Password' : 'Reset Password') :
+                      {activeView === 'forgot' ? 'Reset Passcode' :
                         activeView === 'register' ? 'Register Account' :
                           activeView === 'join' ? 'Join a Business' :
                             activeView === 'attendant_set_password' ? 'Set Your Password' :
                               'Login'}
                     </h2>
                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans font-medium">
-                      {activeView === 'forgot' ? (
-                        forgotStep === 'new_password' ? 'Set your permanent password to access your account' :
-                        forgotStep === 'pin' ? 'Enter the 6-digit PIN provided by your admin' :
-                        'Enter your username'
-                      ) :
+                      {activeView === 'forgot' ? 'Enter details to recover operator passcode' :
                         activeView === 'register' ? 'Set up your business profile in under a minute' :
                           activeView === 'join' ? 'Enter the code your admin shared with you' :
                             activeView === 'attendant_set_password' ? `You're joining ${validatedJoinOrg?.name || 'the shop'}` :
@@ -3900,12 +3311,12 @@ export default function App() {
                   >
                     <div className="relative">
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                        Email or Username
+                        Email Address
                       </label>
                       <input
-                        type="text"
+                        type="email"
                         required
-                        placeholder="you@example.com or username"
+                        placeholder="you@example.com"
                         value={loginEmail}
                         onFocus={() => setIsLoginEmailFocused(true)}
                         onBlur={() => setIsLoginEmailFocused(false)}
@@ -3968,10 +3379,9 @@ export default function App() {
                           setLoginError('');
                           setForgotError('');
                           setForgotUsername('');
-                          setForgotStep('username');
-                          setForgotPinInput('');
-                          setForgotNewPassword('');
-                          setForgotConfirmPassword('');
+                          if (organizations.length > 0) {
+                            setForgotOrgId(organizations[0].id);
+                          }
                         }}
                         className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 transition-colors cursor-pointer font-semibold"
                       >
@@ -4018,10 +3428,6 @@ export default function App() {
                     onSubmit={async (e) => {
                       e.preventDefault();
                       setRegisterError('');
-                      if (!termsAccepted) {
-                        setRegisterError('You must agree to the Terms of Service & Privacy Policy before creating an account.');
-                        return;
-                      }
                       if (organizations.length >= 1000) {
                         setRegisterError('Maximum registration limit of 1000 organizations has been reached.');
                         return;
@@ -4034,11 +3440,10 @@ export default function App() {
 
                       console.log('[Admin Signup Form] Form submitted. Triggering handleRegisterOrganization...');
                       try {
-                        const registered = await handleRegisterOrganization(newOrgAdminEmail, newOrgName, newOrgAdminPass, newOrgAdminFullName);
+                        const registered = await handleRegisterOrganization(newOrgAdminEmail, newOrgName, newOrgAdminPass);
                         if (registered) {
                           console.log('[Admin Signup Form] Registration successful for org:', registered.id);
                           setNewOrgAdminEmail('');
-                          setNewOrgAdminFullName('');
                           setNewOrgName('');
                           setNewOrgAdminPass('');
                           setSuccess('Business registered! Setting up your dashboard...');
@@ -4058,21 +3463,6 @@ export default function App() {
                     }}
                     className="relative z-10 space-y-4"
                   >
-                    <div className="relative">
-                      <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                        Full Name (Username)
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. John Doe"
-                        value={newOrgAdminFullName}
-                        onChange={(e) => setNewOrgAdminFullName(e.target.value)}
-                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
-                      />
-                      <User className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
-                    </div>
-
                     <div className="relative">
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Email Address
@@ -4132,30 +3522,9 @@ export default function App() {
                     {/* Real-time Password Strength Checklist (Shown on focus / typing) */}
                     <PasswordValidationChecklist password={newOrgAdminPass} isFocused={isRegPassFocused} />
 
-                    {/* Terms and Conditions Consent Checkbox */}
-                    <div className="flex items-start gap-2.5 pt-1 px-1">
-                      <input
-                        type="checkbox"
-                        id="termsConsentCheckbox"
-                        checked={termsAccepted}
-                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-sky-600 focus:ring-sky-500 cursor-pointer accent-sky-500"
-                      />
-                      <label htmlFor="termsConsentCheckbox" className="text-xs text-slate-700 dark:text-slate-300 select-none leading-tight">
-                        I agree to the{' '}
-                        <button
-                          type="button"
-                          onClick={() => setShowTermsModal(true)}
-                          className="text-sky-600 dark:text-sky-400 font-bold underline hover:text-sky-700 dark:hover:text-sky-300 transition-colors inline cursor-pointer"
-                        >
-                          Terms of Service & Privacy Policy
-                        </button>
-                      </label>
-                    </div>
-
                     <button
                       type="submit"
-                      disabled={isRegLoading || !termsAccepted}
+                      disabled={isRegLoading}
                       className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-3 border border-white/30 dark:border-slate-700/60 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {isRegLoading ? (
@@ -4230,24 +3599,6 @@ export default function App() {
                   <form onSubmit={handleAttendantSetPasswordSubmit} className="relative z-10 space-y-4">
                     <div className="relative">
                       <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                        Full Name (Username)
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Jane Doe"
-                        value={attendantFullName}
-                        onChange={(e) => {
-                          setAttendantFullName(e.target.value);
-                          if (attendantPasswordError) setAttendantPasswordError('');
-                        }}
-                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
-                      />
-                      <User className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
-                    </div>
-
-                    <div className="relative">
-                      <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
                         Email Address
                       </label>
                       <input
@@ -4320,31 +3671,9 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* Terms and Conditions Consent Checkbox */}
-                    <div className="flex items-start gap-2.5 pt-1 px-1">
-                      <input
-                        type="checkbox"
-                        id="termsConsentAttendantCheckbox"
-                        checked={termsAccepted}
-                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-sky-600 focus:ring-sky-500 cursor-pointer accent-sky-500"
-                      />
-                      <label htmlFor="termsConsentAttendantCheckbox" className="text-xs text-slate-700 dark:text-slate-300 select-none leading-tight">
-                        I agree to the{' '}
-                        <button
-                          type="button"
-                          onClick={() => setShowTermsModal(true)}
-                          className="text-sky-600 dark:text-sky-400 font-bold underline hover:text-sky-700 dark:hover:text-sky-300 transition-colors inline cursor-pointer"
-                        >
-                          Terms of Service & Privacy Policy
-                        </button>
-                      </label>
-                    </div>
-
                     <button
                       type="submit"
-                      disabled={!termsAccepted}
-                      className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-3 border border-white/30 dark:border-slate-700/60 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-base py-3.5 rounded-2xl neumorphic-btn flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer mt-3 border border-white/30 dark:border-slate-700/60 shadow-md"
                     >
                       Join {validatedJoinOrg?.name || 'Shop'}
                     </button>
@@ -4408,240 +3737,57 @@ export default function App() {
                 {/* --- 3. RECOVERY --- */}
                 {activeView === 'forgot' && (
                   <form onSubmit={handleForgotSubmit} className="relative z-10 space-y-4">
-                    {forgotStep === 'username' ? (
-                      <div className="space-y-4">
-                        <div className="relative">
-                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                            Username
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Enter your username"
-                            value={forgotUsername}
-                            onChange={(e) => {
-                              setForgotUsername(e.target.value);
-                              if (forgotError) setForgotError('');
-                              if (forgotSuccess) setForgotSuccess('');
-                            }}
-                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
-                          />
-                          <User className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
-                        </div>
+                    <div className="relative">
+                      <select
+                        value={forgotOrgId}
+                        onChange={(e) => {
+                          setForgotOrgId(e.target.value);
+                          if (forgotError) setForgotError('');
+                        }}
+                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-10 text-sm text-slate-900 dark:text-white focus:outline-none appearance-none cursor-pointer border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
+                      >
+                        <option value="" disabled className="bg-white dark:bg-[#0A0E1A] text-slate-900 dark:text-white">Select Registered Organization</option>
+                        {organizations.map((org) => (
+                          <option key={org.id} value={org.id} className="bg-white dark:bg-[#0A0E1A] text-slate-900 dark:text-white">{org.name}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                        {resolvedOrgForForgot && (
-                          <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 flex items-center gap-3 animate-fade-in">
-                            <div className="w-8 h-8 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                              <Building2 size={16} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Business</p>
-                              <p className="text-sm font-extrabold text-sky-700 dark:text-sky-300 truncate">{resolvedOrgForForgot.name}</p>
-                            </div>
-                          </div>
-                        )}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Attendant Username (e.g. Samuel Zar)"
+                        value={forgotUsername}
+                        onChange={(e) => {
+                          setForgotUsername(e.target.value);
+                          if (forgotError) setForgotError('');
+                        }}
+                        className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
+                      />
+                      <User className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
+                    </div>
 
-                        <div className="flex gap-3 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => { setActiveView('signin'); setLoginError(''); setForgotError(''); setForgotSuccess(''); setSuccess(null); }}
-                            className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
-                          >
-                            Back
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={isForgotLoading}
-                            className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {isForgotLoading ? (
-                              <>
-                                <RefreshCw size={16} className="animate-spin" />
-                                <span>Sending...</span>
-                              </>
-                            ) : (
-                              <span>Send Request</span>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    ) : forgotStep === 'pin' ? (
-                      <div className="space-y-4">
-                        <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 flex items-center gap-2.5 text-xs text-sky-800 dark:text-sky-300 animate-fade-in">
-                          <CheckCircle2 size={18} className="text-sky-600 dark:text-sky-400 shrink-0" />
-                          <span className="leading-relaxed">
-                            Request sent for <strong>"{forgotUsername}"</strong>. Please enter the 6-digit temporary PIN generated by the administrator.
-                          </span>
-                        </div>
-
-                        <div className="relative">
-                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                            6-Digit PIN
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            maxLength={6}
-                            inputMode="numeric"
-                            placeholder="000000"
-                            value={forgotPinInput}
-                            onChange={(e) => {
-                              const v = e.target.value.replace(/\D/g, '');
-                              setForgotPinInput(v);
-                              if (forgotError) setForgotError('');
-                            }}
-                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-base font-mono font-black text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 tracking-widest text-center"
-                          />
-                          <KeyRound className="absolute right-4 top-[38px] text-sky-600 dark:text-sky-400 pointer-events-none" size={20} />
-                        </div>
-
-                        {pinResolvedOrg && (
-                          <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-3 animate-fade-in">
-                            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                              <Building2 size={16} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Business</p>
-                              <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 truncate">{pinResolvedOrg.name}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex gap-3 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => { setForgotStep('username'); setForgotError(''); }}
-                            className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
-                          >
-                            Back
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={isForgotLoading}
-                            className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {isForgotLoading ? (
-                              <>
-                                <RefreshCw size={16} className="animate-spin" />
-                                <span>Verifying...</span>
-                              </>
-                            ) : (
-                              <>
-                                <KeyRound size={16} />
-                                <span>Verify PIN</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      /* --- Step 3: Create New Password --- */
-                      <div className="space-y-4">
-                        <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300 animate-fade-in">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <span className="truncate">
-                              PIN verified for <strong>{forgotUsername}</strong>
-                            </span>
-                          </div>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 shrink-0">
-                            {detectedUserLabel}
-                          </span>
-                        </div>
-
-                        <div className="relative">
-                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                            New Password
-                          </label>
-                          <input
-                            type={showForgotNewPass ? 'text' : 'password'}
-                            required
-                            placeholder="At least 6 characters..."
-                            value={forgotNewPassword}
-                            onChange={(e) => {
-                              setForgotNewPassword(e.target.value);
-                              if (forgotError) setForgotError('');
-                            }}
-                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowForgotNewPass(!showForgotNewPass)}
-                            className="absolute right-4 top-[36px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
-                          >
-                            {showForgotNewPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </button>
-                        </div>
-
-                        <div className="relative">
-                          <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                            Confirm New Password
-                          </label>
-                          <input
-                            type={showForgotConfirmPass ? 'text' : 'password'}
-                            required
-                            placeholder="Re-enter your new password..."
-                            value={forgotConfirmPassword}
-                            onChange={(e) => {
-                              setForgotConfirmPassword(e.target.value);
-                              if (forgotError) setForgotError('');
-                            }}
-                            className="w-full neumorphic-inset rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-900 dark:text-white placeholder-slate-400/80 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowForgotConfirmPass(!showForgotConfirmPass)}
-                            className="absolute right-4 top-[36px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
-                          >
-                            {showForgotConfirmPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </button>
-                        </div>
-
-                        <div className="flex gap-3 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => { setForgotStep('pin'); setForgotError(''); }}
-                            className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
-                          >
-                            Back
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={isForgotLoading}
-                            className="flex-[1.5] bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-600 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {isForgotLoading ? (
-                              <>
-                                <RefreshCw size={16} className="animate-spin" />
-                                <span>Saving Password...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Check size={16} />
-                                <span>Save Password & Log In</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => { setActiveView('signin'); setLoginError(''); setForgotError(''); setSuccess(null); }}
+                        className="flex-1 neumorphic-btn border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-white font-semibold py-3.5 rounded-2xl transition-all cursor-pointer bg-slate-100 dark:bg-slate-900"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-[1.5] bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 text-white font-extrabold py-3.5 rounded-2xl neumorphic-btn transition-all cursor-pointer shadow-md"
+                      >
+                        Reset Request
+                      </button>
+                    </div>
                   </form>
                 )}
 
               </div>
             </div>
           )}
-
-          {/* Terms and Conditions / Privacy Policy Modal */}
-          <TermsModal
-            isOpen={showTermsModal}
-            onClose={() => setShowTermsModal(false)}
-            onAccept={() => {
-              setTermsAccepted(true);
-              setShowTermsModal(false);
-            }}
-            showAcceptButton={!termsAccepted}
-          />
         </div>
       ) : (
         <CurrencyProvider currency={config.currency} currencySymbol={config.currencySymbol}>
@@ -4900,17 +4046,17 @@ export default function App() {
             className="w-full max-w-md neumorphic-card rounded-2xl p-6 text-left border border-slate-200/80 dark:border-slate-800/80 bg-slate-100/90 dark:bg-slate-900/90 text-slate-900 dark:text-white shadow-2xl"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-sky-500/10 text-sky-500 rounded-xl border border-sky-500/20">
+              <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/20">
                 <Lock size={20} className="animate-pulse" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Create New Password</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Please create your new password to secure your account.</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Temporary Passcode Detected</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Please update your passcode to secure your account.</p>
               </div>
             </div>
 
             <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-              You logged in using a temporary PIN from your administrator. Establish your new password below to use for all future logins.
+              You logged in using a temporary passcode PIN. For security purposes, you are required to establish a new, unique passcode before proceeding.
             </p>
 
             {tempPasscodeError && (
@@ -4952,79 +4098,63 @@ export default function App() {
               }
 
               if (activeOrg) {
-                setIsUpdatingPassword(true);
-                try {
-                  // Sync updated password with backend (Supabase Auth)
-                  const userEmail = activeOrg.attendantEmail || activeOrg.attendantResetEmail;
-                  const tempCode = activeOrg.attendantPass;
-                  const backendRes = await updatePasswordAfterReset(newPin.trim(), userEmail, tempCode);
-                  if (!backendRes.success && backendRes.error) {
-                    console.warn('[Backend Auth] Note on updating password:', backendRes.error);
-                  }
-
-                  // Save the updated passcode in organization state
-                  const updated = organizations.map(o => {
-                    if (o.id === activeOrg.id) {
-                      return {
-                        ...o,
-                        attendantPass: newPin.trim(),
-                        isTempPassword: false
-                      };
-                    }
-                    return o;
-                  });
-                  setOrganizations(updated);
-
-                  // Set temporary success message
-                  setSuccess('Passcode changed successfully and updated in backend!');
-                  setTimeout(() => setSuccess(null), 4000);
-                } finally {
-                  setIsUpdatingPassword(false);
+                setTempPasscodeError('Saving your new password securely...');
+                const passwordResult = await updateAuthenticatedUserPassword(newPin.trim());
+                if (!passwordResult.success) {
+                  setTempPasscodeError(passwordResult.error || 'The password could not be updated in the backend. Please sign in again and retry.');
+                  return;
                 }
+
+                // Keep the local organization state in sync after the
+                // Supabase Auth password update succeeds.
+                const updated = organizations.map(o => {
+                  if (o.id === activeOrg.id) {
+                    return {
+                      ...o,
+                      attendantPass: newPin.trim(),
+                      isTempPassword: false
+                    };
+                  }
+                  return o;
+                });
+                setOrganizations(updated);
+
+                // Set temporary success message
+                setSuccess('Passcode changed successfully! Enjoy full system access.');
+                setTimeout(() => setSuccess(null), 4000);
               }
             }} className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  New Password
+                  New Passcode PIN
                 </label>
                 <input
                   name="newPin"
                   type="password"
                   required
-                  placeholder="Enter your new password..."
+                  placeholder="Enter your new PIN..."
                   className="w-full neumorphic-inset rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                 />
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  Confirm New Password
+                  Confirm New Passcode PIN
                 </label>
                 <input
                   name="confirmPin"
                   type="password"
                   required
-                  placeholder="Retype your new password..."
+                  placeholder="Retype your new PIN..."
                   className="w-full neumorphic-inset rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/80 font-medium"
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={isUpdatingPassword}
-                className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-xs rounded-xl neumorphic-btn flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer shadow-md border border-white/30 dark:border-slate-700/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 dark:from-sky-400 dark:via-cyan-400 dark:to-blue-500 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-xs rounded-xl neumorphic-btn flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer shadow-md border border-white/30 dark:border-slate-700/60"
               >
-                {isUpdatingPassword ? (
-                  <>
-                    <RefreshCw size={14} className="animate-spin" />
-                    <span>Saving New Password...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check size={14} />
-                    <span>Save New Password & Continue</span>
-                  </>
-                )}
+                <Check size={14} /> Update & Complete Sign In
               </button>
             </form>
           </motion.div>
@@ -5047,33 +4177,31 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-3 mb-4 pr-24">
-              <div className="p-2.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl border border-sky-500/20">
-                <Lock size={20} />
+              <div className="p-2.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/20">
+                <Shield size={20} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Temporary Passcode Required</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Enter the temporary code sent to your WhatsApp by your admin.</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Verification Code Required</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Please check your email for the temporary PIN.</p>
               </div>
             </div>
 
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
+              A temporary passcode reset is active for your account. Please enter the temporary PIN. <strong>This verification session will expire in 5 minutes.</strong>
+            </p>
+
             {(() => {
-              const activeResetOrg = organizations.find(o => o.id === verificationOrgId) || resolvedOrgForForgot;
+              const activeResetOrg = organizations.find(o => o.id === verificationOrgId);
               if (activeResetOrg) {
                 return (
-                  <div className="bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 rounded-xl p-3 text-xs mb-4 text-slate-700 dark:text-slate-300 space-y-1.5">
-                    <div className="flex items-center gap-1.5 font-bold text-sky-800 dark:text-sky-300">
-                      <Smartphone size={15} />
-                      <span>Admin Notified via WhatsApp</span>
+                  <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-lg p-3 text-xs mb-4 text-slate-700 dark:text-slate-300">
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-400">Simulated Email to {activeResetOrg.attendantResetEmail || 'zarsamuel105@gmail.com'}:</span>
+                    <p className="mt-1 text-[11px]">Hello, a temporary passcode reset has been requested for your attendant account. Use the following temporary PIN to verify your identity:</p>
+                    <div className="mt-2 text-center">
+                      <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tracking-widest bg-white dark:bg-slate-950 px-3 py-1 rounded border border-slate-200 dark:border-slate-800 neumorphic-inset inline-block">
+                        {activeResetOrg.attendantPass}
+                      </span>
                     </div>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                      A reset notification has been sent to the administrator of <strong>{activeResetOrg.name}</strong>.
-                      {activeResetOrg.attendantResetPhone && (
-                        <span> Temporary code will be forwarded to your WhatsApp contact: <strong className="font-mono font-bold text-slate-900 dark:text-white">{activeResetOrg.attendantResetPhone}</strong>.</span>
-                      )}
-                    </p>
-                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
-                      ⏱ Once generated by your admin, the code is valid for <strong>2 minutes</strong>.
-                    </p>
                   </div>
                 );
               }

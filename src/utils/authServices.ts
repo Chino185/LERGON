@@ -32,100 +32,10 @@ export async function resetPasswordForEmail(email: string): Promise<{ success: b
   }
 }
 
-export async function updatePasswordAfterReset(
-  newPassword: string,
-  userEmail?: string,
-  tempPassword?: string,
-  userId?: string,
-  businessId?: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    // 1. Look up existing profile to verify original user record & preserve tenant isolation
-    let originalUserId = userId;
-    let targetBusinessId = businessId;
-
-    if (!originalUserId && userEmail) {
-      let query = supabase
-        .from('profiles')
-        .select('id, business_id, email, display_username')
-        .or(`email.ilike.${userEmail.trim()},display_username.ilike.${userEmail.trim()}`);
-      if (businessId) {
-        query = query.eq('business_id', businessId);
-      }
-      const { data: profile } = await query.limit(1).maybeSingle();
-
-      if (profile) {
-        originalUserId = profile.id;
-        targetBusinessId = profile.business_id;
-      }
-    }
-
-    // 2. If active session belongs to this exact user, update their password directly
-    const { data: userData } = await supabase.auth.getUser();
-    if (userData?.user && (!originalUserId || userData.user.id === originalUserId)) {
-      const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword });
-      if (!updateErr) {
-        if (originalUserId && targetBusinessId) {
-          await supabase
-            .from('profiles')
-            .update({ last_login: new Date().toISOString() })
-            .eq('id', originalUserId)
-            .eq('business_id', targetBusinessId);
-        }
-        return { success: true };
-      }
-    }
-
-    // 3. If email & temp password provided, authenticate this exact existing user and update in place
-    if (userEmail && tempPassword) {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: userEmail.trim().toLowerCase(),
-        password: tempPassword
-      });
-      if (!signInError && signInData?.user) {
-        // Enforce that authenticated user matches original user ID before updating
-        if (!originalUserId || signInData.user.id === originalUserId) {
-          const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword });
-          if (!updateErr) {
-            if (originalUserId && targetBusinessId) {
-              await supabase
-                .from('profiles')
-                .update({ last_login: new Date().toISOString() })
-                .eq('id', originalUserId)
-                .eq('business_id', targetBusinessId);
-            }
-            return { success: true };
-          }
-        }
-      }
-    }
-
-    // 4. Update the existing profile record in place — strict lookup-then-update, never insert or upsert
-    if (originalUserId && targetBusinessId) {
-      const { error: profileUpdateErr } = await supabase
-        .from('profiles')
-        .update({
-          last_login: new Date().toISOString()
-        })
-        .eq('id', originalUserId)
-        .eq('business_id', targetBusinessId);
-
-      if (profileUpdateErr) {
-        console.warn('[Backend Auth] Profile record update note:', profileUpdateErr.message);
-      }
-    }
-
-    return { success: true };
-  } catch (err: any) {
-    console.error('updatePasswordAfterReset error:', err);
-    return { success: false, error: err?.message || 'Failed to update password in backend.' };
-  }
-}
-
 export async function registerUser(
   email: string,
   password: string,
-  metadata?: { name?: string; role?: 'admin' | 'attendant'; businessName?: string; inviteCode?: string; termsAccepted?: boolean; termsAcceptedAt?: string }
+  metadata?: { name?: string; role?: 'admin' | 'attendant'; businessName?: string; inviteCode?: string }
 ): Promise<{ success: boolean; user?: any; session?: any; error?: string }> {
   try {
     const cleanEmail = email.trim().toLowerCase();
@@ -134,8 +44,6 @@ export async function registerUser(
       ? (metadata.name || '')
       : cleanEmail.split('@')[0];
     const businessName = metadata?.businessName || `${displayUsername || cleanEmail.split('@')[0]}'s Shop`;
-    const termsAccepted = metadata?.termsAccepted !== false;
-    const termsAcceptedAt = metadata?.termsAcceptedAt || new Date().toISOString();
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: cleanEmail,
@@ -145,9 +53,7 @@ export async function registerUser(
           display_username: displayUsername,
           role: role,
           business_name: businessName,
-          invite_code: metadata?.inviteCode || '',
-          terms_accepted: termsAccepted,
-          terms_accepted_at: termsAcceptedAt
+          invite_code: metadata?.inviteCode || ''
         }
       }
     });
@@ -159,18 +65,9 @@ export async function registerUser(
       return { success: false, error: 'User registration failed.' };
     }
 
-    // Safely register consent timestamp in profiles table
-    try {
-      await supabase
-        .from('profiles')
-        .update({
-          terms_accepted: termsAccepted,
-          terms_accepted_at: termsAcceptedAt
-        })
-        .eq('id', user.id);
-    } catch (profileErr) {
-      console.warn('Profile terms update note:', profileErr);
-    }
+    // Business + profile creation now happens atomically inside the
+    // handle_new_user() Postgres trigger — no separate client-side
+    // business insert or profile update needed here anymore.
 
     return { success: true, user: authData.user, session: authData.session };
   } catch (err: any) {
@@ -243,6 +140,24 @@ export async function updateUserPassword(
   } catch (err: any) {
     console.error('updateUserPassword Error:', err);
     return { success: false, error: err?.message || 'Failed to update password.' };
+  }
+}
+
+/** Update the currently authenticated Supabase user's password after the
+ * organization-level temporary PIN has been verified. The temporary PIN is
+ * not an Auth password and must not be used for reauthentication. */
+export async function updateAuthenticatedUserPassword(
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: 'No active user session found.' };
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateAuthenticatedUserPassword Error:', err);
+    return { success: false, error: err?.message || 'Failed to update password in the backend.' };
   }
 }
 
@@ -653,12 +568,9 @@ export async function clearProfilePhoto(
     // Remove the object from Storage when the current value is a Supabase
     // public URL. Data-URL previews are local-only. A Storage cleanup failure
     // is logged but does not restore the deleted database URL.
-    const marker = currentPhotoUrl?.includes('/storage/v1/object/public/profile-photos/')
-      ? '/storage/v1/object/public/profile-photos/'
-      : '/profile-photos/';
-    if (currentPhotoUrl?.includes(marker)) {
-      const rawPath = currentPhotoUrl.split(marker)[1]?.split('?')[0] || '';
-      const filePath = decodeURIComponent(rawPath);
+    if (currentPhotoUrl?.includes('/storage/v1/object/public/profile-photos/')) {
+      const marker = '/storage/v1/object/public/profile-photos/';
+      const filePath = decodeURIComponent(currentPhotoUrl.split(marker)[1] || '');
       if (filePath) {
         const { error: storageError } = await supabase.storage
           .from('profile-photos')
